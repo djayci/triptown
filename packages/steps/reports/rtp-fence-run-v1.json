@@ -1,0 +1,518 @@
+{
+  "rounds": 20000000,
+  "seed": 1,
+  "generatedAt": "2026-09-16T14:25:53.332Z",
+  "configs": {
+    "fence-run/v1-easy": {
+      "config": {
+        "id": "fence-run/v1-easy",
+        "difficulty": "easy",
+        "rtp": 0.97,
+        "paytable": [
+          1.08,
+          1.2,
+          1.33,
+          1.48,
+          1.64,
+          1.83,
+          2.03,
+          2.25,
+          2.5,
+          2.78
+        ]
+      },
+      "strategies": [
+        {
+          "strategy": "collect after fence 1",
+          "rtp": 0.9699560458363131,
+          "standardError": 0.00007305402081637119,
+          "winRate": 0.89810745,
+          "withinFourSe": true
+        },
+        {
+          "strategy": "collect after fence 3",
+          "rtp": 0.9699112113671416,
+          "standardError": 0.00013214653856470656,
+          "winRate": 0.72925655,
+          "withinFourSe": true
+        },
+        {
+          "strategy": "collect after fence 5",
+          "rtp": 0.9698821421626345,
+          "standardError": 0.00018026859720422087,
+          "winRate": 0.59139155,
+          "withinFourSe": true
+        },
+        {
+          "strategy": "collect after fence 9",
+          "rtp": 0.969890125,
+          "standardError": 0.0002724002990019912,
+          "winRate": 0.38795605,
+          "withinFourSe": true
+        },
+        {
+          "strategy": "run to the finish",
+          "rtp": 0.9698907089678784,
+          "standardError": 0.00029627758804210715,
+          "winRate": 0.34888155,
+          "withinFourSe": true
+        },
+        {
+          "strategy": "collect at a random fence each round",
+          "rtp": 0.9696683394625615,
+          "standardError": 0.00020207507466659806,
+          "winRate": 0.5857023,
+          "withinFourSe": true
+        }
+      ],
+      "theoretical": [
+        {
+          "fence": 1,
+          "multiplier": 1.08,
+          "clearChance": 0.898148148148148,
+          "reachChance": 0.898148148148148,
+          "rtp": 0.97
+        },
+        {
+          "fence": 2,
+          "multiplier": 1.2,
+          "clearChance": 0.9000000000000001,
+          "reachChance": 0.8083333333333333,
+          "rtp": 0.97
+        },
+        {
+          "fence": 3,
+          "multiplier": 1.33,
+          "clearChance": 0.9022556390977443,
+          "reachChance": 0.7293233082706767,
+          "rtp": 0.9700000000000001
+        },
+        {
+          "fence": 4,
+          "multiplier": 1.48,
+          "clearChance": 0.8986486486486487,
+          "reachChance": 0.6554054054054055,
+          "rtp": 0.9700000000000001
+        },
+        {
+          "fence": 5,
+          "multiplier": 1.64,
+          "clearChance": 0.9024390243902439,
+          "reachChance": 0.5914634146341464,
+          "rtp": 0.9700000000000001
+        },
+        {
+          "fence": 6,
+          "multiplier": 1.83,
+          "clearChance": 0.896174863387978,
+          "reachChance": 0.5300546448087432,
+          "rtp": 0.9700000000000001
+        },
+        {
+          "fence": 7,
+          "multiplier": 2.03,
+          "clearChance": 0.9014778325123154,
+          "reachChance": 0.477832512315271,
+          "rtp": 0.9700000000000001
+        },
+        {
+          "fence": 8,
+          "multiplier": 2.25,
+          "clearChance": 0.9022222222222221,
+          "reachChance": 0.43111111111111117,
+          "rtp": 0.9700000000000001
+        },
+        {
+          "fence": 9,
+          "multiplier": 2.5,
+          "clearChance": 0.9,
+          "reachChance": 0.38800000000000007,
+          "rtp": 0.9700000000000002
+        },
+        {
+          "fence": 10,
+          "multiplier": 2.78,
+          "clearChance": 0.8992805755395684,
+          "reachChance": 0.3489208633093526,
+          "rtp": 0.9700000000000002
+        }
+      ],
+      "rounding": [
+        {
+          "stakeMinor": 20,
+          "minRtp": 0.97,
+          "maxRtp": 0.9879629629629628
+        },
+        {
+          "stakeMinor": 100,
+          "minRtp": 0.9699999999999999,
+          "maxRtp": 0.9700000000000003
+        },
+        {
+          "stakeMinor": 1000,
+          "minRtp": 0.9699999999999999,
+          "maxRtp": 0.9700000000000003
+        },
+        {
+          "stakeMinor": 10000,
+          "minRtp": 0.9699999999999999,
+          "maxRtp": 0.9700000000000004
+        }
+      ],
+      "refusalShare": [
+        0.10189255,
+        0.08978095,
+        0.07906995,
+        0.07395555,
+        0.06390945,
+        0.0613817,
+        0.05217935,
+        0.0467798,
+        0.04309465,
+        0.0390745,
+        0.34888155
+      ]
+    },
+    "fence-run/v1-medium": {
+      "config": {
+        "id": "fence-run/v1-medium",
+        "difficulty": "medium",
+        "rtp": 0.97,
+        "paytable": [
+          1.21,
+          1.52,
+          1.89,
+          2.37,
+          2.96,
+          3.7,
+          4.63,
+          5.78,
+          7.23,
+          9.03
+        ]
+      },
+      "strategies": [
+        {
+          "strategy": "collect after fence 1",
+          "rtp": 0.969976716894891,
+          "standardError": 0.00010789276979021394,
+          "winRate": 0.80163365,
+          "withinFourSe": true
+        },
+        {
+          "strategy": "collect after fence 3",
+          "rtp": 0.9700273801411677,
+          "standardError": 0.00021123430470269274,
+          "winRate": 0.513242,
+          "withinFourSe": true
+        },
+        {
+          "strategy": "collect after fence 5",
+          "rtp": 0.9699610681614204,
+          "standardError": 0.00031066543803752943,
+          "winRate": 0.32768955,
+          "withinFourSe": true
+        },
+        {
+          "strategy": "collect after fence 9",
+          "rtp": 0.9697060365464923,
+          "standardError": 0.0005509376029335385,
+          "winRate": 0.13412255,
+          "withinFourSe": true
+        },
+        {
+          "strategy": "run to the finish",
+          "rtp": 0.9699141059901141,
+          "standardError": 0.0006252036070051258,
+          "winRate": 0.1074102,
+          "withinFourSe": true
+        },
+        {
+          "strategy": "collect at a random fence each round",
+          "rtp": 0.969836049536706,
+          "standardError": 0.000385303178184886,
+          "winRate": 0.35708875,
+          "withinFourSe": true
+        }
+      ],
+      "theoretical": [
+        {
+          "fence": 1,
+          "multiplier": 1.21,
+          "clearChance": 0.8016528925619835,
+          "reachChance": 0.8016528925619835,
+          "rtp": 0.97
+        },
+        {
+          "fence": 2,
+          "multiplier": 1.52,
+          "clearChance": 0.7960526315789473,
+          "reachChance": 0.638157894736842,
+          "rtp": 0.9699999999999999
+        },
+        {
+          "fence": 3,
+          "multiplier": 1.89,
+          "clearChance": 0.8042328042328043,
+          "reachChance": 0.5132275132275133,
+          "rtp": 0.97
+        },
+        {
+          "fence": 4,
+          "multiplier": 2.37,
+          "clearChance": 0.7974683544303797,
+          "reachChance": 0.4092827004219409,
+          "rtp": 0.9700000000000001
+        },
+        {
+          "fence": 5,
+          "multiplier": 2.96,
+          "clearChance": 0.8006756756756758,
+          "reachChance": 0.32770270270270274,
+          "rtp": 0.9700000000000001
+        },
+        {
+          "fence": 6,
+          "multiplier": 3.7,
+          "clearChance": 0.7999999999999999,
+          "reachChance": 0.26216216216216215,
+          "rtp": 0.97
+        },
+        {
+          "fence": 7,
+          "multiplier": 4.63,
+          "clearChance": 0.7991360691144709,
+          "reachChance": 0.20950323974082075,
+          "rtp": 0.9700000000000001
+        },
+        {
+          "fence": 8,
+          "multiplier": 5.78,
+          "clearChance": 0.801038062283737,
+          "reachChance": 0.16782006920415224,
+          "rtp": 0.97
+        },
+        {
+          "fence": 9,
+          "multiplier": 7.23,
+          "clearChance": 0.7994467496542185,
+          "reachChance": 0.1341632088520055,
+          "rtp": 0.9699999999999999
+        },
+        {
+          "fence": 10,
+          "multiplier": 9.03,
+          "clearChance": 0.8006644518272427,
+          "reachChance": 0.10741971207087485,
+          "rtp": 0.9699999999999999
+        }
+      ],
+      "rounding": [
+        {
+          "stakeMinor": 20,
+          "minRtp": 0.957236842105263,
+          "maxRtp": 0.9751322751322752
+        },
+        {
+          "stakeMinor": 100,
+          "minRtp": 0.9699999999999998,
+          "maxRtp": 0.9700000000000002
+        },
+        {
+          "stakeMinor": 1000,
+          "minRtp": 0.9699999999999998,
+          "maxRtp": 0.9700000000000001
+        },
+        {
+          "stakeMinor": 10000,
+          "minRtp": 0.9699999999999999,
+          "maxRtp": 0.9700000000000002
+        }
+      ],
+      "refusalShare": [
+        0.19836635,
+        0.16334235,
+        0.1250493,
+        0.10390665,
+        0.0816458,
+        0.06556125,
+        0.05259215,
+        0.04176115,
+        0.03365245,
+        0.02671235,
+        0.1074102
+      ]
+    },
+    "fence-run/v1-hard": {
+      "config": {
+        "id": "fence-run/v1-hard",
+        "difficulty": "hard",
+        "rtp": 0.97,
+        "paytable": [
+          1.49,
+          2.3,
+          3.53,
+          5.43,
+          8.36,
+          12.86,
+          19.79,
+          30.44,
+          46.83,
+          72.05
+        ]
+      },
+      "strategies": [
+        {
+          "strategy": "collect after fence 1",
+          "rtp": 0.9700128714652261,
+          "standardError": 0.00015880714844115942,
+          "winRate": 0.65101535,
+          "withinFourSe": true
+        },
+        {
+          "strategy": "collect after fence 3",
+          "rtp": 0.9700895369747704,
+          "standardError": 0.00035237354867086537,
+          "winRate": 0.2748129,
+          "withinFourSe": true
+        },
+        {
+          "strategy": "collect after fence 5",
+          "rtp": 0.9702106039680723,
+          "standardError": 0.0005987341661083651,
+          "winRate": 0.1160539,
+          "withinFourSe": true
+        },
+        {
+          "strategy": "collect after fence 9",
+          "rtp": 0.9699757409962243,
+          "standardError": 0.0014913603020907512,
+          "winRate": 0.0207127,
+          "withinFourSe": true
+        },
+        {
+          "strategy": "run to the finish",
+          "rtp": 0.970880955004937,
+          "standardError": 0.0018575435792890383,
+          "winRate": 0.0134751,
+          "withinFourSe": true
+        },
+        {
+          "strategy": "collect at a random fence each round",
+          "rtp": 0.9700628564981337,
+          "standardError": 0.0009691680330182861,
+          "winRate": 0.18331215,
+          "withinFourSe": true
+        }
+      ],
+      "theoretical": [
+        {
+          "fence": 1,
+          "multiplier": 1.49,
+          "clearChance": 0.6510067114093959,
+          "reachChance": 0.6510067114093959,
+          "rtp": 0.9699999999999999
+        },
+        {
+          "fence": 2,
+          "multiplier": 2.3,
+          "clearChance": 0.6478260869565218,
+          "reachChance": 0.4217391304347826,
+          "rtp": 0.97
+        },
+        {
+          "fence": 3,
+          "multiplier": 3.53,
+          "clearChance": 0.6515580736543909,
+          "reachChance": 0.27478753541076484,
+          "rtp": 0.9699999999999999
+        },
+        {
+          "fence": 4,
+          "multiplier": 5.43,
+          "clearChance": 0.6500920810313076,
+          "reachChance": 0.17863720073664824,
+          "rtp": 0.9699999999999999
+        },
+        {
+          "fence": 5,
+          "multiplier": 8.36,
+          "clearChance": 0.6495215311004785,
+          "reachChance": 0.11602870813397129,
+          "rtp": 0.9699999999999999
+        },
+        {
+          "fence": 6,
+          "multiplier": 12.86,
+          "clearChance": 0.6500777604976672,
+          "reachChance": 0.07542768273716952,
+          "rtp": 0.97
+        },
+        {
+          "fence": 7,
+          "multiplier": 19.79,
+          "clearChance": 0.6498231430015159,
+          "reachChance": 0.049014653865588675,
+          "rtp": 0.9699999999999999
+        },
+        {
+          "fence": 8,
+          "multiplier": 30.44,
+          "clearChance": 0.650131406044678,
+          "reachChance": 0.03186596583442838,
+          "rtp": 0.9699999999999999
+        },
+        {
+          "fence": 9,
+          "multiplier": 46.83,
+          "clearChance": 0.6500106769165066,
+          "reachChance": 0.020713218022635062,
+          "rtp": 0.97
+        },
+        {
+          "fence": 10,
+          "multiplier": 72.05,
+          "clearChance": 0.6499653018736988,
+          "reachChance": 0.013462873004857738,
+          "rtp": 0.97
+        }
+      ],
+      "rounding": [
+        {
+          "stakeMinor": 20,
+          "minRtp": 0.9688397129186603,
+          "maxRtp": 0.9765100671140938
+        },
+        {
+          "stakeMinor": 100,
+          "minRtp": 0.9699999999999998,
+          "maxRtp": 0.97
+        },
+        {
+          "stakeMinor": 1000,
+          "minRtp": 0.9699999999999998,
+          "maxRtp": 0.97
+        },
+        {
+          "stakeMinor": 10000,
+          "minRtp": 0.9699999999999999,
+          "maxRtp": 0.97
+        }
+      ],
+      "refusalShare": [
+        0.34898465,
+        0.22917295,
+        0.1470295,
+        0.09610975,
+        0.06264925,
+        0.0405921,
+        0.0263936,
+        0.0171586,
+        0.0111969,
+        0.0072376,
+        0.0134751
+      ]
+    }
+  },
+  "pass": true
+}

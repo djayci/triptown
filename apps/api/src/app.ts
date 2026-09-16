@@ -33,6 +33,9 @@ import { roundsCsv } from './round-csv';
 import { aesGcmSeedCipher } from './seed-cipher';
 import { signSession, verifySessionToken } from './session-token';
 import { TimeSource } from './time-source';
+import { MemoryStepRoundStore, type StepRoundStore } from '@triptown/steps';
+import { RedisStepRoundStore } from './steps/redis-step-store';
+import { createStepHost, createStepRoutes } from './steps/routes';
 
 export interface AppOptions {
   store: RoundStore;
@@ -55,6 +58,12 @@ export interface AppOptions {
   operatorKeys?: Record<string, string>;
   /** Software integrity check of the running bundle. */
   integrity?: { dir: string; publicKeyPem: string; cronSecret?: string };
+  /** Step game (Night Gallop) round records; in-memory when unset. */
+  stepStore?: StepRoundStore;
+  /** Step rounds with no action for this long settle on the server (design D5). */
+  stepAbandonAfterMs?: number;
+  /** Dev and test only: enables POST /v1/steps/dev/force. */
+  allowStepForce?: boolean;
 }
 
 const STATUS: Record<HostErrorCode, ContentfulStatusCode> = {
@@ -106,6 +115,21 @@ export function createApp(opts: AppOptions) {
   };
   const keepAliveMs = opts.keepAliveMs ?? 10_000;
   const app = new Hono();
+  // Step games have their own engine and routes (night-gallop-mvp D6) over the same sessions store.
+  const stepOptions = {
+    store: opts.store,
+    steps: opts.stepStore ?? new MemoryStepRoundStore(),
+    sessionSecret: opts.sessionSecret,
+    clock: opts.timeSource ?? { now: opts.now ?? (() => Date.now()) },
+    ...(opts.profiles && { profiles: opts.profiles }),
+    ...(opts.seedCipher && { seedCipher: opts.seedCipher }),
+    ...(opts.audit && { audit: opts.audit }),
+    crypto: nodeCrypto,
+    ...(opts.initialBalanceMinor !== undefined && { initialBalanceMinor: opts.initialBalanceMinor }),
+    ...(opts.stepAbandonAfterMs !== undefined && { abandonAfterMs: opts.stepAbandonAfterMs }),
+    ...(opts.allowStepForce && { allowForce: true }),
+  };
+  const stepHost = createStepHost(stepOptions);
 
   app.use(
     '*',
@@ -206,7 +230,7 @@ export function createApp(opts: AppOptions) {
   app.get('/v1/admin/reconcile/cron', async (c) => {
     const given = (c.req.header('Authorization') ?? '').replace(/^Bearer\s+/i, '');
     if (!opts.integrity?.cronSecret || !safeEqual(given, opts.integrity.cronSecret)) throw new HostError('forbidden', 'Cron access required');
-    return c.json(await host.reconcile());
+    return c.json({ ...(await host.reconcile()), stepsAbandonedSettled: await stepHost.sweepAbandoned() });
   });
 
   app.post('/v1/admin/reconcile', async (c) => {
@@ -234,6 +258,8 @@ export function createApp(opts: AppOptions) {
       return c.json({ error: { code: 'invalid_request', message: (err as Error).message } }, 400);
     }
   });
+
+  app.route('/v1/steps', createStepRoutes(stepOptions, stepHost));
 
   app.post('/v1/sessions', async (c) => {
     const body = (await c.req.json().catch(() => ({}))) as {
@@ -369,6 +395,7 @@ export async function appFromEnv(env: Record<string, string | undefined> = proce
   const retentionDays = Number(env.ROUND_RETENTION_DAYS ?? DEFAULT_RETENTION_DAYS);
   if (!Number.isFinite(retentionDays) || retentionDays < 1) throw new Error('ROUND_RETENTION_DAYS must be a positive number of days');
   const store = redis ? new RedisRoundStore(redis, 'wc:', retentionDays) : new MemoryRoundStore();
+  const stepStore = redis ? new RedisStepRoundStore(redis, 'wc:', retentionDays) : new MemoryStepRoundStore();
   const auditRef: { current?: RedisAuditLog } = {};
   const timeSource = redis
     ? new TimeSource({
@@ -383,6 +410,7 @@ export async function appFromEnv(env: Record<string, string | undefined> = proce
   const audit = auditRef.current;
   return createApp({
     store,
+    stepStore,
     timeSource,
     seedCipher,
     audit,

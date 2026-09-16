@@ -3,7 +3,7 @@ import tseslint from 'typescript-eslint';
 import globals from 'globals';
 
 // Packages that must stay renderer- and DOM-free so they run in browser, API and verifier alike.
-const PURE_PACKAGES = ['packages/fairness/**', 'packages/core/**'];
+const PURE_PACKAGES = ['packages/fairness/**', 'packages/core/**', 'packages/steps/**'];
 
 export default tseslint.config(
   { ignores: ['**/dist/**', '**/dist-demo/**', '**/public/**', '**/.vercel/**', '**/node_modules/**', 'openspec/**', 'design/**'] },
@@ -12,6 +12,11 @@ export default tseslint.config(
   {
     files: ['**/*.{js,mjs,cjs}'],
     languageOptions: { globals: { ...globals.node } },
+  },
+  {
+    // Browser-driving dev scripts (playwright page.evaluate bodies run in the page).
+    files: ['**/scripts/*-check.mjs', 'scripts/play.mjs', 'scripts/shot.mjs'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   {
     rules: {
