@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <title>Paper Route</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #16181e; color: #f3efe8; overflow: hidden; overscroll-behavior: none; }
+      #scene { position: fixed; inset: 0; touch-action: none; }
+      #hud { position: fixed; inset: 0; pointer-events: none; padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+    </style>
+  </head>
+  <body>
+    <div id="scene"></div>
+    <div id="hud"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

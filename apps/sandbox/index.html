@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Triptown Sandbox Operator</title>
+  </head>
+  <body>
+    <header class="top">
+      <strong>Sandbox Casino</strong>
+      <span class="note">Fake operator page for embedding tests</span>
+      <label class="pick">Game
+        <select id="game-select">
+          <option value="whack-crash">Whack Crash</option>
+          <option value="paper-route">Paper Route</option>
+        </select>
+      </label>
+      <label class="pick">Profile
+        <select id="profile-select">
+          <option value="">default</option>
+          <option value="light">light</option>
+          <option value="regulated-uk">regulated-uk</option>
+          <option value="regulated-on">regulated-on</option>
+          <option value="regulated-br">regulated-br</option>
+          <option value="pt-draft">pt-draft</option>
+        </select>
+      </label>
+      <span class="wallet">Wallet: <b id="balance">—</b></span>
+    </header>
+    <main class="layout">
+      <section class="frame-wrap">
+        <iframe id="game" title="Game" allow="autoplay; fullscreen"></iframe>
+      </section>
+      <aside class="panel">
+        <h2>Verify a round</h2>
+        <form id="verify">
+          <label>Revealed server seed<input name="serverSeed" required autocomplete="off" /></label>
+          <label>Commit (server seed hash)<input name="commit" required autocomplete="off" /></label>
+          <label>Client seed<input name="clientSeed" required autocomplete="off" /></label>
+          <label>Nonce<input name="nonce" type="number" min="0" value="0" required /></label>
+          <label>Config id<input name="configId" value="whack-crash/v1" required autocomplete="off" /></label>
+          <button type="submit">Verify</button>
+        </form>
+        <output id="result" aria-live="polite"></output>
+        <h2>Operator events</h2>
+        <ol id="events" class="events"></ol>
+      </aside>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

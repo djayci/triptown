@@ -1,0 +1,80 @@
+{
+  "sfx": {
+    "src": [
+      "audio/sfx.webm",
+      "audio/sfx.mp3"
+    ],
+    "sprite": {
+      "tick": [
+        250,
+        60
+      ],
+      "bet": [
+        560,
+        450
+      ],
+      "whack": [
+        1260,
+        400
+      ],
+      "setback": [
+        1910,
+        1000
+      ],
+      "win": [
+        3160,
+        1100
+      ],
+      "bigwin": [
+        4510,
+        2200
+      ],
+      "crash": [
+        6960,
+        1000
+      ]
+    }
+  },
+  "stems": {
+    "base": {
+      "src": [
+        "audio/stem-base.webm",
+        "audio/stem-base.mp3"
+      ],
+      "loop": [
+        3750,
+        7500
+      ]
+    },
+    "drums": {
+      "src": [
+        "audio/stem-drums.webm",
+        "audio/stem-drums.mp3"
+      ],
+      "loop": [
+        3750,
+        7500
+      ]
+    },
+    "lead": {
+      "src": [
+        "audio/stem-lead.webm",
+        "audio/stem-lead.mp3"
+      ],
+      "loop": [
+        3750,
+        7500
+      ]
+    }
+  },
+  "tone": {
+    "src": [
+      "audio/tone.webm",
+      "audio/tone.mp3"
+    ],
+    "loop": [
+      500,
+      1000
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@triptown/rgs-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./mock": "./src/mock.ts",
+    "./testing": "./src/testing/round-service-suite.ts",
+    "./remote": "./src/remote.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@triptown/fairness": "workspace:*",
+    "@triptown/core": "workspace:*"
+  }
+}

@@ -1,0 +1,55 @@
+import { MemoryRoundStore, profileFromTemplate, type RoundRecord } from '@triptown/core';
+import { describe, expect, it } from 'vitest';
+import { MockRoundService } from './mock';
+import { paperRouteSuite, roundServiceSuite } from './testing/round-service-suite';
+import type { RoundEvent } from './types';
+
+// Pacing is covered separately; the random-outcome suite plays rounds back to back.
+const unpaced = { defaultProfile: { ...profileFromTemplate('light'), minCycleMs: 0 } };
+roundServiceSuite('MockRoundService', async () => new MockRoundService({ initialBalanceMinor: 500_00, profiles: unpaced }), 120, {
+  makePacedService: async () => new MockRoundService({ profiles: { defaultProfile: profileFromTemplate('light') } }),
+});
+
+paperRouteSuite('MockRoundService (paper-route)', async () => new MockRoundService({ initialBalanceMinor: 500_00, profiles: unpaced, game: 'paper-route' }));
+
+describe('MockRoundService extras', () => {
+  it('forces a setback scenario for dev tooling', async () => {
+    const service = new MockRoundService();
+    service.forceNext('setback');
+    const events: RoundEvent[] = [];
+    const handle = await service.startRound({ betMinor: 100 }, (e) => events.push(e));
+    await handle.ended;
+    expect(events.some((e) => e.type === 'BAD_MOLE')).toBe(true);
+  }, 30_000);
+
+  it('forces an instant bust', async () => {
+    const service = new MockRoundService();
+    service.forceNext('instantBust');
+    const handle = await service.startRound({ betMinor: 100 }, () => {});
+    expect(await handle.ended).toMatchObject({ type: 'CRASH', crashTime: 0 });
+  });
+
+  it('ends a stuck round with VOID and refunds the stake', async () => {
+    const store = new MemoryRoundStore();
+    const clock = { t: Date.now(), now() { return this.t; } };
+    const service = new MockRoundService({ store, clock, profiles: unpaced, clientVersion: 'test@1' });
+    const events: RoundEvent[] = [];
+    const handle = await service.startRound({ betMinor: 100 }, (e) => events.push(e));
+    handle.close();
+    // Simulate an unreadable record, then let reconciliation find it past tMax + 120 s.
+    const record = (await store.getRound(handle.roundId)) as RoundRecord;
+    (record as { outcome: unknown }).outcome = null;
+    await store.putRound(record);
+    clock.t += 181_000;
+    expect(await service.reconcile()).toMatchObject({ voided: 1 });
+    const watched = await service.watchRound(handle.roundId, () => {});
+    expect(await watched.ended).toMatchObject({ type: 'VOID', refundMinor: 100 });
+    const [summary] = await service.history();
+    expect(summary).toMatchObject({ status: 'void', clientVersion: 'test@1', netMinor: 0 });
+  });
+
+  it('rejects when balance is too low', async () => {
+    const service = new MockRoundService({ initialBalanceMinor: 50 });
+    await expect(service.startRound({ betMinor: 100 }, () => {})).rejects.toMatchObject({ code: 'insufficient_funds' });
+  });
+});

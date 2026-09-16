@@ -1,0 +1,29 @@
+{
+  "name": "@triptown/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/dev-server.ts",
+    "build": "node scripts/build.mjs",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "audit:verify": "tsx scripts/audit-verify.ts"
+  },
+  "dependencies": {
+    "@triptown/core": "workspace:*",
+    "@triptown/fairness": "workspace:*",
+    "hono": "^4.13.8",
+    "@hono/node-server": "^2.1.1",
+    "@upstash/redis": "^1.38.4",
+    "@triptown/rgs-client": "workspace:*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.13",
+    "ioredis": "^5.8.0",
+    "ioredis-mock": "^8.13.1",
+    "@types/ioredis-mock": "^8.2.6"
+  }
+}

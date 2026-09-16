@@ -1,0 +1,41 @@
+{
+ "check": "paper-route timing",
+ "profile": "regulated-on",
+ "minCycleMs": 2500,
+ "rounds": 12,
+ "throwsPerRound": [
+  3,
+  3,
+  3,
+  0,
+  3,
+  3,
+  0,
+  3,
+  2,
+  3,
+  2,
+  3
+ ],
+ "gapsMs": [
+  2525,
+  2527,
+  2548,
+  2531,
+  2552,
+  2542,
+  2523,
+  2546,
+  2508,
+  2546,
+  2548
+ ],
+ "minGapMs": 2508,
+ "heldSpaceStartedRounds": 0,
+ "serverRefusal": {
+  "first": "started",
+  "second": "cycle_too_soon"
+ },
+ "errors": [],
+ "pass": true
+}

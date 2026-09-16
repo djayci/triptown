@@ -1,0 +1,51 @@
+{
+ "check": "paper-route hud",
+ "profile": "regulated-uk",
+ "contrast": {
+  "overBrightest": {
+   "ink": 14.300177346712124,
+   "dim": 6.342587930649447
+  },
+  "overDarkest": {
+   "ink": 11.681192919840763,
+   "dim": 5.666177416662637
+  },
+  "primaryButton": 4.959875991674927,
+  "brightest": [
+   221,
+   222,
+   223
+  ],
+  "darkest": [
+   1,
+   1,
+   1
+  ],
+  "min": 4.959875991674927,
+  "pass": true
+ },
+ "layout": {
+  "samples": 96,
+  "distinctValues": 95,
+  "labelMoved": 1,
+  "panelMoved": 1,
+  "widthsPerDigitCount": [
+   [
+    3,
+    [
+     38.41
+    ]
+   ],
+   [
+    4,
+    [
+     48
+    ]
+   ]
+  ],
+  "valueRightEdgeMoved": 1,
+  "pass": true
+ },
+ "errors": [],
+ "pass": true
+}

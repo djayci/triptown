@@ -1,0 +1,36 @@
+{
+  "name": "@triptown/whack",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5173",
+    "build": "vite build && node scripts/check-no-mock.mjs && node scripts/check-audio-budget.mjs && node ../../scripts/release-manifest.mjs dist",
+    "preview": "vite preview --port 5173",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "build:demo": "vite build --mode demo --outDir dist-demo",
+    "atlas": "node scripts/build-atlas.mjs",
+    "audio": "node scripts/build-audio.mjs",
+    "check:audio": "node scripts/check-audio-budget.mjs"
+  },
+  "dependencies": {
+    "@triptown/core": "workspace:*",
+    "@triptown/engine": "workspace:*",
+    "@triptown/fairness": "workspace:*",
+    "@triptown/rgs-client": "workspace:*",
+    "pixi.js": "^8.20.1",
+    "@fontsource/lilita-one": "^5.3.0",
+    "@fontsource/bricolage-grotesque": "^5.3.0",
+    "gsap": "^3.15.0"
+  },
+  "devDependencies": {
+    "vite": "^8.3.0",
+    "@resvg/resvg-js": "^2.6.2",
+    "maxrects-packer": "^2.7.3",
+    "pngjs": "^7.0.0",
+    "@breezystack/lamejs": "^1.2.7",
+    "webm-muxer": "^5.1.4"
+  }
+}

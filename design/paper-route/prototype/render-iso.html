@@ -1,0 +1,358 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Paper Route isometric renderer</title>
+<style>html,body{margin:0;background:#111}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"/apps/paper-route/node_modules/three/build/three.module.js"}}</script>
+<script type="module">
+// Isometric "arcade street" concept renderer for Paper Route (Paperboy-inspired genre, original art).
+// ?style=arcade | pixel | diorama   &state=run | splash | wipeout | rideon
+// Street runs along X; the courier rides toward -X (up-left on screen); houses sit on the -Z side (up-right).
+import * as THREE from 'three';
+
+const q = new URLSearchParams(location.search);
+const STYLE = q.get('style') ?? 'pixel';
+const STATE = q.get('state') ?? 'run';
+const OUT_W = 390, OUT_H = 844;
+const SCALE = { arcade: 4, pixel: 3, diorama: 0.5 }[STYLE];
+const W = Math.round(OUT_W / SCALE), H = Math.round(OUT_H / SCALE);
+
+// Seeded random so every render of a style is identical.
+let seed = 7;
+const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+const pick = (a) => a[Math.floor(rnd() * a.length)];
+
+const PAL = {
+  arcade: { grass: 0x5fae4a, grass2: 0x4f9a3e, road: 0x4a4a58, walk: 0xd8c8a8, curb: 0xe8e0d0, line: 0xf2d04a, walls: [0xf2e6c8, 0xa8d0e6, 0xf0b8a0, 0xd8e8a8], roofs: [0xb04030, 0x3a5a8c, 0x6a4a3a], trim: 0xffffff, hedge: 0x2f7a3a, sun: 0xffd8a0, sky: 0xffe2c4, ground: 0x6a7a5a },
+  pixel: { grass: 0x86b85a, grass2: 0x7aab50, road: 0x55545c, walk: 0xc9bfae, curb: 0xe2dacb, line: 0xe8c860, walls: [0xe9dcc2, 0xb9c9c4, 0xd9b9a1, 0xc9c1d9, 0xdcd0a0], roofs: [0x8a4b3c, 0x4b5566, 0x6b5a4a, 0x5d6b4e], trim: 0xf4efe6, hedge: 0x4e7340, sun: 0xffc890, sky: 0xf6d9c8, ground: 0x6b6250 },
+  diorama: { grass: 0x8fae6a, grass2: 0x86a562, road: 0x5b5a60, walk: 0xd3cabb, curb: 0xe7e0d4, line: 0xeecf7a, walls: [0xefe5d3, 0xc7d3cf, 0xe3c7b1, 0xd2cbe0, 0xe5dcb4], roofs: [0x96594a, 0x55606f, 0x76675a, 0x677560], trim: 0xf7f3ec, hedge: 0x5a7e4a, sun: 0xffcf9e, sky: 0xf8e2d2, ground: 0x6e6554 },
+}[STYLE];
+
+const renderer = new THREE.WebGLRenderer({ antialias: STYLE === 'diorama', preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(W, H);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = STYLE === 'diorama' ? THREE.PCFSoftShadowMap : THREE.BasicShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(PAL.grass);
+
+const flat = STYLE !== 'diorama';
+const mat = (color, extra = {}) => new THREE.MeshLambertMaterial({ color, flatShading: flat, ...extra });
+function box(w, h, d, color, x, y, z, parent = scene, extra) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color, extra));
+  m.position.set(x, y, z);
+  m.castShadow = m.receiveShadow = true;
+  parent.add(m);
+  return m;
+}
+
+// ---------- ground ----------
+const ROAD_Z0 = 0.6, ROAD_Z1 = 6.4;
+function plane(w, d, color, x, z, y = 0) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat(color));
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(x, y, z);
+  m.receiveShadow = true;
+  scene.add(m);
+  return m;
+}
+plane(400, 400, PAL.grass, 0, 0, -0.02);
+// Mowing stripes on the lawns
+for (let i = -30; i < 30; i++) plane(4, 16, i % 2 ? PAL.grass : PAL.grass2, i * 4, -9.5, -0.01);
+plane(400, ROAD_Z1 - ROAD_Z0, PAL.road, 0, (ROAD_Z0 + ROAD_Z1) / 2, 0);
+for (let x = -120; x < 120; x += 6) plane(2.6, 0.18, PAL.line, x, (ROAD_Z0 + ROAD_Z1) / 2 + 0.2, 0.01);
+// Curbs and sidewalks on both sides
+box(400, 0.18, 0.3, PAL.curb, 0, 0.09, ROAD_Z0 - 0.15);
+box(400, 0.18, 0.3, PAL.curb, 0, 0.09, ROAD_Z1 + 0.15);
+plane(400, 2.2, PAL.walk, 0, ROAD_Z0 - 1.4, 0.12);
+plane(400, 2.2, PAL.walk, 0, ROAD_Z1 + 1.4, 0.12);
+for (let x = -120; x < 120; x += 1.6) {
+  plane(0.05, 2.2, 0xaaa090, x, ROAD_Z0 - 1.4, 0.13);
+  plane(0.05, 2.2, 0xaaa090, x, ROAD_Z1 + 1.4, 0.13);
+}
+
+// ---------- houses (far side, facing the street) ----------
+function roofPrism(w, h, d, color) {
+  const shape = new THREE.Shape([new THREE.Vector2(-d / 2 - 0.35, 0), new THREE.Vector2(d / 2 + 0.35, 0), new THREE.Vector2(0, h)]);
+  const g = new THREE.ExtrudeGeometry(shape, { depth: w + 0.6, bevelEnabled: false });
+  g.translate(0, 0, -(w + 0.6) / 2);
+  g.rotateY(Math.PI / 2);
+  const m = new THREE.Mesh(g, mat(color));
+  m.castShadow = m.receiveShadow = true;
+  return m;
+}
+function tree(x, z, s = 1) {
+  const g = new THREE.Group();
+  box(0.35 * s, 1.6 * s, 0.35 * s, 0x6a4c36, 0, 0.8 * s, 0, g);
+  const leaf = STYLE === 'arcade' ? 0x2f8a3a : STYLE === 'pixel' ? 0x55803f : 0x648a4e;
+  for (const [dx, dy, dz, r] of [[0, 2.6, 0, 1.3], [0.7, 2.1, 0.3, 0.9], [-0.6, 2.2, -0.4, 1.0]]) {
+    const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r * s, 0), mat(leaf));
+    m.position.set(dx * s, dy * s, dz * s);
+    m.castShadow = m.receiveShadow = true;
+    g.add(m);
+  }
+  g.position.set(x, 0, z);
+  scene.add(g);
+}
+const porches = [];
+let hx = 26;
+while (hx > -70) {
+  const w = 6 + rnd() * 2.5;
+  const d = 5 + rnd() * 1.5;
+  const h = 2.8 + rnd() * 1.2;
+  const zFront = -5.2 - rnd() * 1.2;
+  const cz = zFront - d / 2;
+  const wall = pick(PAL.walls);
+  const house = new THREE.Group();
+  scene.add(house);
+  box(w, h, d, wall, hx, h / 2, cz, house);
+  const roof = roofPrism(w, 1.6 + rnd() * 0.6, d, pick(PAL.roofs));
+  roof.position.set(hx, h, cz);
+  house.add(roof);
+  if (rnd() > 0.4) box(0.6, 1.6, 0.6, 0x8a6a5a, hx + w * 0.28, h + 1.3, cz - 0.6, house);
+  // Door, windows (a few lit for early morning), porch with steps and roof
+  const doorX = hx + (rnd() - 0.5) * w * 0.3;
+  box(0.9, 1.7, 0.08, 0x5a3a2a, doorX, 0.95, zFront + 0.04, house);
+  for (const wx of [hx - w * 0.33, hx + w * 0.33]) {
+    const lit = rnd() > 0.55;
+    box(1.0, 0.9, 0.08, lit ? 0xffd27a : 0x9fb4c0, wx, 1.6, zFront + 0.04, house, lit ? { emissive: 0xffb040, emissiveIntensity: 0.6 } : {});
+    box(1.2, 0.12, 0.14, PAL.trim, wx, 1.1, zFront + 0.07, house);
+  }
+  box(2.6, 0.25, 1.6, 0xd8cfc0, doorX, 0.125, zFront + 0.8, house);
+  box(1.2, 0.12, 0.5, 0xd8cfc0, doorX, 0.06, zFront + 1.85, house);
+  for (const px of [-1.15, 1.15]) box(0.14, 2.1, 0.14, PAL.trim, doorX + px, 1.25, zFront + 1.5, house);
+  box(2.9, 0.14, 1.9, pick(PAL.roofs), doorX, 2.35, zFront + 0.85, house);
+  porches.push(new THREE.Vector3(doorX, 0.35, zFront + 1.1));
+  // Walkway to the sidewalk, hedges, fence gap at the walkway
+  plane(1.1, -zFront + ROAD_Z0 - 2.5 - 2.2, 0xd6ccbb, doorX, (zFront + 2.2 + ROAD_Z0 - 2.5) / 2 + 0.0, 0.03);
+  const fenceZ = ROAD_Z0 - 2.75;
+  for (let fx = hx - w / 2 - 2; fx < hx + w / 2 + 2; fx += 0.55) {
+    if (Math.abs(fx - doorX) < 0.9) continue;
+    box(0.12, 0.8, 0.08, PAL.trim, fx, 0.4, fenceZ);
+  }
+  box(w + 4, 0.1, 0.06, PAL.trim, hx, 0.62, fenceZ - 0.01);
+  // Driveway and a side hedge
+  if (rnd() > 0.35) {
+    const dx = hx - w / 2 - 1.6;
+    plane(2.6, -zFront + ROAD_Z0 + 2, 0xbdb3a3, dx, (zFront + ROAD_Z0) / 2 - 0.5, 0.025);
+  } else {
+    box(1.1, 0.9, 5, PAL.hedge, hx - w / 2 - 1.6, 0.45, zFront + 1.5);
+  }
+  if (rnd() > 0.3) tree(hx + w / 2 + 1.8, zFront + 1.2, 0.9 + rnd() * 0.4);
+  hx -= w + 5 + rnd() * 5;
+}
+
+// Near side: hedges, trees and a few parked cars along the far curb
+for (let x = 30; x > -80; x -= 7 + rnd() * 6) {
+  if (rnd() > 0.5) tree(x, ROAD_Z1 + 4.5, 0.8 + rnd() * 0.4);
+  else box(3 + rnd() * 3, 0.9, 1.1, PAL.hedge, x, 0.45, ROAD_Z1 + 3.2);
+}
+function car(x, z, color) {
+  const g = new THREE.Group();
+  box(4.2, 0.8, 1.8, color, 0, 0.7, 0, g);
+  box(2.3, 0.7, 1.6, color, -0.2, 1.45, 0, g);
+  box(2.1, 0.55, 1.64, 0x9fb8c8, -0.2, 1.45, 0, g);
+  for (const [wx, wz] of [[1.35, 0.9], [-1.35, 0.9], [1.35, -0.9], [-1.35, -0.9]]) {
+    const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.3, 10), mat(0x222226));
+    wh.rotation.x = Math.PI / 2;
+    wh.position.set(wx, 0.38, wz);
+    wh.castShadow = true;
+    g.add(wh);
+  }
+  g.position.set(x, 0, z);
+  scene.add(g);
+}
+car(-17, ROAD_Z1 - 1.3, STYLE === 'arcade' ? 0xd04040 : 0x8a4a44);
+car(12, ROAD_Z1 - 1.3, STYLE === 'arcade' ? 0x3a6ad0 : 0x4a5d78);
+
+// Traffic cones by a manhole ahead
+for (const [cx, cz] of [[-7.5, 1.0], [-8.6, 1.1]]) {
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.75, 8), mat(0xf07a2a));
+  cone.position.set(cx, 0.38, cz);
+  cone.castShadow = true;
+  scene.add(cone);
+}
+const manhole = new THREE.Mesh(new THREE.CircleGeometry(0.55, 16), mat(0x3a3a40));
+manhole.rotation.x = -Math.PI / 2;
+manhole.position.set(-8, 0.015, 1.4);
+scene.add(manhole);
+
+// ---------- courier: an adult on a bicycle (hi-vis vest, helmet, rear crate of rolled papers) ----------
+const COURIER_X = 0, COURIER_Z = 2.2;
+const rider = new THREE.Group();
+scene.add(rider);
+const frameC = 0x2c3e50;
+function wheel(x) {
+  const t = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.06, 6, 14), mat(0x1c1c1f));
+  t.position.set(x, 0.38, 0);
+  t.castShadow = true;
+  rider.add(t);
+}
+wheel(-0.62);
+wheel(0.62);
+box(1.1, 0.07, 0.07, frameC, 0, 0.62, 0, rider).rotation.z = -0.15;
+box(0.07, 0.6, 0.07, frameC, 0.2, 0.75, 0, rider);
+box(0.07, 0.55, 0.07, frameC, -0.55, 0.8, 0, rider);
+box(0.08, 0.06, 0.5, 0x333333, -0.58, 1.08, 0, rider);
+// Rear rack crate with rolled papers
+box(0.6, 0.35, 0.5, 0x8a6a44, 0.75, 0.95, 0, rider);
+const PAPERS_LEFT = { wipeout: 0, rideon: 0, splash: 4 }[STATE] ?? 3;
+for (let i = 0; i < PAPERS_LEFT; i++) {
+  const r = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.46, 8), mat(0xf2efe6));
+  r.rotation.x = Math.PI / 2;
+  r.position.set(0.6 + i * 0.15, 1.18, 0);
+  r.castShadow = true;
+  rider.add(r);
+}
+// Body: long legs and torso read as an adult
+const trousers = 0x2a3140, jacket = 0x34495e, vest = STYLE === 'arcade' ? 0xffd400 : 0xe6c229, skin = 0xc99a78;
+box(0.16, 0.8, 0.16, trousers, 0.1, 0.95, 0.14, rider).rotation.z = 0.35;
+box(0.16, 0.8, 0.16, trousers, 0.22, 0.95, -0.14, rider).rotation.z = -0.2;
+const torso = box(0.42, 0.78, 0.44, vest, -0.05, 1.62, 0, rider);
+torso.rotation.z = -0.38;
+box(0.44, 0.1, 0.46, 0xd0d0d0, -0.1, 1.5, 0, rider).rotation.z = -0.38; // reflective band
+box(0.13, 0.62, 0.13, jacket, -0.38, 1.6, 0.26, rider).rotation.z = -0.9;
+box(0.13, 0.62, 0.13, jacket, -0.38, 1.6, -0.26, rider).rotation.z = -0.9;
+box(0.26, 0.3, 0.26, skin, -0.3, 2.15, 0, rider);
+const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), mat(0x2b2b30));
+helmet.position.set(-0.3, 2.26, 0);
+helmet.scale.set(1.25, 1, 1.1);
+helmet.castShadow = true;
+rider.add(helmet);
+box(0.5, 0.42, 0.18, 0x55442f, 0.12, 1.55, 0.3, rider); // courier bag on the hip
+rider.position.set(COURIER_X, 0, COURIER_Z);
+rider.scale.setScalar(1.3);
+
+if (STATE === 'wipeout') {
+  rider.rotation.x = Math.PI / 2 * 0.92;
+  rider.position.set(COURIER_X + 0.6, 0.35, COURIER_Z + 0.2);
+  for (let i = 0; i < 3; i++) {
+    const r = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.46, 8), mat(0xf2efe6));
+    r.rotation.set(Math.PI / 2, rnd() * 3, 0);
+    r.position.set(COURIER_X - 0.6 - i * 0.8, 0.08, COURIER_Z + 0.8 + (rnd() - 0.5) * 1.6);
+    scene.add(r);
+  }
+}
+
+// Puddle splash (light profile setback cue); no puddle in regulated scenes.
+if (STATE === 'splash') {
+  const puddle = new THREE.Mesh(new THREE.CircleGeometry(1.2, 20), new THREE.MeshLambertMaterial({ color: 0x8fb0c8, transparent: true, opacity: 0.85 }));
+  puddle.rotation.x = -Math.PI / 2;
+  puddle.scale.set(1.5, 1, 1);
+  puddle.position.set(COURIER_X + 0.3, 0.02, COURIER_Z);
+  scene.add(puddle);
+  for (let i = 0; i < 14; i++) {
+    const d = new THREE.Mesh(new THREE.SphereGeometry(0.08 + rnd() * 0.06, 6, 4), mat(0xcfe4f2));
+    const a = rnd() * Math.PI * 2;
+    d.position.set(COURIER_X + Math.cos(a) * (0.6 + rnd()), 0.3 + rnd() * 1.1, COURIER_Z + Math.sin(a) * (0.5 + rnd() * 0.7));
+    scene.add(d);
+  }
+  rider.rotation.x = 0.18;
+}
+
+// Papers already delivered on porches behind the courier, and one mid-air on a uniform arc.
+for (const p of porches.filter((p) => p.x > COURIER_X + (STATE === 'rideon' ? -6 : 4)).slice(STATE === 'splash' ? -1 : STATE === 'rideon' ? -4 : -2)) {
+  const r = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.5, 8), mat(0xf2efe6));
+  r.rotation.set(Math.PI / 2, 0.4, Math.PI / 2);
+  r.position.copy(p);
+  r.castShadow = true;
+  scene.add(r);
+}
+if (STATE === 'run') {
+  const r = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.5, 8), mat(0xf2efe6));
+  r.rotation.set(0.6, 0.3, 1.2);
+  r.position.set(COURIER_X + 0.4, 2.9, COURIER_Z - 3.2);
+  r.castShadow = true;
+  scene.add(r);
+}
+
+// ---------- light: low morning sun, cool sky fill ----------
+scene.add(new THREE.HemisphereLight(PAL.sky, PAL.ground, STYLE === 'arcade' ? 2.2 : 1.9));
+const sun = new THREE.DirectionalLight(PAL.sun, STYLE === 'arcade' ? 1.6 : 2.4);
+sun.position.set(26, 30, 22);
+sun.target.position.set(0, 0, 0);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 120 });
+sun.shadow.bias = -0.0008;
+scene.add(sun, sun.target);
+
+// ---------- camera: orthographic, steep diagonal so the street climbs the portrait frame ----------
+const VIEW_W = STYLE === 'arcade' ? 12 : 14;
+const cam = new THREE.OrthographicCamera(-VIEW_W / 2, VIEW_W / 2, (VIEW_W * OUT_H) / OUT_W / 2, -(VIEW_W * OUT_H) / OUT_W / 2, -200, 400);
+const target = new THREE.Vector3(COURIER_X - 0.6, 0, COURIER_Z - 3.4);
+cam.position.copy(target).add(new THREE.Vector3(34, 38, 15));
+cam.lookAt(target);
+// Shift the view so the courier sits in the middle band above the HUD.
+cam.position.y -= 0;
+cam.updateProjectionMatrix();
+
+renderer.render(scene, cam);
+
+// ---------- post ----------
+const out = document.createElement('canvas');
+if (STYLE === 'arcade') {
+  // 16-colour palette with 4x4 ordered dithering.
+  const P = [0x101018, 0x4a4a58, 0x8a8a98, 0xe8e0d0, 0xffffff, 0xb04030, 0xf07a2a, 0xffd400, 0xf2d04a, 0x5fae4a, 0x2f7a3a, 0x1f4a2a, 0x3a5a8c, 0xa8d0e6, 0xd8c8a8, 0x6a4a3a].map((c) => [(c >> 16) & 255, (c >> 8) & 255, c & 255]);
+  const B = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  const src = document.createElement('canvas');
+  src.width = W; src.height = H;
+  const sctx = src.getContext('2d');
+  sctx.drawImage(renderer.domElement, 0, 0);
+  const img = sctx.getImageData(0, 0, W, H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = (y * W + x) * 4;
+    const t = (B[(y % 4) * 4 + (x % 4)] / 16 - 0.5) * 20;
+    let best = 0, bd = 1e9;
+    for (let k = 0; k < P.length; k++) {
+      const dr = img.data[i] + t - P[k][0], dg = img.data[i + 1] + t - P[k][1], db = img.data[i + 2] + t - P[k][2];
+      const d = dr * dr * 0.3 + dg * dg * 0.59 + db * db * 0.11;
+      if (d < bd) { bd = d; best = k; }
+    }
+    [img.data[i], img.data[i + 1], img.data[i + 2]] = P[best];
+  }
+  sctx.putImageData(img, 0, 0);
+  out.width = W; out.height = H;
+  out.getContext('2d').drawImage(src, 0, 0);
+} else if (STYLE === 'pixel') {
+  out.width = W; out.height = H;
+  const ctx = out.getContext('2d');
+  ctx.drawImage(renderer.domElement, 0, 0);
+  // Warm morning grade and a little haze toward the top of the street.
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, 'rgba(255,200,160,0.28)');
+  g.addColorStop(0.45, 'rgba(255,214,180,0.0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+} else {
+  out.width = OUT_W; out.height = OUT_H;
+  const ctx = out.getContext('2d');
+  ctx.drawImage(renderer.domElement, 0, 0, OUT_W, OUT_H);
+  // Tilt-shift: blurred copy faded in at the top and bottom of the frame.
+  const blur = document.createElement('canvas');
+  blur.width = OUT_W; blur.height = OUT_H;
+  const bctx = blur.getContext('2d');
+  bctx.filter = 'blur(3px)';
+  bctx.drawImage(renderer.domElement, 0, 0, OUT_W, OUT_H);
+  bctx.filter = 'none';
+  bctx.globalCompositeOperation = 'destination-in';
+  const m = bctx.createLinearGradient(0, 0, 0, OUT_H);
+  m.addColorStop(0, 'rgba(0,0,0,1)'); m.addColorStop(0.28, 'rgba(0,0,0,0)'); m.addColorStop(0.62, 'rgba(0,0,0,0)'); m.addColorStop(1, 'rgba(0,0,0,1)');
+  bctx.fillStyle = m;
+  bctx.fillRect(0, 0, OUT_W, OUT_H);
+  ctx.drawImage(blur, 0, 0);
+  const haze = ctx.createLinearGradient(0, 0, 0, OUT_H);
+  haze.addColorStop(0, 'rgba(255,222,196,0.45)'); haze.addColorStop(0.4, 'rgba(255,222,196,0)');
+  ctx.fillStyle = haze;
+  ctx.fillRect(0, 0, OUT_W, OUT_H);
+}
+window.__png = out.toDataURL(STYLE === 'diorama' ? 'image/jpeg' : 'image/png', 0.82);
+// Preview at output size
+const view = document.createElement('img');
+view.src = window.__png;
+view.style.cssText = `width:${OUT_W}px;height:${OUT_H}px;image-rendering:pixelated`;
+document.body.replaceChildren(view);
+window.__done = true;
+</script>

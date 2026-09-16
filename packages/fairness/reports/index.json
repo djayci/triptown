@@ -1,0 +1,38 @@
+{
+  "paper-route/v1": {
+    "pass": true,
+    "rounds": 10000000,
+    "date": "2026-09-15",
+    "report": "rtp-paper-route-v1.md"
+  },
+  "paper-route/v1-rising": {
+    "pass": true,
+    "rounds": 10000000,
+    "date": "2026-09-15",
+    "report": "rtp-paper-route-v1-rising.md"
+  },
+  "paper-route/v1-rising+cap100": {
+    "pass": true,
+    "rounds": 10000000,
+    "date": "2026-09-15",
+    "report": "rtp-paper-route-v1-rising-cap100.md"
+  },
+  "whack-crash/v1": {
+    "pass": true,
+    "rounds": 10000000,
+    "date": "2026-09-15",
+    "report": "rtp-whack-crash-v1.md"
+  },
+  "whack-crash/v1-rising": {
+    "pass": true,
+    "rounds": 10000000,
+    "date": "2026-09-15",
+    "report": "rtp-whack-crash-v1-rising.md"
+  },
+  "whack-crash/v1-rising+cap100": {
+    "pass": true,
+    "rounds": 10000000,
+    "date": "2026-09-15",
+    "report": "rtp-whack-crash-v1-rising-cap100.md"
+  }
+}

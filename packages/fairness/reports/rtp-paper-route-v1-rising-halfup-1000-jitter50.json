@@ -1,0 +1,92 @@
+{
+  "rounds": 4000000,
+  "seed": 2,
+  "config": {
+    "id": "paper-route/v1-rising",
+    "rtp": 0.97,
+    "r0": 0.12,
+    "rmax": 0.95,
+    "tRamp": 12,
+    "lambda": 0,
+    "setbackFactor": 0.5,
+    "maxWinMultiplier": 10000,
+    "tMax": 60,
+    "papers": 5
+  },
+  "bustShare": 0.0299475,
+  "bustSe": 0.0000852212521084823,
+  "rows": [
+    {
+      "strategy": "all 5 at x2",
+      "winRate": 0.48516225,
+      "directRtp": 0.9703245,
+      "directSe": 0.0004997797926836753,
+      "conditionalRtp": 0.9700000000810055,
+      "conditionalSe": 0,
+      "pass": true
+    },
+    {
+      "strategy": "1 at x1.5, 4 at x5",
+      "winRate": 0.6471345,
+      "directRtp": 0.9707883499560075,
+      "directSe": 0.0008198159678505909,
+      "conditionalRtp": 0.9700000000810055,
+      "conditionalSe": 0,
+      "pass": true
+    },
+    {
+      "strategy": "1 per second",
+      "winRate": 0.8310785,
+      "directRtp": 0.970556650450106,
+      "directSe": 0.0004296113345105693,
+      "conditionalRtp": 0.9699999647746554,
+      "conditionalSe": 1.0947654041905155e-8,
+      "pass": true
+    },
+    {
+      "strategy": "1 per 0.7 s",
+      "winRate": 0.87685225,
+      "directRtp": 0.9702953641003842,
+      "directSe": 0.0003097175054213389,
+      "conditionalRtp": 0.9699999307470514,
+      "conditionalSe": 1.374932937220274e-8,
+      "pass": true
+    },
+    {
+      "strategy": "all 5 at 1.3 s",
+      "winRate": 0.782885,
+      "directRtp": 0.9701468302991098,
+      "directSe": 0.0002554701260744219,
+      "conditionalRtp": 0.9699999796705809,
+      "conditionalSe": 2.2589213669239553e-8,
+      "pass": true
+    },
+    {
+      "strategy": "1 at x3, 4 never",
+      "winRate": 0.32364725,
+      "directRtp": 0.9881883500212614,
+      "directSe": 0.03985000877326049,
+      "conditionalRtp": 0.9700000000810055,
+      "conditionalSe": 0,
+      "pass": true
+    },
+    {
+      "strategy": "all 5 at x10",
+      "winRate": 0.0969655,
+      "directRtp": 0.969655,
+      "directSe": 0.0014795539176534764,
+      "conditionalRtp": 0.9700000000810055,
+      "conditionalSe": 0,
+      "pass": true
+    },
+    {
+      "strategy": "never throw (caps only)",
+      "winRate": 0.00009925,
+      "directRtp": 0.9925,
+      "directSe": 0.049809675123789955,
+      "conditionalRtp": 0.9700000000810055,
+      "conditionalSe": 0,
+      "pass": true
+    }
+  ]
+}

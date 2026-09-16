@@ -1,0 +1,101 @@
+{
+  "rounds": 10000000,
+  "seed": 1,
+  "config": {
+    "id": "paper-route/v1",
+    "rtp": 0.97,
+    "r0": 0.12,
+    "rmax": 0.95,
+    "tRamp": 12,
+    "lambda": 0.12,
+    "setbackFactor": 0.5,
+    "maxWinMultiplier": 10000,
+    "tMax": 60,
+    "papers": 5
+  },
+  "bustShare": 0.029965,
+  "bustSe": 0.00005391391172508261,
+  "rows": [
+    {
+      "strategy": "all 5 at x2",
+      "winRate": 0.4849499,
+      "directRtp": 0.9698998,
+      "directSe": 0.00031608447889131794,
+      "conditionalRtp": 0.969953898654384,
+      "conditionalSe": 0.0000979819992650095,
+      "pass": true
+    },
+    {
+      "strategy": "1 at x1.5, 4 at x5",
+      "winRate": 0.6467371,
+      "directRtp": 0.9703411299918839,
+      "directSe": 0.0005184319078154622,
+      "conditionalRtp": 0.9700383182856923,
+      "conditionalSe": 0.00011490315602128729,
+      "pass": true
+    },
+    {
+      "strategy": "1 per second",
+      "winRate": 0.882666,
+      "directRtp": 0.9701513376532076,
+      "directSe": 0.00024689430339130735,
+      "conditionalRtp": 0.9699855896342344,
+      "conditionalSe": 0.00008050521113155336,
+      "pass": true
+    },
+    {
+      "strategy": "1 per 0.7 s",
+      "winRate": 0.9146047,
+      "directRtp": 0.9701088040918555,
+      "directSe": 0.0001781931418666572,
+      "conditionalRtp": 0.9699681798991181,
+      "conditionalSe": 0.00006693080953451188,
+      "pass": true
+    },
+    {
+      "strategy": "all 5 at 1.3 s",
+      "winRate": 0.8464385,
+      "directRtp": 0.9701968106414827,
+      "directSe": 0.00014662266677101208,
+      "conditionalRtp": 0.9700068837855894,
+      "conditionalSe": 0.00006116715989355004,
+      "pass": true
+    },
+    {
+      "strategy": "1 right after each setback",
+      "winRate": 0.3464116,
+      "directRtp": 0.9799071242628079,
+      "directSe": 0.026441070927330383,
+      "conditionalRtp": 0.9700033019679738,
+      "conditionalSe": 0.00022252018763954282,
+      "pass": true
+    },
+    {
+      "strategy": "1 at x3, 4 never",
+      "winRate": 0.3233937,
+      "directRtp": 0.9756362199385824,
+      "directSe": 0.025005804277932656,
+      "conditionalRtp": 0.9700064111133853,
+      "conditionalSe": 0.00019935069505434597,
+      "pass": true
+    },
+    {
+      "strategy": "all 5 at x10",
+      "winRate": 0.0969106,
+      "directRtp": 0.969106,
+      "directSe": 0.0009355155562984508,
+      "conditionalRtp": 0.9700391732593633,
+      "conditionalSe": 0.00014638571376998546,
+      "pass": true
+    },
+    {
+      "strategy": "never throw (caps only)",
+      "winRate": 0.0000977,
+      "directRtp": 0.977,
+      "directSe": 0.03125547227446739,
+      "conditionalRtp": 0.9700073307795215,
+      "conditionalSe": 0.00023387733651791454,
+      "pass": true
+    }
+  ]
+}

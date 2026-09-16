@@ -1,0 +1,126 @@
+{
+  "pages": [
+    {
+      "id": "page-1",
+      "name": "Candy Arcade Pop"
+    },
+    {
+      "id": "page-2",
+      "name": "Neon Night Carnival"
+    }
+  ],
+  "artboards": [
+    {
+      "file": "Betting.dc.html",
+      "title": "1 Betting",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-1"
+    },
+    {
+      "file": "Main.dc.html",
+      "title": "2 Running",
+      "x": 470,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-1"
+    },
+    {
+      "file": "Setback.dc.html",
+      "title": "3 Bad mole setback",
+      "x": 940,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-1"
+    },
+    {
+      "file": "Win.dc.html",
+      "title": "4 Cashed out",
+      "x": 1410,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-1"
+    },
+    {
+      "file": "Crash.dc.html",
+      "title": "5 Crashed",
+      "x": 1880,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-1"
+    },
+    {
+      "file": "Desktop.dc.html",
+      "title": "6 Desktop running",
+      "x": 0,
+      "y": 964,
+      "w": 1440,
+      "h": 900,
+      "page": "page-1"
+    },
+    {
+      "file": "StyleTile.dc.html",
+      "title": "Style tile",
+      "x": 1520,
+      "y": 964,
+      "w": 1240,
+      "h": 820,
+      "page": "page-1"
+    },
+    {
+      "file": "NeonRunning.dc.html",
+      "title": "Neon - Running",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-2"
+    },
+    {
+      "file": "NeonSetback.dc.html",
+      "title": "Neon - Bad mole setback",
+      "x": 470,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-2"
+    },
+    {
+      "file": "NeonTile.dc.html",
+      "title": "Neon - Style tile",
+      "x": 940,
+      "y": 0,
+      "w": 860,
+      "h": 560,
+      "page": "page-2"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "brief",
+      "page": "page-1",
+      "x": 0,
+      "y": -190,
+      "w": 520,
+      "text": "Whack Crash - Candy Arcade Pop direction. Static mockups.\nFlow: bet -> golden mole rises -> WHACK to cash out, or it dives.\nBalances, USD and history values are sample data."
+    },
+    {
+      "id": "neon-brief",
+      "page": "page-2",
+      "x": 0,
+      "y": -150,
+      "w": 520,
+      "text": "Neon Night Carnival - sample of direction B.\nSame layout and mechanics as Candy; only the skin changes.\nCompare side by side with page 1."
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "page-2"
+  }
+}

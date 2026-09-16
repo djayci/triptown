@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.turbo/
+.vercel/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+dist-demo/
+
+# Compliance source snapshots (third-party documents, local reference only)
+docs/compliance/sources/*.txt

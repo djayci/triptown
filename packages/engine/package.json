@@ -1,0 +1,27 @@
+{
+  "name": "@triptown/engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./audio": "./src/audio.ts",
+    "./audio-settings": "./src/audio-settings.ts",
+    "./motion": "./src/motion.ts",
+    "./bridge": "./src/bridge.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "pixi.js": "^8.20.1",
+    "gsap": "^3.15.0",
+    "howler": "^2.2.4"
+  },
+  "devDependencies": {
+    "@types/howler": "^2.2.13",
+    "jsdom": "^30.0.1"
+  }
+}

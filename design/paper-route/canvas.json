@@ -1,0 +1,394 @@
+{
+  "pages": [
+    {
+      "id": "page-7",
+      "name": "Dawn Diorama"
+    },
+    {
+      "id": "page-6",
+      "name": "Arcade street directions"
+    },
+    {
+      "id": "page-5",
+      "name": "Regulated concept"
+    },
+    {
+      "id": "page-3",
+      "name": "3D directions"
+    },
+    {
+      "id": "page-2",
+      "name": "Earlier directions"
+    }
+  ],
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "F1 Riding \u00b7 UK \u00b7 WIN NOW",
+      "x": 380,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-7"
+    },
+    {
+      "file": "DioramaSplash.dc.html",
+      "title": "F2 Puddle setback \u00b7 light profile \u00b7 RETURN NOW",
+      "x": 850,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-7"
+    },
+    {
+      "file": "DioramaWipeout.dc.html",
+      "title": "F3 Wipeout below stake \u00b7 neutral result",
+      "x": 1320,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-7"
+    },
+    {
+      "file": "DioramaWin.dc.html",
+      "title": "F4 All delivered above stake \u00b7 win shows net",
+      "x": 1790,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-7"
+    },
+    {
+      "file": "ArcadeRiding.dc.html",
+      "title": "E1 Arcade 85 \u00b7 Riding \u00b7 UK \u00b7 WIN NOW",
+      "x": 380,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-6"
+    },
+    {
+      "file": "PixelDawnRiding.dc.html",
+      "title": "E2 Pixel Dawn \u00b7 Riding \u00b7 UK \u00b7 WIN NOW",
+      "x": 850,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-6"
+    },
+    {
+      "file": "ArcadeWipeout.dc.html",
+      "title": "E1 Arcade 85 \u00b7 Wipeout below stake",
+      "x": 380,
+      "y": 964,
+      "w": 390,
+      "h": 844,
+      "page": "page-6"
+    },
+    {
+      "file": "PixelDawnWipeout.dc.html",
+      "title": "E2 Pixel Dawn \u00b7 Wipeout below stake",
+      "x": 850,
+      "y": 964,
+      "w": 390,
+      "h": 844,
+      "page": "page-6"
+    },
+    {
+      "file": "CourierRiding.dc.html",
+      "title": "R1 Riding \u00b7 UK profile \u00b7 WIN NOW",
+      "x": 380,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-5"
+    },
+    {
+      "file": "CourierSplash.dc.html",
+      "title": "R2 Splash setback \u00b7 light profile \u00b7 RETURN NOW",
+      "x": 850,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-5"
+    },
+    {
+      "file": "CourierWipeout.dc.html",
+      "title": "R3 Wipeout below stake \u00b7 neutral result",
+      "x": 1320,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-5"
+    },
+    {
+      "file": "CourierRideOn.dc.html",
+      "title": "R4 All delivered above stake \u00b7 win shows net",
+      "x": 1790,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-5"
+    },
+    {
+      "file": "LowPolySunrise.dc.html",
+      "title": "D1 Low-Poly Sunrise",
+      "x": 380,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-3"
+    },
+    {
+      "file": "ClayDusk.dc.html",
+      "title": "D2 Clay Morning",
+      "x": 850,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-3"
+    },
+    {
+      "file": "CelToon.dc.html",
+      "title": "D3 Cel Toon",
+      "x": 1320,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-3"
+    },
+    {
+      "file": "BlockyTown.dc.html",
+      "title": "D4 Blocky Town",
+      "x": 1790,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-3"
+    },
+    {
+      "file": "NightRoute.dc.html",
+      "title": "D5 Dawn Route",
+      "x": 2260,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-3"
+    },
+    {
+      "file": "CandyRunning.dc.html",
+      "title": "A1 Candy Route - Riding",
+      "x": 380,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-2"
+    },
+    {
+      "file": "CandySetback.dc.html",
+      "title": "A2 Candy Route - Dog setback",
+      "x": 850,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-2"
+    },
+    {
+      "file": "CandyWipeout.dc.html",
+      "title": "A3 Candy Route - Wipeout",
+      "x": 1320,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "page-2"
+    },
+    {
+      "file": "FrontPageRunning.dc.html",
+      "title": "B1 Front Page - Riding",
+      "x": 380,
+      "y": 1064,
+      "w": 390,
+      "h": 844,
+      "page": "page-2"
+    },
+    {
+      "file": "FrontPageSetback.dc.html",
+      "title": "B2 Front Page - Dog setback",
+      "x": 850,
+      "y": 1064,
+      "w": 390,
+      "h": 844,
+      "page": "page-2"
+    },
+    {
+      "file": "FrontPageWipeout.dc.html",
+      "title": "B3 Front Page - Wipeout",
+      "x": 1320,
+      "y": 1064,
+      "w": 390,
+      "h": 844,
+      "page": "page-2"
+    },
+    {
+      "file": "DuskVectorRiding.dc.html",
+      "title": "C1 Dusk Run - Riding",
+      "x": 380,
+      "y": 2128,
+      "w": 390,
+      "h": 844,
+      "page": "page-2"
+    },
+    {
+      "file": "DuskVectorSetback.dc.html",
+      "title": "C2 Dusk Run - Dog setback",
+      "x": 850,
+      "y": 2128,
+      "w": 390,
+      "h": 844,
+      "page": "page-2"
+    },
+    {
+      "file": "DuskVectorWipeout.dc.html",
+      "title": "C3 Dusk Run - Wipeout",
+      "x": 1320,
+      "y": 2128,
+      "w": 390,
+      "h": 844,
+      "page": "page-2"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "brief-diorama",
+      "page": "page-7",
+      "x": 0,
+      "y": 0,
+      "w": 320,
+      "text": "Dawn Diorama (chosen direction)\nThe arcade paper-round view as a clean miniature street at first light: diagonal street, houses, fences and porches, soft shadows, tilt-shift blur and morning haze. An adult cyclist courier works up the block.\n\nF1 Riding (UK): two papers banked, three riding; WIN NOW because banked plus riding value is above the stake. Session clock and net shown.\nF2 Puddle setback (light profile only): the value halves on the event, the old value shows struck through, RETURN NOW, and throws are greyed until the value is back at the x1.01 minimum.\nF3 Wipeout: RETURNED and NET only, no crash point, no celebration.\nF4 All delivered above stake: ROUND WON with the net gain; Continue and Exit equally weighted.\n\nRegulated profiles never show F2 (rising only). Models are placeholders. Sample values."
+    },
+    {
+      "id": "brief-arcade",
+      "page": "page-6",
+      "x": 0,
+      "y": 0,
+      "w": 320,
+      "text": "Arcade street directions\nThe 80s paper-round arcade view: a diagonal street climbing the screen, seen from above at an angle, houses on one side, the rider working up the block.\n\nOne 3D street is rendered three ways, so you compare the look, not the layout. Top row: riding at x1.84 with two papers banked (UK profile). Bottom row: a wipeout below stake with a neutral result. E3 was chosen and lives on the Dawn Diorama page.\n\nKept from the genre: the diagonal overhead street, picket fences, porches, parked cars, cones, a bike.\nChanged for compliance: an adult cyclist courier (hi-vis, helmet, rear crate) instead of a kid, no dogs or any animal, no mailboxes or targets to aim at, no breakable windows, papers land on porches the same way every time, obstacles sit off the rider's line so nothing looks dodgeable.\nOriginal art only: no Paperboy name, characters, sprites or logo.\n\nModels are simple placeholders; judge the style. Sample values."
+    },
+    {
+      "id": "e1",
+      "page": "page-6",
+      "x": 380,
+      "y": 1928,
+      "w": 390,
+      "text": "E1 Arcade 85\nChunky 4x pixels, a strict 16-colour palette with dithering, Press Start 2P type and hard-edged panels, like a mid-80s cabinet.\n\nWhy: the closest to the arcade original's feel; instantly nostalgic for the 35+ players who remember it; very cheap to run.\n\nTradeoff: the most retro-arcade and therefore the most 'video game' reading, which regulators watch for; small pixel type is harder to read on phones."
+    },
+    {
+      "id": "e2",
+      "page": "page-6",
+      "x": 850,
+      "y": 1928,
+      "w": 390,
+      "text": "E2 Pixel Dawn\nThe same street as soft 3x pixel art with real morning light and long shadows, warm plum panels, pixel display type with a clear terminal-style numeral face.\n\nWhy: keeps the retro charm but feels modern and moody rather than toy-like; numbers stay easy to read.\n\nTradeoff: a middle ground, so less striking than E1 and less premium than E3."
+    },
+    {
+      "id": "e3",
+      "page": "page-6",
+      "x": 1320,
+      "y": 1928,
+      "w": 390,
+      "text": "E3 Dawn Diorama (chosen)\nMoved to the Dawn Diorama page with riding, setback, wipeout and win screens."
+    },
+    {
+      "id": "reg-brief",
+      "page": "page-5",
+      "x": 0,
+      "y": 0,
+      "w": 320,
+      "text": "Regulated concept (after the 15 Sep compliance audit)\n\nAdult courier on a delivery moped: realistic proportions, hi-vis, helmet. No children, no animals, no mailboxes or targets, muted life-like palette on the D1 sunrise light.\n\nThrows look identical at any moment and land on the porch alongside. Setbacks exist only in light profiles and show as a puddle splash when the event arrives; regulated profiles are rising-only.\n\nNothing celebrates until the round total beats the stake: the live label reads RETURN NOW, throws are neutral, results show RETURNED and NET, and no crash point or \"would have\" value appears on result screens.\n\nSession clock and net position per profile. Continue and Exit are equally prominent (no one-tap rebet).\n\nSample values. Report: docs/compliance/paper-route-2026-09-15.md"
+    },
+    {
+      "id": "brief-3d",
+      "page": "page-3",
+      "x": 0,
+      "y": 0,
+      "w": 320,
+      "text": "3D directions\nThe chase-cam angle from Dusk Run as real 3D renders, now set at sunrise, when the papers go out. One street scene (houses, trees, lamps, rider, rising sun) is built once in a 3D engine and rendered in five art styles, so you compare the look, not the layout.\n\nEach shows the same riding moment: x3.40, two papers banked, three riding.\n\nThe models are simple placeholders; the style (materials, light, shading) is what to judge. Pick one and I will do the setback and wipeout moments in it."
+    },
+    {
+      "id": "d1",
+      "page": "page-3",
+      "x": 380,
+      "y": 900,
+      "w": 390,
+      "text": "D1 Low-Poly Sunrise\nFaceted, flat-shaded geometry at first light: the sun rising at the end of the street, peach haze and long shadows reaching toward the camera.\n\nWhy: the most cinematic of the five; flat shading hides simple models, so art is fast to produce and cheap to render on mid-range phones.\n\nTradeoff: the richest, warmest palette; less cute than the rounded options."
+    },
+    {
+      "id": "d2",
+      "page": "page-3",
+      "x": 850,
+      "y": 900,
+      "w": 390,
+      "text": "D2 Clay Morning\nSoft rounded shapes, like a plasticine toy town, in hazy pastel morning light with soft shadows.\n\nWhy: friendly and premium, reads as a toy you want to touch; light colours stand out in a dark casino lobby.\n\nTradeoff: soft light and haze flatten the sense of speed; needs motion effects to feel fast."
+    },
+    {
+      "id": "d3",
+      "page": "page-3",
+      "x": 1320,
+      "y": 900,
+      "w": 390,
+      "text": "D3 Cel Toon\nTwo-tone cartoon shading with ink outlines under a bright pink-and-gold sunrise, like an animated series.\n\nWhy: the most characterful and brand-able; outlines keep shapes readable at phone size and in motion.\n\nTradeoff: outlines and toon shading need a custom shader pass in the game engine; busiest to look at."
+    },
+    {
+      "id": "d4",
+      "page": "page-3",
+      "x": 1790,
+      "y": 900,
+      "w": 390,
+      "text": "D4 Blocky Town\nEverything built from cubes, voxel style, in bright early-morning light.\n\nWhy: instantly readable, very cheap to model and animate, and a proven look for casual arcade games.\n\nTradeoff: familiar from other voxel games, so less ownable; the pale sky makes the HUD work harder for contrast."
+    },
+    {
+      "id": "d5",
+      "page": "page-3",
+      "x": 2260,
+      "y": 900,
+      "w": 390,
+      "text": "D5 Dawn Route\nThe rounded street just before sunrise: street lamps and windows still lit, a few last stars, the horizon starting to glow where the sun is about to come up.\n\nWhy: the most atmospheric; it tells the paper-round story best (out before the town wakes), and glowing values pop against the darker sky.\n\nTradeoff: the darkest option, so the closest to the usual crash-game look."
+    },
+    {
+      "id": "brief",
+      "page": "page-2",
+      "x": 380,
+      "y": -230,
+      "w": 900,
+      "text": "Paper Route - earlier directions\nSame round in every row: a 10.00 bet is a bag of 5 papers (2.00 each). THROW banks one paper at the current multiplier, ALL banks the rest, a wipeout takes every unthrown paper. A dog is the x0.5 setback."
+    },
+    {
+      "id": "dir-a",
+      "page": "page-2",
+      "x": 0,
+      "y": 0,
+      "w": 320,
+      "text": "A - Candy Route\nThe Whack Crash studio look on a side-scrolling street."
+    },
+    {
+      "id": "dir-b",
+      "page": "page-2",
+      "x": 0,
+      "y": 1064,
+      "w": 320,
+      "text": "B - Front Page\nNewsprint with one spot red; the round told as a headline over a top-down route map."
+    },
+    {
+      "id": "dir-c",
+      "page": "page-2",
+      "x": 0,
+      "y": 2128,
+      "w": 320,
+      "text": "C - Dusk Run (vector)\nThe chase-cam angle drawn as flat vector art. Angle kept, art replaced by the 3D directions."
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "page-7"
+  }
+}

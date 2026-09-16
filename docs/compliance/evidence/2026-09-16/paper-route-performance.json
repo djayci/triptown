@@ -1,0 +1,38 @@
+{
+ "check": "paper-route performance",
+ "tiers": {
+  "high": {
+   "maxDrawCalls": 24,
+   "frames": 1801,
+   "geometriesMin": 11,
+   "geometriesMax": 14
+  },
+  "medium": {
+   "maxDrawCalls": 23,
+   "frames": 1801,
+   "geometriesMin": 12,
+   "geometriesMax": 14
+  },
+  "low": {
+   "maxDrawCalls": 14,
+   "frames": 1801,
+   "geometriesMin": 11,
+   "geometriesMax": 14
+  }
+ },
+ "throttled": {
+  "startTier": "high",
+  "ms": 1987,
+  "tier": "medium",
+  "hudKeptUpdating": true,
+  "multiplierKeptUpdating": true,
+  "after": {
+   "tier": "medium",
+   "depthPass": false,
+   "nearSideDetail": true,
+   "drawDistance": 110
+  }
+ },
+ "errors": [],
+ "pass": true
+}

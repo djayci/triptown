@@ -1,0 +1,37 @@
+{
+  "name": "@triptown/paper-route",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5175",
+    "build": "vite build && node scripts/check-no-mock.mjs && node scripts/check-bundle-budget.mjs && node scripts/check-audio-budget.mjs",
+    "preview": "vite preview --port 5175",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "build:demo": "vite build --mode demo --outDir dist-demo",
+    "check:budget": "node scripts/check-bundle-budget.mjs",
+    "audio": "node scripts/build-audio.mjs",
+    "check:audio": "node scripts/check-audio-budget.mjs",
+    "check:timing": "node scripts/timing-check.mjs",
+    "check:presentation": "node scripts/presentation-check.mjs"
+  },
+  "dependencies": {
+    "@fontsource/barlow": "^5.2.0",
+    "@fontsource/barlow-condensed": "^5.2.0",
+    "@fontsource/chivo": "^5.3.0",
+    "@fontsource/chivo-mono": "^5.3.0",
+    "@triptown/core": "workspace:*",
+    "@triptown/engine": "workspace:*",
+    "@triptown/fairness": "workspace:*",
+    "@triptown/rgs-client": "workspace:*",
+    "three": "0.186.0"
+  },
+  "devDependencies": {
+    "@breezystack/lamejs": "^1.2.7",
+    "@types/three": "^0.186.0",
+    "vite": "^8.3.0",
+    "webm-muxer": "^5.1.4"
+  }
+}
