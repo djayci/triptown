@@ -208,7 +208,7 @@ export class Stage extends Container {
   }
 }
 
-/** Ten-segment speed meter: CALM … FRENZY. */
+/** Ten-segment speed meter: SLOW … FAST. Describes the multiplier's speed, nothing about the player. */
 export class Meter extends Container {
   private readonly bg = new Graphics();
   private readonly segs = new Graphics();

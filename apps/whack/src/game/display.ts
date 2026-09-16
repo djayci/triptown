@@ -65,17 +65,18 @@ export function intensity10(t: number, config: GameConfig): number {
   return Math.max(1, Math.min(10, Math.round(level) || 1));
 }
 
-export type IntensityName = 'CALM' | 'FAST' | 'FRENZY';
+/** Neutral speed read-out. No skill or urgency framing (AGCO 2.15, GLI-19 4.6.1(a)). */
+export type IntensityName = 'SLOW' | 'MEDIUM' | 'FAST';
 
 export function intensityName(level10: number): IntensityName {
-  if (level10 >= 8) return 'FRENZY';
-  if (level10 >= 4) return 'FAST';
-  return 'CALM';
+  if (level10 >= 8) return 'FAST';
+  if (level10 >= 4) return 'MEDIUM';
+  return 'SLOW';
 }
 
 export function intensityAudioLevel(level10: number): 0 | 1 | 2 {
   const name = intensityName(level10);
-  return name === 'FRENZY' ? 2 : name === 'FAST' ? 1 : 0;
+  return name === 'FAST' ? 2 : name === 'MEDIUM' ? 1 : 0;
 }
 
 /** Bet ladder used by the − / + controls, in minor units. */

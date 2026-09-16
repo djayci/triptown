@@ -1,4 +1,4 @@
-import { Container, Graphics, Text } from 'pixi.js';
+import { Container, Graphics, Rectangle, Text } from 'pixi.js';
 import { gsap, pop } from '@triptown/engine';
 import { formatMultiplier } from '../game/display';
 import { bandColors, COLORS } from '../theme';
@@ -56,17 +56,41 @@ export class HistoryStrip extends Container {
   private readonly chips = new Container();
   private readonly clip = new Graphics();
   private values: number[] = [];
+  private contentWidth = 0;
+  private dragFrom: { pointer: number; chips: number } | null = null;
 
   constructor(private w: number) {
     super();
     this.addChild(this.chips, this.clip);
     this.chips.mask = this.clip;
     this.resize(w);
+    // Older rounds run off the right edge, so the strip scrolls by dragging.
+    this.eventMode = 'static';
+    this.cursor = 'grab';
+    this.on('pointerdown', (e) => {
+      this.dragFrom = { pointer: e.global.x, chips: this.chips.x };
+    });
+    this.on('globalpointermove', (e) => {
+      if (!this.dragFrom) return;
+      this.chips.x = this.clampScroll(this.dragFrom.chips + (e.global.x - this.dragFrom.pointer));
+    });
+    for (const end of ['pointerup', 'pointerupoutside', 'pointercancel'] as const) {
+      this.on(end, () => {
+        this.dragFrom = null;
+      });
+    }
   }
 
   resize(w: number) {
     this.w = w;
     this.clip.clear().rect(-4, -4, w + 8, 44).fill(0xffffff);
+    this.hitArea = new Rectangle(-4, -4, w + 8, 44);
+    this.chips.x = this.clampScroll(this.chips.x);
+  }
+
+  /** Keeps the newest chip at the left edge and the oldest one reachable. */
+  private clampScroll(x: number) {
+    return Math.max(Math.min(0, this.w - this.contentWidth), Math.min(0, x));
   }
 
   setAll(values: number[]) {
@@ -86,6 +110,7 @@ export class HistoryStrip extends Container {
 
   private rebuild() {
     this.chips.removeChildren().forEach((c) => c.destroy({ children: true }));
+    this.chips.x = 0;
     let x = 0;
     for (const v of this.values) {
       const { fill, text: tc } = bandColors(v);
@@ -98,8 +123,8 @@ export class HistoryStrip extends Container {
       chip.position.set(x + cw / 2, 15);
       this.chips.addChild(chip);
       x += cw + 6;
-      if (x > this.w + 40) break;
     }
+    this.contentWidth = x;
   }
 }
 

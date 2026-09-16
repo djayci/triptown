@@ -129,6 +129,15 @@ export function sfxBoost() {
   return normalize(lowpass(b, 9000), 0.7);
 }
 
+/** Neutral chime for a cash-out at or below the stake: no fanfare, no rising run (RTS 14F). */
+export function sfxReturn() {
+  const b = buffer(0.4);
+  [69, 69].forEach((n, i) =>
+    add(b, i * 0.1, 0.24, (t, len) => (Math.sin(TAU * midi(n) * t) * 0.8 + tri(midi(n) * 2 * t) * 0.2) * expDecay(t, 7) * env(t, len, 0.006, 0.12), 0.32),
+  );
+  return normalize(lowpass(b, 6000), 0.55);
+}
+
 export function sfxWin() {
   const b = buffer(1.1);
   fanfare(b, 0, [72, 76, 79, 84], 0.1, 0.6);

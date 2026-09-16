@@ -41,6 +41,12 @@ async function boot() {
     onFairness: () => void fairness?.open(),
   });
   fairness = new FairnessPanel(service, () => controller.refreshSession());
+  // Dev hooks for the automated compliance checks. Demo builds only, never production.
+  if (import.meta.env.VITE_DEMO === 'true') {
+    const w = window as unknown as Record<string, unknown>;
+    if (audio) w.__triptownAudioLog = audio.log;
+    w.__triptownView = () => controller.debugState();
+  }
   await controller.init();
   // Effects load after the first frame so audio never delays startup.
   requestAnimationFrame(() => audio?.loadEffects());

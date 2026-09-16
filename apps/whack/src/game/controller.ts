@@ -1,4 +1,4 @@
-import type { Settlement, TerminalEvent } from '@triptown/core';
+import { resultKind, type Settlement, type TerminalEvent } from '@triptown/core';
 import type { AudioManager, GameApp } from '@triptown/engine';
 import type { GameConfig } from '@triptown/fairness';
 import {
@@ -74,6 +74,13 @@ export class GameController {
   private round: ActiveRound | null = null;
   private balanceMinor = 0;
   private inputGuardUntil = 0;
+  /** Client clock of the last round start, for the local minimum-cycle countdown. */
+  private lastStartAt = 0;
+  /** Round start times (client clock) for the automated timing check. */
+  private readonly startLog: number[] = [];
+  /** What the last settled round was presented as, for the presentation check. */
+  private lastResultKind: 'win' | 'even' | 'loss' | 'void' | null = null;
+  private lastCelebrated = false;
 
   constructor(
     private readonly game: GameApp,
@@ -85,6 +92,7 @@ export class GameController {
     this.view = new GameView(game, frames, {
       onBigButton: () => this.onBigButton(),
       onWhack: () => this.whack(),
+      onCountdownDone: () => this.renderBetUi(),
       onStepBet: (dir) => this.editBet(() => stepBet(this.betMinor, dir, this.currency())),
       onChip: (minor) => this.editBet(() => minor),
       onToggleAuto: () => this.editBet(() => ((this.autoOn = !this.autoOn), this.betMinor)),
@@ -143,6 +151,8 @@ export class GameController {
   private onBigButton() {
     // A late second tap on WHACK must not become a new bet on the result screen.
     if (performance.now() < this.inputGuardUntil) return;
+    // The control must have been released since the last round started (RTS 14G).
+    if (this.phase !== 'running' && !this.view.isArmed) return;
     if (this.phase === 'running') this.whack();
     else if (this.phase === 'betting' || this.phase === 'won' || this.phase === 'lost') void this.bet();
   }
@@ -171,6 +181,10 @@ export class GameController {
     this.audio?.loadMusic();
     this.audio?.playSfx('bet');
     this.phase = 'starting';
+    this.view.disarm();
+    this.lastStartAt = performance.now();
+    this.startLog.push(Math.round(this.lastStartAt));
+    if (this.startLog.length > 100) this.startLog.shift();
     this.view.showStarting();
     const betMinor = this.betMinor;
     try {
@@ -181,6 +195,9 @@ export class GameController {
       if (this.round && this.round.id === handle.roundId) this.attachHandle(handle);
     } catch (err) {
       const code = err instanceof RoundServiceError ? err.code : 'network';
+      // The server is the authority on pacing; mirror its wait on the button.
+      const retry = err instanceof RoundServiceError ? Number(err.details?.retryAfterMs ?? 0) : 0;
+      if (retry > 0) this.view.setBetCountdown(retry);
       this.view.toast(ERROR_TEXT[code] ?? 'Could not start round');
       await this.refreshSession().catch(() => {});
       this.toBetting();
@@ -216,6 +233,21 @@ export class GameController {
         // The stream or a round fetch will settle it.
         void this.recover(r);
       });
+  }
+
+  /** Snapshot for the automated compliance checks (demo builds only). */
+  debugState() {
+    const r = this.round;
+    return {
+      phase: this.phase,
+      resultKind: this.lastResultKind,
+      confetti: this.lastCelebrated,
+      betMinor: r?.betMinor ?? this.betMinor,
+      starts: [...this.startLog],
+      multiplier: r?.lastDisplayed ?? 0,
+      setbacks: r?.setbackTimes.size ?? 0,
+      boosts: r?.boostTimes.size ?? 0,
+    };
   }
 
   // ---------- round events ----------
@@ -350,10 +382,23 @@ export class GameController {
     this.view.history.push(s.multiplier);
     if (s.status === 'won') {
       this.phase = 'won';
-      const big = s.multiplier >= 10;
-      this.view.showWin(formatMultiplier(s.multiplier), formatMoney(s.payoutMinor, this.currency()), big);
-      this.audio?.playSfx(big ? 'bigwin' : 'win');
+      const kind = resultKind(r.betMinor, s.payoutMinor);
+      this.lastResultKind = kind;
+      this.lastCelebrated = kind === 'win';
+      const big = kind === 'win' && s.multiplier >= 10;
+      const netMinor = Math.abs(s.payoutMinor - r.betMinor);
+      this.view.showWin(
+        formatMultiplier(s.multiplier),
+        formatMoney(s.payoutMinor, this.currency()),
+        big,
+        kind,
+        formatMoney(netMinor, this.currency()),
+      );
+      // Only a return above the stake gets a win sound; the rest gets a neutral chime (RTS 14F).
+      this.audio?.playSfx(kind === 'win' ? (big ? 'bigwin' : 'win') : 'return');
     } else {
+      this.lastResultKind = 'loss';
+      this.lastCelebrated = false;
       this.phase = 'lost';
       this.view.showCrash(formatMultiplier(s.multiplier), `-${formatMoney(r.betMinor, this.currency())}`, s.crashTime === 0);
       this.audio?.playSfx('crash');
@@ -389,6 +434,7 @@ export class GameController {
       level,
       intensityName(level),
       pace(t, this.config),
+      optimisticPayout(r.betMinor, m, this.config) < r.betMinor,
     );
     this.audio?.setToneMultiplier(m);
     this.audio?.setIntensity(intensityAudioLevel(level));
@@ -422,6 +468,10 @@ export class GameController {
 
   private renderBetUi() {
     if (!this.session) return;
+    // Mirror the market's minimum gap locally so the button shows the wait before the server refuses.
+    const minCycleMs = this.session.profile?.minCycleMs ?? 0;
+    const since = performance.now() - this.lastStartAt;
+    if (minCycleMs > 0 && this.lastStartAt > 0 && since < minCycleMs) this.view.setBetCountdown(minCycleMs - since);
     const locked = !(this.phase === 'betting' || this.phase === 'won' || this.phase === 'lost');
     const reason = this.betBlockReason();
     this.view.setBetUi({

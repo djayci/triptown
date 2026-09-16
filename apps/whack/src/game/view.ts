@@ -1,5 +1,6 @@
 import { BitmapFont, BitmapText, Container, Graphics, Rectangle, Sprite, TilingSprite, type Ticker } from 'pixi.js';
 import { Confetti, gsap, pop, prefersReducedMotion, shake, tilt, type GameApp } from '@triptown/engine';
+import type { ResultKind } from '@triptown/core';
 import { COLORS, FONT_DISPLAY } from '../theme';
 import {
   Burst,
@@ -20,6 +21,7 @@ import { BET_CHIPS } from './display';
 export interface ViewHandlers {
   onBigButton(): void;
   onWhack(): void;
+  onCountdownDone(): void;
   onStepBet(dir: 1 | -1): void;
   onChip(minor: number): void;
   onToggleAuto(): void;
@@ -130,6 +132,11 @@ export class GameView {
   private decoyTimer = 0;
   private level = 0;
   private bob = 0;
+  /** False from a round start until the control is released again (RTS 14G). */
+  private armed = true;
+  private countdownUntil = 0;
+  /** What the start control should read once any countdown finishes. */
+  private actionButton = { label: 'BET', sub: '', enabled: true };
   /** Which side the bad mole pops from; chosen fresh for every setback. */
   private modSide: 'left' | 'right' = 'right';
   /** Colour of the current checkpoint tier; the multiplier and payout keep it until the next one. */
@@ -161,8 +168,10 @@ export class GameView {
     this.mainHole.hitArea = new Rectangle(30, 0, 220, 280);
     this.mainHole.on('pointertap', () => this.handlers.onWhack());
     this.decoys.forEach((d) => {
-      d.eventMode = 'static';
-      d.on('pointertap', () => d.riseTo(RISE_HIDDEN, 0.15, 'power2.in'));
+      // Decoration only: no input, no response to taps (AGCO 2.15, GLI-19 4.6.1(a), UK RTS 7C,
+      // Netherlands Bko art. 4.2(4) bans requiring actions that do not influence the outcome).
+      d.eventMode = 'none';
+      d.cursor = 'default';
     });
 
     this.mult = new BitmapText({ text: 'x1.00', style: { fontFamily: 'MultCream', fontSize: 92 } });
@@ -253,11 +262,22 @@ export class GameView {
 
     app.ticker.add(this.tick);
     game.onResize((v) => this.applyViewport(v.width, v.height));
+    // RTS 14G: the start control must be released and pressed again for each round, so a held
+    // pointer or key can never roll into the next one. `armed` is cleared on every start.
     window.addEventListener('keydown', (e) => {
-      if (e.code === 'Space' && !e.repeat && (this.phase === 'running')) {
-        e.preventDefault();
-        this.handlers.onWhack();
-      }
+      if (e.code !== 'Space' || e.repeat) return;
+      e.preventDefault();
+      if (this.phase === 'running') this.handlers.onWhack();
+      else if (this.armed) this.handlers.onBigButton();
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'Space') this.armed = true;
+    });
+    app.canvas.addEventListener('pointerup', () => {
+      this.armed = true;
+    });
+    app.canvas.addEventListener('pointercancel', () => {
+      this.armed = true;
     });
   }
 
@@ -286,11 +306,12 @@ export class GameView {
     this.drawAuto(ui.autoOn, ui.auto);
     this.statBet.set('Bet', ui.bet);
     this.statAuto.set('Auto', ui.autoOn ? ui.auto : 'OFF');
-    if (this.phase === 'betting') {
+    this.actionButton = { label: ui.reason ?? `BET ${ui.bet}`, sub: '', enabled: ui.canBet };
+    if (this.phase === 'betting' && !this.countdownUntil) {
       this.bigButton.setFill(COLORS.lime);
       this.bigButton.setIcon(null);
-      this.bigButton.setLabel(ui.reason ?? `BET ${ui.bet}`, '');
-      this.bigButton.setEnabled(ui.canBet);
+      this.bigButton.setLabel(this.actionButton.label, this.actionButton.sub);
+      this.bigButton.setEnabled(this.actionButton.enabled);
     }
     this.layoutAmount();
   }
@@ -313,6 +334,39 @@ export class GameView {
     });
     this.bigButton.setEnabled(true);
     this.relayout(true);
+  }
+
+  /** Called on every round start: the next start needs a fresh press. */
+  disarm() {
+    this.armed = false;
+  }
+
+  get isArmed() {
+    return this.armed;
+  }
+
+  /**
+   * Blocks BET until the market's minimum gap between rounds has passed, and shows the wait on the
+   * button so the player knows why (UK 5 s, Ontario 2.5 s).
+   */
+  setBetCountdown(msLeft: number) {
+    this.countdownUntil = msLeft > 0 ? performance.now() + msLeft : 0;
+    this.updateCountdown();
+  }
+
+  private updateCountdown() {
+    if (this.phase === 'running' || this.phase === 'starting' || this.phase === 'cashing') return;
+    const left = this.countdownUntil - performance.now();
+    if (left > 0) {
+      this.bigButton.setEnabled(false);
+      this.bigButton.setLabel(`WAIT ${(left / 1000).toFixed(1)}s`, 'Next round');
+    } else if (this.countdownUntil) {
+      this.countdownUntil = 0;
+      // Put the control back the way the current screen wants it, then let the controller refresh.
+      this.bigButton.setLabel(this.actionButton.label, this.actionButton.sub);
+      this.bigButton.setEnabled(this.actionButton.enabled);
+      this.handlers.onCountdownDone();
+    }
   }
 
   showStarting() {
@@ -346,10 +400,10 @@ export class GameView {
   }
 
   /** Per-frame running values. */
-  frame(multiplier: string, cashout: string, level10: number, levelName: string, pace: number) {
+  frame(multiplier: string, cashout: string, level10: number, levelName: string, pace: number, belowStake = false) {
     this.mult.text = multiplier;
     this.fitMult();
-    this.winNow.set(`WIN NOW ${cashout}`);
+    this.winNow.set(`${belowStake ? 'RETURN NOW' : 'WIN NOW'} ${cashout}`);
     this.layoutWinNow();
     this.meter.set(level10, levelName);
     this.level = level10;
@@ -522,32 +576,42 @@ export class GameView {
     this.swingHammer();
   }
 
-  showWin(multiplier: string, payout: string, big: boolean) {
+  /**
+   * A cashed-out round. `kind` decides the presentation: only a return above the stake may be
+   * celebrated (UKGC RTS 14F, AGCO 2.20). At or below the stake the screen is neutral and states
+   * what came back and what it cost.
+   */
+  showWin(multiplier: string, payout: string, big: boolean, kind: ResultKind = 'win', net = '') {
     this.phase = 'won';
     this.showSideButtons(true);
     this.resetStageFx();
-    this.stage.setMood('lime');
+    const celebrate = kind === 'win';
+    this.stage.setMood(celebrate ? 'lime' : 'sun');
     this.mult.visible = this.winNow.visible = this.meter.visible = false;
     this.mainHole.setFrame(this.frames, 'mole-gold-dizzy');
     this.mainHole.riseTo(50, 0.3, 'power2.out');
     this.resultTitle.text = 'CASHED OUT';
     this.resultMult.text = multiplier;
-    this.resultPayout.text = `+${payout}`;
+    // Net, not the gross return: "+4.20" only when the player is actually up.
+    this.resultPayout.text = celebrate ? `+${net}` : kind === 'even' ? `RETURNED ${payout} · NET 0.00` : `RETURNED ${payout} · NET -${net}`;
     this.layoutResultCard();
     this.resultCard.visible = true;
     this.resultCard.scale.set(0.3);
     gsap.to(this.resultCard.scale, { x: 1, y: 1, duration: 0.4, ease: 'back.out(2.2)' });
-    this.stars();
-    const hole = this.holeRect();
-    const bonk = new Burst(this.frames('burst-sky'), 92, 'BONK!', 20);
-    bonk.position.set(hole.x + hole.w * 0.82, hole.y + hole.h * 0.2);
-    bonk.rotation = -0.25;
-    this.fx.addChild(bonk);
-    this.trackFx(pop(bonk, 1.3, 0.3));
-    this.confetti.burst({ x: this.stage.size.width / 2, y: this.stage.size.height * 0.75, count: big ? 120 : 60, speed: big ? 1300 : 950 });
-    this.bigButton.setFill(COLORS.lime);
+    if (celebrate) {
+      this.stars();
+      const hole = this.holeRect();
+      const bonk = new Burst(this.frames('burst-sky'), 92, 'BONK!', 20);
+      bonk.position.set(hole.x + hole.w * 0.82, hole.y + hole.h * 0.2);
+      bonk.rotation = -0.25;
+      this.fx.addChild(bonk);
+      this.trackFx(pop(bonk, 1.3, 0.3));
+      this.confetti.burst({ x: this.stage.size.width / 2, y: this.stage.size.height * 0.75, count: big ? 120 : 60, speed: big ? 1300 : 950 });
+    }
+    this.bigButton.setFill(celebrate ? COLORS.lime : COLORS.sky);
     this.bigButton.setIcon(this.frames('icon-replay-cream'));
     this.bigButton.setLabel('PLAY AGAIN', 'Same bet');
+    this.actionButton = { label: 'PLAY AGAIN', sub: 'Same bet', enabled: true };
     this.bigButton.setEnabled(true);
     this.relayout(false);
   }
@@ -614,6 +678,7 @@ export class GameView {
   // ---------- internals ----------
 
   private update(dt: number) {
+    if (this.countdownUntil) this.updateCountdown();
     if (this.phase === 'betting' || this.phase === 'starting') {
       // Idle breathing so the holding screen is alive: the gold mole and the background moles bob.
       this.bob += dt;
@@ -633,7 +698,8 @@ export class GameView {
       // Decoys pop more often as the round speeds up.
       this.decoyTimer -= dt;
       if (this.decoyTimer <= 0) {
-        this.decoyTimer = Math.max(0.25, 1.4 - this.level * 0.12) * (0.6 + Math.random() * 0.8);
+        // Fixed rate: the background moles must not speed up with the round, or they read as a cue.
+        this.decoyTimer = 1.1 * (0.7 + Math.random() * 0.6);
         const visible = this.decoys.filter((d, i) => d.visible && i !== this.busyDecoy);
         const d = visible[Math.floor(Math.random() * visible.length)];
         if (d && !gsap.isTweening(d)) {
