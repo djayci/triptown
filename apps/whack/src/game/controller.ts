@@ -159,6 +159,8 @@ export class GameController {
     this.audio?.unlock();
     this.audio?.loadMusic();
     this.audio?.playSfx('bet');
+    // Music keeps running between rounds; the round mix comes in when the round starts.
+    this.audio?.startMusic();
     this.phase = 'starting';
     this.view.showStarting();
     const betMinor = this.betMinor;
@@ -221,6 +223,7 @@ export class GameController {
       this.view.showRunning(formatMoney(e.betMinor, this.currency()));
       this.renderBetUi();
       this.audio?.startMusic();
+      this.audio?.setMusicMode('round');
       this.audio?.startTone();
       return;
     }
@@ -296,7 +299,9 @@ export class GameController {
     this.inputGuardUntil = performance.now() + RESULT_INPUT_GUARD_MS;
     r.handle?.close();
     this.audio?.stopTone();
-    this.audio?.stopMusic();
+    // Back to the quiet lobby bed rather than silence, so the between-rounds screen is not dead air.
+    this.audio?.setIntensity(0);
+    this.audio?.setMusicMode('lobby');
     this.renderBalance();
     if (s.status === 'void') {
       // System failure: the stake came back; no result to celebrate or mourn.

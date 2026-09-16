@@ -48,8 +48,8 @@ const PORTRAIT = { w: 390, h: 844 };
 const DESKTOP = { w: 1440, h: 900 };
 
 /** Everything the player sees. Knows nothing about rounds or money rules; the controller drives it. */
-/** Ray speed a round starts at, on the same 0..1 pace scale (about 90°/s). */
-const RUNNING_SPIN_FLOOR = 0.3;
+/** How far the background moles peek out while betting (0 is fully up, RISE_HIDDEN is down). */
+const DECOY_PEEK = 96;
 
 export class GameView {
   readonly root = new Container();
@@ -291,7 +291,11 @@ export class GameView {
     this.mult.visible = this.winNow.visible = this.meter.visible = false;
     this.mainHole.setFrame(this.frames, 'mole-gold-sleep');
     this.mainHole.riseTo(140, 0.5, 'power2.out');
-    this.decoys.forEach((d) => d.riseTo(RISE_HIDDEN, 0.25, 'power2.in'));
+    // Background moles look out while the player is choosing a bet; they duck away once a round starts.
+    this.decoys.forEach((d, i) => {
+      d.setFrame(this.frames, 'mole-decoy-happy');
+      d.riseTo(DECOY_PEEK, 0.45 + i * 0.08, 'back.out(1.4)');
+    });
     this.bigButton.setEnabled(true);
     this.relayout(true);
   }
@@ -305,7 +309,7 @@ export class GameView {
   showRunning(cashout: string) {
     this.phase = 'running';
     this.resetStageFx();
-    this.stage.spinFrom(RUNNING_SPIN_FLOOR); // the run opens at speed instead of winding up from still
+    this.stage.spinFrom(0); // fresh wind-up, but the curve's floor means it is never fully stopped
     this.ready.visible = false;
     this.mult.visible = this.winNow.visible = this.meter.visible = true;
     this.mult.text = 'x1.00';
@@ -325,8 +329,7 @@ export class GameView {
     this.winNow.set(`WIN NOW ${cashout}`);
     this.meter.set(level10, levelName);
     this.level = level10;
-    // Rounds open at the floor and still climb from there, so the ramp is felt in the first seconds.
-    this.stage.speed = RUNNING_SPIN_FLOOR + (1 - RUNNING_SPIN_FLOOR) * pace;
+    this.stage.speed = pace;
     if (this.phase === 'running') this.bigButton.setLabel('WHACK!', `Cash out ${cashout}`);
   }
 

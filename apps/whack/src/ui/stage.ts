@@ -93,8 +93,9 @@ export class Stage extends Container {
     if (this.speed === 0 && this.spinNow < 0.005) this.spinNow = 0;
     // Front-loaded curve (pace^0.5): most rounds bust in the first seconds, so the rays are already
     // racing by then — about 50°/s half a second in, 90°/s at three seconds, 150°/s at full pace. The
-    // last stretch to zero is eased by `gate`, so the rays glide to a standstill rather than snapping.
-    const gate = Math.min(1, this.spinNow / 0.1);
+    // last stretch to zero is eased by `gate` while winding down, so the rays glide to a standstill.
+    // A running round never uses the gate: it opens at the curve's floor (~26°/s), never from still.
+    const gate = this.speed === 0 ? Math.min(1, this.spinNow / 0.1) : 1;
     if (!prefersReducedMotion() && this.spinNow > 0) {
       this.rays.rotation += (t.deltaMS * (0.45 + 2.2 * this.spinNow ** 0.5) * gate) / 1000;
     }

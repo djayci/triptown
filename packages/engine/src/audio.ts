@@ -43,6 +43,8 @@ export class AudioManager {
   private toneId: number | null = null;
   private musicPlaying = false;
   private intensity: IntensityLevel = 0;
+  /** 'lobby' plays the chord bed alone and quietly; 'round' is the full layered mix. */
+  private musicMode: 'lobby' | 'round' = 'round';
   private ducked = false;
   private interacted = false;
   private readonly listeners = new Set<(s: AudioSettings) => void>();
@@ -139,6 +141,14 @@ export class AudioManager {
     });
   }
 
+  /** Switches between the quiet between-rounds bed and the round mix. */
+  setMusicMode(mode: 'lobby' | 'round') {
+    if (mode === this.musicMode) return;
+    this.musicMode = mode;
+    this.record(`music:mode:${mode}`);
+    this.applyLayerVolumes(LAYER_FADE_MS);
+  }
+
   setIntensity(level: IntensityLevel) {
     if (level === this.intensity) return;
     this.intensity = level;
@@ -210,6 +220,8 @@ export class AudioManager {
 
   get musicLayerTargets(): { base: number; drums: number; lead: number } {
     const m = this.ducked ? Math.min(0.08, this.settings.music) : this.settings.music;
+    // Between rounds only the chord bed plays, at about half volume: present, but easy to sit in.
+    if (this.musicMode === 'lobby') return { base: m * 0.55, drums: 0, lead: 0 };
     return {
       base: m,
       drums: this.intensity >= 1 ? m : 0,

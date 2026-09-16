@@ -6,7 +6,6 @@ import './style.css';
 
 const GAMES: Record<string, { url: string; title: string; configId: string }> = {
   'whack-crash': { url: (import.meta.env.VITE_WHACK_URL as string | undefined) ?? 'http://127.0.0.1:5173/', title: 'Whack Crash', configId: 'whack-crash/v1' },
-  'paper-route': { url: (import.meta.env.VITE_PAPER_ROUTE_URL as string | undefined) ?? 'http://127.0.0.1:5175/', title: 'Paper Route', configId: 'paper-route/v1' },
 };
 
 const params = new URLSearchParams(location.search);
