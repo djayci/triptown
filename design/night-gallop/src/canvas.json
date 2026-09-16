@@ -1,0 +1,456 @@
+{
+  "pages": [
+    {
+      "id": "fence-run",
+      "name": "Fence Run \u00b7 5 options"
+    },
+    {
+      "id": "redesign",
+      "name": "Redesign \u00b7 5 options"
+    },
+    {
+      "id": "night-meet",
+      "name": "Night Meet"
+    },
+    {
+      "id": "directions",
+      "name": "Directions"
+    }
+  ],
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "Night Meet \u00b7 live loop",
+      "page": "night-meet",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "BetGap.dc.html",
+      "title": "Betting gap \u00b7 power returns",
+      "page": "night-meet",
+      "x": 480,
+      "y": 0,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "SlipCollected.dc.html",
+      "title": "Slip A auto-collected",
+      "page": "night-meet",
+      "x": 960,
+      "y": 0,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "InProfit.dc.html",
+      "title": "High multiplier \u00b7 race in profit",
+      "page": "night-meet",
+      "x": 1440,
+      "y": 0,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Win.dc.html",
+      "title": "Total win",
+      "page": "night-meet",
+      "x": 0,
+      "y": 1260,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Returned.dc.html",
+      "title": "Returned \u00b7 no celebration",
+      "page": "night-meet",
+      "x": 480,
+      "y": 1260,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "LightsOut.dc.html",
+      "title": "Lights out",
+      "page": "night-meet",
+      "x": 960,
+      "y": 1260,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Rules.dc.html",
+      "title": "Rules before any bet",
+      "page": "night-meet",
+      "x": 1440,
+      "y": 1260,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Harmattan.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Harmattan Dash",
+      "is_interactive": false,
+      "page": "directions"
+    },
+    {
+      "file": "Floodlight.dc.html",
+      "x": 480,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Night Meet",
+      "is_interactive": false,
+      "page": "directions"
+    },
+    {
+      "file": "Surf.dc.html",
+      "x": 960,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Surf Gallop",
+      "is_interactive": false,
+      "page": "directions"
+    },
+    {
+      "file": "RaceDay.dc.html",
+      "x": 1440,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Race Day",
+      "is_interactive": false,
+      "page": "directions"
+    },
+    {
+      "file": "Pulse.dc.html",
+      "x": 1920,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Ankara Pulse",
+      "is_interactive": false,
+      "page": "directions"
+    },
+    {
+      "file": "PrimeTime.dc.html",
+      "title": "A \u00b7 Prime Time",
+      "page": "redesign",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Neon.dc.html",
+      "title": "B \u00b7 Neon Circuit",
+      "page": "redesign",
+      "x": 480,
+      "y": 0,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Jumbotron.dc.html",
+      "title": "C \u00b7 Jumbotron",
+      "page": "redesign",
+      "x": 960,
+      "y": 0,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "HeadOn.dc.html",
+      "title": "D \u00b7 Head-On",
+      "page": "redesign",
+      "x": 1440,
+      "y": 0,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Storm.dc.html",
+      "title": "E \u00b7 Storm Night",
+      "page": "redesign",
+      "x": 1920,
+      "y": 0,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "FencePrimeTime.dc.html",
+      "title": "1 \u00b7 Prime Time Chase",
+      "page": "fence-run",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "FenceDaylight.dc.html",
+      "title": "2 \u00b7 Grand Chase Daylight",
+      "page": "fence-run",
+      "x": 480,
+      "y": 0,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "FenceTower.dc.html",
+      "title": "3 \u00b7 Fence Tower",
+      "page": "fence-run",
+      "x": 960,
+      "y": 0,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "FenceMud.dc.html",
+      "title": "4 \u00b7 Mud & Rain",
+      "page": "fence-run",
+      "x": 1440,
+      "y": 0,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "FenceNeon.dc.html",
+      "title": "5 \u00b7 Neon Gates",
+      "page": "fence-run",
+      "x": 1920,
+      "y": 0,
+      "w": 390,
+      "h": 844
+    }
+  ],
+  "annotations": [
+    {
+      "id": "nm-brief",
+      "page": "night-meet",
+      "x": 0,
+      "y": -230,
+      "w": 1830,
+      "text": "NIGHT MEET: two slips per race. One race, one total stake debited before the start, one round id. Each slip has its own stake and auto collect; any slip still open at lights out is lost.\nWin effects only when the race total beats the total stake. Both slips are placed in the 5 s gap; no auto-bet, no repeat-bet, no fake live-bets feed. Every collect is recorded for recall.\nLocal cues: humid haze, a flyover with bus lights, and the power-cut crash with the generator bringing the lights back. Horse is still a placeholder."
+    },
+    {
+      "id": "nm-note-1",
+      "page": "night-meet",
+      "x": 0,
+      "y": 880,
+      "w": 390,
+      "text": "Plays the full cycle on repeat. Race 1: Slip A auto-collects at x1.50, Slip B collected at x3.20, total beats the stake: WIN. Race 2: A collects, lights out before B: RETURNED, no celebration. Race 3: lights out before either: LIGHTS OUT."
+    },
+    {
+      "id": "nm-note-2",
+      "page": "night-meet",
+      "x": 480,
+      "y": 880,
+      "w": 390,
+      "text": "The 5 s gap between races is the power coming back: dark, the generator coughs twice, lamps warm up from orange to white. Bets are placed here only; nothing can be added once the race runs."
+    },
+    {
+      "id": "nm-note-3",
+      "page": "night-meet",
+      "x": 960,
+      "y": 880,
+      "w": 390,
+      "text": "Slip A hit its auto collect. Its card turns neutral (no flash, no sound): the \u20a6750 collected is still below the \u20a61,500 total stake."
+    },
+    {
+      "id": "nm-note-4",
+      "page": "night-meet",
+      "x": 1440,
+      "y": 880,
+      "w": 390,
+      "text": "Slip A (\u20a61,000) collected \u20a61,800, so the race is already in profit and the chip says so in text. Still no flash or sound: effects wait until the race settles, never on a single slip (AGENTS rule 11). Slip B still runs."
+    },
+    {
+      "id": "nm-note-5",
+      "page": "night-meet",
+      "x": 0,
+      "y": 2140,
+      "w": 390,
+      "text": "All slips collected and the total beats the stake. Freeze-frame, floodlight flash, amber banner with the total and net."
+    },
+    {
+      "id": "nm-note-6",
+      "page": "night-meet",
+      "x": 480,
+      "y": 2140,
+      "w": 390,
+      "text": "Lights out with \u20a6750 back on \u20a61,500 staked. No win banner, no flash; the net loss is shown plainly."
+    },
+    {
+      "id": "nm-note-7",
+      "page": "night-meet",
+      "x": 960,
+      "y": 2140,
+      "w": 390,
+      "text": "Power cut: an instant clunk, two flickers, darkness. The flicker only starts when the crash event arrives; lights never wobble during a race. No crash point is shown here."
+    },
+    {
+      "id": "nm-note-8",
+      "page": "night-meet",
+      "x": 1440,
+      "y": 2140,
+      "w": 390,
+      "text": "Rules sheet opened from the top bar, available before any bet. Bracketed values come from config and the jurisdiction profile. Full copy scrolls; the rest covers provably fair, recall and session tools."
+    },
+    {
+      "id": "brief",
+      "x": 0,
+      "y": -250,
+      "w": 1300,
+      "text": "Horse crash for Nigeria and Ghana: five motion-first scenes. Each artboard plays live: 5 s betting gap, the race building with the multiplier, then a collect or a crash.\nRules held in every scene: one horse, no rivals and no finish line, multiplier only rises, crash is sudden with no slow-down first, no whip or tap-to-go-faster, adult rider, win banner only when the return beats the stake, session clock and net always visible.\nThe horse is a rough placeholder; production art would be pre-rendered 3D sprite sheets sized for low-end Android. Toggle \"reducedMotion\" on an artboard to see the calm version.",
+      "page": "directions"
+    },
+    {
+      "id": "note-1",
+      "x": 0,
+      "y": 900,
+      "w": 390,
+      "text": "HARMATTAN DASH  (lead)\nDry-season sand track, low sun through harmattan haze.\nBuilds: dust plumes, haze, crowd jumping, a white pole whipping past, camera shake at high x.\nCrash: a dust wall sweeps the frame, horse pulled up.\nWhy: the most recognisably West African light; dust hides the placeholder horse well.",
+      "page": "directions"
+    },
+    {
+      "id": "note-2",
+      "x": 480,
+      "y": 900,
+      "w": 390,
+      "text": "NIGHT MEET\nCity-edge dirt track under floodlights, skyline behind.\nBuilds: phone lights in the crowd multiply, light streaks, kickback of dirt.\nCrash: LIGHTS OUT (flicker, then dark). No animal involved at all.\nFeels closest to the crash games players already know. Risk: dark and generic if the city has no character.",
+      "page": "directions"
+    },
+    {
+      "id": "note-3",
+      "x": 960,
+      "y": 900,
+      "w": 390,
+      "text": "SURF GALLOP\nHorse and adult rider galloping the shoreline at dusk (beach riding is a real Accra/Lagos sight).\nBuilds: spray, drone banks, palms rushing past, sun glitter.\nCrash: a foam wave washes over the frame.\nNot a racetrack, so it stays clear of virtual-racing classification. Risk: less \"racing\".",
+      "page": "directions"
+    },
+    {
+      "id": "note-4",
+      "x": 1440,
+      "y": 900,
+      "w": 390,
+      "text": "RACE DAY\nTurf club broadcast: packed, colourful grandstand, bunting, near rail rushing past, LIVE chip and a caller line.\nBuilds: crowd jumps, clods, rail blur. Caller lines follow the multiplier only, never hint at risk.\nCrash: the horse pulls up and the tracking camera carries on, leaving it behind.\nClosest to real racing. Risk: highest virtual-racing reading; one horse only, no field.",
+      "page": "directions"
+    },
+    {
+      "id": "note-5",
+      "x": 1920,
+      "y": 900,
+      "w": 390,
+      "text": "ANKARA PULSE\nGraphic motion: wax-print-inspired pattern bands (original motifs) racing at different speeds.\nBuilds: bands and speed lines accelerate. Collect inverts colours; crash drains to grey.\nMost distinctive on a lobby tile. Risk: a stylised look is the one most likely to read as child-appealing (CAP \"animated styles\"), so it needs care.",
+      "page": "directions"
+    },
+    {
+      "id": "rd-note-1",
+      "page": "redesign",
+      "x": 0,
+      "y": 880,
+      "w": 390,
+      "text": "A \u00b7 PRIME TIME\nTV sports coverage: low tracking camera close to the horse, blurred stadium bokeh and crowd, white rail posts whipping past the lens, dirt thrown hard. Bold italic condensed numerals with a red drop, LIVE chyron.\nEnergy: burst at the start, zoom punches at x2/x5/x10, speed and shake climb with the value.\nFeels closest to \"real racing on TV\" while staying one runner."
+    },
+    {
+      "id": "rd-note-2",
+      "page": "redesign",
+      "x": 480,
+      "y": 880,
+      "w": 390,
+      "text": "B \u00b7 NEON CIRCUIT\nStylised night: black stage, the rail lights stretched into cyan and pink light tunnels, glowing hoof trails, a mirror reflection on a glossy track. Heavy rounded display type with neon glow, pill button.\nEnergy: light streaks lengthen and multiply with the value; the lights-out is a hard cut to black.\nMost \"crash game\" of the five; least like real racing, which helps the casino classification."
+    },
+    {
+      "id": "rd-note-3",
+      "page": "redesign",
+      "x": 960,
+      "y": 880,
+      "w": 390,
+      "text": "C \u00b7 JUMBOTRON\nThe multiplier lives on the stadium's giant screen, above a packed stand where camera flashes pop more often as the value climbs. The horse runs underneath. Tall condensed Anton numerals, gold on black.\nEnergy: the screen glows hotter with the value; zoom punches at x2/x5/x10.\nThe most \"event night\" feeling; the number is part of the world instead of floating over it."
+    },
+    {
+      "id": "rd-note-4",
+      "page": "redesign",
+      "x": 1440,
+      "y": 880,
+      "w": 390,
+      "text": "D \u00b7 HEAD-ON\nThe camera runs backwards in front of the horse: it charges straight at you out of the floodlight glare, rail posts rush past both sides, dirt flies at the lens. The multiplier sits big and low, right under the horse. The distance never changes, so there is no finish to approach.\nEnergy: the most intense of the five; vignette tightens and dirt thickens with the value."
+    },
+    {
+      "id": "rd-note-5",
+      "page": "redesign",
+      "x": 1920,
+      "y": 880,
+      "w": 390,
+      "text": "E \u00b7 STORM NIGHT\nHeavy rain under the floodlights, wet track reflecting the lamps, spray off the hooves. Rain gets faster and more slanted as the value climbs; lightning strikes only when the value passes x2, x5 and x10, so it can never read as a warning.\nLeft-aligned condensed numerals in storm yellow.\nMost cinematic; also the rainy-season look players will recognise."
+    },
+    {
+      "id": "rd-brief",
+      "page": "redesign",
+      "x": 0,
+      "y": -250,
+      "w": 2310,
+      "text": "REDESIGN: five faster, louder directions for Night Gallop (one bet per round). Every screen loops live on the REAL certified curve: x1.17 at 1 s, x1.96 at 3 s, x7 at 6 s. The number cannot speed up without recertification, so the energy comes from the camera, cuts and effects around it.\nShared across all five:\n- a burst the moment the round starts;\n- zoom punches when the value passes x2, x5 and x10;\n- speed, particles and shake that only ever rise with the value;\n- lights out only after the crash;\n- a shorter 2.6 s gap in these mockups (Nigeria and Ghana have no stated minimum; needs counsel).\nSharp display fonts, no dot-matrix. The horse is still a placeholder."
+    },
+    {
+      "id": "fr-note-1",
+      "page": "fence-run",
+      "x": 0,
+      "y": 880,
+      "w": 390,
+      "text": "1 \u00b7 PRIME TIME CHASE\nThe broadcast look you picked, now a steeplechase under floodlights. Brush fences with the value written above each one, a LIVE chyron, white rail posts whipping past. Each JUMP is a big arc with a zoom punch and a burst of turf on landing; a refusal shakes the fence while the horse plants its feet.\nLadder strip shows the next five values; the finish line is the top prize."
+    },
+    {
+      "id": "fr-note-2",
+      "page": "fence-run",
+      "x": 480,
+      "y": 880,
+      "w": 390,
+      "text": "2 \u00b7 GRAND CHASE DAYLIGHT\nA big race-day afternoon: blue sky, a packed colourful grandstand, green-and-white hurdles on striped turf. The most \"real horse racing\" of the five, bright and premium, and very readable on cheap phones in daylight.\nSame JUMP / COLLECT loop and ladder strip."
+    },
+    {
+      "id": "fr-note-3",
+      "page": "fence-run",
+      "x": 960,
+      "y": 880,
+      "w": 390,
+      "text": "3 \u00b7 FENCE TOWER\nGame-first layout like the step games players already know: the jump scene on top, a big vertical ladder of fence values underneath, climbing as you clear each one. Lime on near-black, chunky type.\nFastest to read the risk (\"next fence x2.37, then x2.96\") and the most obviously a casino step game, which helps classification."
+    },
+    {
+      "id": "fr-note-4",
+      "page": "fence-run",
+      "x": 1440,
+      "y": 880,
+      "w": 390,
+      "text": "4 \u00b7 MUD & RAIN\nGritty night chase in the rain: big brush fences, mud thrown by the hooves, a mud explosion and a lightning flash on every clean landing. Left-aligned storm-yellow numerals.\nThe most physical and dramatic landings; rainy-season look."
+    },
+    {
+      "id": "fr-note-5",
+      "page": "fence-run",
+      "x": 1920,
+      "y": 880,
+      "w": 390,
+      "text": "5 \u00b7 NEON GATES\nStylised night circuit: fences are glowing gates that turn cyan once cleared, the finish is a tall pink gate, light tunnels stretch as the horse speeds up and a neon burst fires on each landing.\nLeast like real racing; most like a modern crash/step game."
+    },
+    {
+      "id": "fr-brief",
+      "page": "fence-run",
+      "x": 0,
+      "y": -270,
+      "w": 2310,
+      "text": "FENCE RUN: a step game. Place a bet, press JUMP to take the next fence; clear it and the value steps up, then choose JUMP again or COLLECT. A refusal ends the round (the horse stops, the rider stays on). The finish line after fence 10 is the top prize, collected automatically.\nSame maths on every screen: 10 fences, Medium, 80% clear chance each; values x1.21, x1.52, x1.89, x2.37, x2.96, x3.70, x4.62, x5.78, x7.22, finish x9.03 (97% RTP whatever you choose). Every fence's result is fixed by the server when the round starts; pressing faster or slower changes nothing; the jump animation is the same every time.\nEach screen loops three rounds: collect after 4 fences, refusal at fence 3, all the way to the finish. The auto-play in these mockups only shows the loop; the real game waits for each press. Horse is still a placeholder."
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "fence-run"
+  }
+}

@@ -36,9 +36,9 @@ describe('display math', () => {
   it('maps growth speed to intensity', () => {
     expect(intensity10(0, C)).toBe(1);
     expect(intensity10(C.tRamp, C)).toBe(10);
-    expect(intensityName(2)).toBe('CALM');
-    expect(intensityName(5)).toBe('FAST');
-    expect(intensityName(9)).toBe('FRENZY');
+    expect(intensityName(2)).toBe('SLOW');
+    expect(intensityName(5)).toBe('MEDIUM');
+    expect(intensityName(9)).toBe('FAST');
     expect(intensityAudioLevel(9)).toBe(2);
   });
 

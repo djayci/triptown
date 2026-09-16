@@ -212,7 +212,7 @@ export class Stage extends Container {
 export class Meter extends Container {
   private readonly bg = new Graphics();
   private readonly segs = new Graphics();
-  private readonly left = text('CALM', labelStyle(10));
+  private readonly left = text('SLOW', labelStyle(10));
   private readonly right = text('FAST', labelStyle(10, COLORS.pink));
   private level = -1;
 

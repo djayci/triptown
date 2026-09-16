@@ -1,0 +1,764 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Saira+Semi+Condensed:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #04060d; }
+    a { color: #ffb23e; } a:hover { color: #ffcf85; }
+  </style>
+</helmet>
+<div style="position:relative;width:390px;height:844px;overflow:hidden;background:#04060d;font-family:'Saira Semi Condensed','Arial Narrow',sans-serif;color:#e9ecf5">
+  <canvas id="scene" width="780" height="1688" style="position:absolute;left:0;top:0;width:390px;height:844px;display:block"></canvas>
+  <div style="position:absolute;left:0;right:0;top:0;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 6px;background:rgba(6,8,16,.72);font-size:12px">
+    <div style="display:flex;align-items:center;gap:2px">
+      <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6"></path><path d="M12 7.5v.01"></path></svg></div>
+      <span style="font-weight:600">Rules</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="display:flex;flex-direction:column;align-items:flex-end;line-height:1.2">
+        <span style="font-size:10px;letter-spacing:.12em;opacity:.7">SESSION</span>
+        <span style="font-weight:600;font-variant-numeric:tabular-nums">{{clock}}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;line-height:1.2">
+        <span style="font-size:10px;letter-spacing:.12em;opacity:.7">NET</span>
+        <span style="font-weight:600;font-variant-numeric:tabular-nums">{{net}}</span>
+      </div>
+    </div>
+  </div>
+  <div style="position:absolute;left:0;right:0;top:70px;display:flex;flex-direction:column;align-items:center;gap:4px">
+    <span style="font-size:11px;font-weight:700;letter-spacing:.2em;color:#ffcf85;opacity:.9">NIGHT MEET · {{raceLabel}} · STAKE {{totalStake}}</span>
+    <span style="font-family:'DotGothic16','Courier New',monospace;font-size:88px;line-height:1;color:#ffb23e;text-shadow:0 0 18px rgba(255,178,62,.75), 0 0 2px #ffe2b0;font-variant-numeric:tabular-nums;opacity:{{multOpacity}}">{{mult}}</span>
+  </div>
+  <sc-if value="{{showChip}}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:0;right:0;top:184px;display:flex;justify-content:center">
+      <span style="padding:6px 12px;font-size:13px;font-weight:600;background:{{chipBg}};color:{{chipFg}};border-radius:2px">{{chip}}</span>
+    </div>
+  </sc-if>
+  <sc-if value="{{showBanner}}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:28px;right:28px;top:236px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 14px;background:{{bannerBg}};color:{{bannerFg}};border-radius:2px">
+      <span style="font-family:'DotGothic16','Courier New',monospace;font-size:38px;line-height:1">{{banner}}</span>
+      <span style="font-size:14px;font-weight:600">{{bannerSub}}</span>
+    </div>
+  </sc-if>
+  <div style="position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;gap:8px;padding:12px 12px 14px;background:rgba(6,8,16,.92);border-top:1px solid rgba(255,178,62,.25)">
+    <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:10px">
+      <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+          <span style="font-size:12px;font-weight:700;letter-spacing:.14em;color:#ffcf85">SLIP A</span>
+          <span style="font-size:11px;font-weight:600;padding:2px 7px;border:1px solid rgba(233,236,245,.3);border-radius:2px">AUTO {{a.auto}}</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;opacity:{{a.stakeOpacity}}">
+          <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(233,236,245,.4);border-radius:2px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 12h12"></path></svg></div>
+          <span style="font-size:18px;font-weight:700;font-variant-numeric:tabular-nums">{{a.stake}}</span>
+          <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(233,236,245,.4);border-radius:2px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 12h12"></path><path d="M12 6v12"></path></svg></div>
+        </div>
+        <div style="height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:{{a.bg}};color:{{a.fg}};border:1.5px solid {{a.border}};border-radius:2px">
+          <span style="font-family:'DotGothic16','Courier New',monospace;font-size:20px;line-height:1">{{a.top}}</span>
+          <span style="font-size:12px;font-weight:600;font-variant-numeric:tabular-nums">{{a.sub}}</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+          <span style="font-size:12px;font-weight:700;letter-spacing:.14em;color:#ffcf85">SLIP B</span>
+          <span style="font-size:11px;font-weight:600;padding:2px 7px;border:1px solid rgba(233,236,245,.3);border-radius:2px">AUTO {{b.auto}}</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;opacity:{{b.stakeOpacity}}">
+          <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(233,236,245,.4);border-radius:2px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 12h12"></path></svg></div>
+          <span style="font-size:18px;font-weight:700;font-variant-numeric:tabular-nums">{{b.stake}}</span>
+          <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(233,236,245,.4);border-radius:2px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 12h12"></path><path d="M12 6v12"></path></svg></div>
+        </div>
+        <div style="height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:{{b.bg}};color:{{b.fg}};border:1.5px solid {{b.border}};border-radius:2px">
+          <span style="font-family:'DotGothic16','Courier New',monospace;font-size:20px;line-height:1">{{b.top}}</span>
+          <span style="font-size:12px;font-weight:600;font-variant-numeric:tabular-nums">{{b.sub}}</span>
+        </div>
+      </div>
+    </div>
+    <span style="font-size:11px;text-align:center;opacity:.7">18+ · RTP 97% · Result fixed when the race starts</span>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":390,"height":844},"reducedMotion":{"editor":"boolean","default":false}}'>
+class Component extends DCLogic {
+  cfg() {
+    return {"rounds":[{"slips":[{"stake":500,"auto":1.5},{"stake":1000,"manual":3.2}]},{"slips":[{"stake":500,"auto":1.5},{"stake":1000,"manual":4}],"crash":1.95},{"slips":[{"stake":500,"auto":2},{"stake":1000,"manual":5}],"crash":1.35}],"pin":{"phase":"crash","mult":1.95,"loop":3.4,"slips":[{"stake":500,"auto":1.5,"at":1.5},{"stake":1000}]}};
+  }
+
+  lightsLevel(S) {
+    if (S.phase === 'crash') {
+      const f = S.pt;
+      if (f < 0.07) return 1;
+      if (f < 0.12) return 0.15;
+      if (f < 0.18) return 0.8;
+      return 0.04;
+    }
+    if (S.phase === 'bet' && S.prevCrash) {
+      const f = S.pt;
+      // generator coughs into life, then the lamps warm up
+      if (f < 0.6) return 0.04;
+      if (f < 0.68) return 0.5;
+      if (f < 0.85) return 0.06;
+      if (f < 0.95) return 0.65;
+      if (f < 1.05) return 0.2;
+      return Math.min(1, 0.35 + (f - 1.05) * 0.55);
+    }
+    return 1;
+  }
+
+  drawScene(ctx, S) {
+    const W = S.W, H = S.H, G = 1190, k = S.k;
+    const L = this.lightsLevel(S);
+    let gr = ctx.createLinearGradient(0, 0, 0, 1000);
+    gr.addColorStop(0, '#04060d'); gr.addColorStop(0.7, '#0c1324'); gr.addColorStop(1, '#2b2233');
+    ctx.fillStyle = gr; ctx.fillRect(-20, -20, W + 40, 1040);
+    // city skyline, windows lit
+    this.tile(S, 0.035, 780, (x, i) => {
+      for (let b = 0; b < 9; b++) {
+        const bw = 60 + this.rnd(i * 13 + b) * 60, bh = 90 + this.rnd(i * 7 + b * 5) * 280;
+        const bx = x + b * 88;
+        ctx.fillStyle = '#0a0f1d'; ctx.fillRect(bx, 1000 - bh, bw, bh);
+        for (let wy = 1000 - bh + 14; wy < 990; wy += 22) {
+          for (let wx = bx + 8; wx < bx + bw - 10; wx += 16) {
+            if (this.rnd(wx * 0.37 + wy * 1.91 + i) > 0.72) {
+              ctx.fillStyle = 'rgba(255,196,110,.55)'; ctx.fillRect(wx, wy, 7, 9);
+            }
+          }
+        }
+      }
+    });
+    const hg = ctx.createRadialGradient(390, 1010, 20, 390, 1010, 520);
+    hg.addColorStop(0, 'rgba(255,150,70,.35)'); hg.addColorStop(1, 'rgba(255,150,70,0)');
+    ctx.fillStyle = hg; ctx.fillRect(-20, 500, W + 40, 600);
+    // flyover behind the track: bus and car lights keep their own pace
+    ctx.fillStyle = '#0b0f1a'; ctx.fillRect(-20, 918, W + 40, 22);
+    this.tile(S, 0.1, 260, (x) => { ctx.fillRect(x + 120, 940, 18, 60); });
+    for (let v = 0; v < 14; v++) {
+      const dir = v % 2 ? 1 : -1;
+      const vx = ((this.rnd(v) * 1400 + dir * S.t * (90 + this.rnd(v * 3) * 80) - S.scroll * 0.1) % 1400 + 1400) % 1400 - 300;
+      if (dir > 0) {
+        ctx.fillStyle = this.rnd(v * 7) > 0.45 ? 'rgba(255,205,40,.95)' : 'rgba(255,240,220,.9)';
+        ctx.fillRect(vx, 922, this.rnd(v * 7) > 0.45 ? 30 : 18, 7);
+      } else {
+        ctx.fillStyle = 'rgba(255,60,50,.85)';
+        ctx.fillRect(vx, 931, 14, 5);
+      }
+    }
+    // floodlight towers
+    this.tile(S, 0.22, 560, (x) => {
+      ctx.fillStyle = '#10141f'; ctx.fillRect(x + 36, 470, 10, 560);
+      ctx.fillStyle = L > 0.97 ? '#fffdf4' : L > 0.3 ? '#ffc98a' : '#3a3d48';
+      ctx.fillRect(x, 440, 84, 36);
+      if (L > 0.05) {
+        const cg = ctx.createLinearGradient(0, 470, 0, 1250);
+        cg.addColorStop(0, 'rgba(255,248,226,' + (0.2 * L).toFixed(3) + ')'); cg.addColorStop(1, 'rgba(255,248,226,0)');
+        ctx.fillStyle = cg;
+        ctx.beginPath(); ctx.moveTo(x + 6, 474); ctx.lineTo(x + 78, 474); ctx.lineTo(x + 360, 1260); ctx.lineTo(x - 260, 1260); ctx.closePath(); ctx.fill();
+        const glow = ctx.createRadialGradient(x + 42, 458, 4, x + 42, 458, 120);
+        glow.addColorStop(0, 'rgba(255,252,240,' + (0.9 * L).toFixed(3) + ')'); glow.addColorStop(1, 'rgba(255,252,240,0)');
+        ctx.fillStyle = glow; ctx.fillRect(x - 80, 340, 250, 240);
+      }
+    });
+    // crowd with phone lights: more lights as the multiplier climbs
+    ctx.fillStyle = '#121626'; ctx.fillRect(-20, 960, W + 40, 90);
+    this.tile(S, 0.4, 22, (x, i) => {
+      ctx.fillStyle = '#1b2034';
+      ctx.beginPath(); ctx.arc(x + 11, 985 + this.rnd(i) * 30, 8, 0, 6.28); ctx.fill();
+      if (this.rnd(i * 3.1) < 0.08 + 0.55 * k && L > 0.3) {
+        const tw = 0.5 + 0.5 * Math.sin(S.t * (3 + this.rnd(i) * 4) + i);
+        ctx.fillStyle = 'rgba(210,235,255,' + (0.35 + 0.6 * tw).toFixed(3) + ')';
+        ctx.fillRect(x + 8, 970 + this.rnd(i * 2) * 40, 5, 8);
+      }
+    });
+    ctx.fillStyle = '#f4f6fb'; ctx.fillRect(-20, 1046, W + 40, 7);
+    this.tile(S, 0.95, 100, (x) => { ctx.fillRect(x, 1046, 6, 44); });
+    // dirt track, lit pool
+    gr = ctx.createLinearGradient(0, 1060, 0, H);
+    gr.addColorStop(0, '#4a3326'); gr.addColorStop(1, '#161010');
+    ctx.fillStyle = gr; ctx.fillRect(-20, 1088, W + 40, H);
+    const pool = ctx.createRadialGradient(S.hx, G, 30, S.hx, G, 520);
+    pool.addColorStop(0, 'rgba(255,236,200,.22)'); pool.addColorStop(1, 'rgba(255,236,200,0)');
+    ctx.fillStyle = pool; ctx.fillRect(-20, 900, W + 40, 700);
+    ctx.fillStyle = 'rgba(255,230,190,.07)';
+    this.tile(S, 1, 110, (x, i) => {
+      ctx.fillRect(x, 1110 + this.rnd(i) * 560, (50 + this.rnd(i * 2) * 110) * (1 + 3 * k), 3);
+    });
+    ctx.fillStyle = 'rgba(0,0,0,.4)';
+    ctx.beginPath(); ctx.ellipse(S.hx, G + 6, 170, 14, 0, 0, 6.28); ctx.fill();
+    const hv = this.horse(ctx, S, {
+      body: '#171010', far: '#0e0909', mane: '#050303', rim: '#dff1ff',
+      silk1: '#ffb23e', silk2: '#16b8a6', cap: '#16b8a6', skin: '#3e271b', breeches: '#e9ecf5',
+    }, G, 2.2);
+    this.kick(S, hv, G, 30 + 70 * k, {
+      n: S.reduced ? 1 : 3, color: '#2a1c14', alpha: 0.9, r: 5, life: 0.7, spread: 260,
+      lift: 520 + 380 * k, vx: -120, grav: 1500, world: 0.6, square: true,
+    });
+    this.drawParts(ctx, S);
+    // streaks of light as speed builds
+    if (k > 0.2 && L > 0.5) {
+      ctx.fillStyle = 'rgba(255,250,235,' + (0.12 * k).toFixed(3) + ')';
+      this.tile(S, 2.2, 240, (x, i) => { ctx.fillRect(x, 300 + this.rnd(i) * 1100, 180 * k, 2); });
+    }
+    // humid haze hanging over the track
+    const hz = ctx.createLinearGradient(0, 780, 0, 1150);
+    hz.addColorStop(0, 'rgba(255,200,150,0)'); hz.addColorStop(0.5, 'rgba(255,200,150,.07)'); hz.addColorStop(1, 'rgba(255,200,150,0)');
+    ctx.fillStyle = hz; ctx.fillRect(-20, 780, W + 40, 370);
+    if (L < 1) {
+      ctx.fillStyle = 'rgba(0,0,4,' + (0.93 * (1 - L)).toFixed(3) + ')';
+      ctx.fillRect(-20, -20, W + 40, H + 40);
+      if (S.phase === 'crash' && S.pt > 0.4) {
+        const em = ctx.createRadialGradient(390, 1020, 10, 390, 1020, 380);
+        em.addColorStop(0, 'rgba(255,120,40,.18)'); em.addColorStop(1, 'rgba(255,120,40,0)');
+        ctx.fillStyle = em; ctx.fillRect(-20, 600, W + 40, 900);
+      }
+    }
+  }
+
+  componentDidMount() {
+    const c = this.cfg();
+    this.g = {
+      round: 0, phase: 'bet', pt: 0, t: 0, mult: 1, k: 0, speed: 260, hs: 260, gait: 0,
+      scroll: 0, parts: [], flash: 0, net: 0, clock: 754, hudT: 1, cash: 0,
+      hx: c.horseX || 360, prevCrash: false, raceNo: 14, frozen: false,
+    };
+    this.last = 0;
+    this.hudKey = '';
+    const step = (now) => {
+      this.raf = requestAnimationFrame(step);
+      if (!this.cv || !this.cv.isConnected) this.cv = document.getElementById('scene');
+      if (!this.cv) return;
+      const dt = this.last ? Math.min(0.05, (now - this.last) / 1000) : 0.016;
+      this.last = now;
+      this.tick(dt);
+      this.paint(this.cv.getContext('2d'), dt);
+    };
+    this.raf = requestAnimationFrame(step);
+  }
+
+  componentWillUnmount() {
+    cancelAnimationFrame(this.raf);
+  }
+
+  renderVals() {
+    const s = this.state || {};
+    const c = this.cfg();
+    return Object.assign({
+      mult: 'x1.00', multOpacity: 0.55, raceLabel: 'RACE 14 · STAKE ₦500',
+      clock: '00:12:34', net: '₦0', stakeOpacity: 1,
+      btnTop: 'BET ₦500', btnSub: 'Next race in 5s', btnBg: c.hud.btnIdleBg, btnFg: c.hud.btnIdleFg,
+      showBanner: false, banner: '', bannerSub: '', bannerBg: c.hud.lossBg, bannerFg: c.hud.lossFg,
+      ticker: 'Going: good · next race in 5s',
+    }, s);
+  }
+
+  naira(v) {
+    return '₦' + Math.round(Math.abs(v)).toLocaleString('en-NG');
+  }
+
+  tick(dt) {
+    const c = this.cfg();
+    const g = this.g;
+    const R = c.rounds;
+    const r = R[g.round % R.length];
+    const STAKE = 500;
+    const BET = 5;
+    const RES = 3.2;
+    g.t += dt;
+    g.pt += dt;
+    g.clock += dt;
+    g.flash = Math.max(0, g.flash - dt * 2.2);
+    if (g.phase === 'bet') {
+      g.mult = 1;
+      if (g.pt >= BET) {
+        g.phase = 'run'; g.pt = 0; g.net -= STAKE; g.raceNo++;
+      }
+    } else if (g.phase === 'run') {
+      g.mult = Math.exp(0.2 * g.pt);
+      if (r.collectAt && g.pt >= r.collectAt) {
+        g.phase = 'collect'; g.pt = 0;
+        g.cash = Math.round(g.mult * 100) / 100;
+        g.net += Math.round(STAKE * g.cash);
+        g.flash = this.props.reducedMotion ? 0.3 : 1;
+      } else if (r.crashAt && g.pt >= r.crashAt) {
+        g.phase = 'crash'; g.pt = 0; g.cash = 0; g.prevCrash = true;
+      }
+    } else if (g.pt >= RES) {
+      g.phase = 'bet'; g.pt = 0; g.round++;
+      if (g.round % R.length === 0) g.net = 0;
+      if (c.driftOnCrash && g.prevCrash) g.hx = -420;
+    }
+    if (g.phase === 'run') g.k = Math.min(1, Math.log(g.mult) / Math.log(5));
+    if (g.phase === 'bet') g.k = 0;
+    g.frozen = g.phase === 'collect' && g.pt < 0.5;
+
+    let camT = 260, horseT = 260, camRate = 2.5, horseRate = 2.5;
+    if (g.phase === 'run') { camT = horseT = 700 + 1500 * g.k; camRate = horseRate = 3; }
+    else if (g.phase === 'crash') { camT = 0; horseT = 0; horseRate = 1.3; camRate = c.crashCamRate || 1.3; }
+    else if (g.phase === 'collect') { camRate = horseRate = 1.2; }
+    if (g.frozen) { g.speed = 0; g.hs = 0; }
+    else {
+      g.speed += (camT - g.speed) * Math.min(1, dt * camRate);
+      g.hs += (horseT - g.hs) * Math.min(1, dt * horseRate);
+    }
+    if (g.phase === 'crash' && c.driftOnCrash) g.hx += (g.hs - g.speed) * dt * 0.7;
+    else g.hx += ((c.horseX || 360) - g.hx) * Math.min(1, dt * 1.1);
+    if (!g.frozen) {
+      g.gait += dt * (g.hs > 40 ? 1.0 + g.hs / 1100 : g.hs / 40);
+      g.scroll += g.speed * dt;
+    }
+    g.hudT += dt;
+    if (g.hudT > 0.08) { g.hudT = 0; this.pushHud(); }
+  }
+
+  pushHud() {
+    const c = this.cfg();
+    const g = this.g;
+    const H = c.hud;
+    const STAKE = 500;
+    const BET = 5;
+    const n = {};
+    const shown = g.phase === 'collect' ? g.cash : g.mult;
+    n.mult = 'x' + shown.toFixed(2);
+    n.multOpacity = g.phase === 'bet' ? 0.55 : g.phase === 'crash' ? 0 : 1;
+    n.raceLabel = 'RACE ' + g.raceNo + ' · STAKE ' + this.naira(STAKE);
+    const total = Math.floor(g.clock);
+    const hh = Math.floor(total / 3600), mm = Math.floor(total / 60) % 60, ss = total % 60;
+    n.clock = String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') + ':' + String(ss).padStart(2, '0');
+    n.net = (g.net > 0 ? '+' : g.net < 0 ? '−' : '') + this.naira(g.net);
+    n.stakeOpacity = g.phase === 'bet' ? 1 : 0.4;
+    n.showBanner = false;
+    n.banner = ''; n.bannerSub = ''; n.bannerBg = H.lossBg; n.bannerFg = H.lossFg;
+    const secs = Math.max(1, Math.ceil(BET - g.pt));
+    if (g.phase === 'bet') {
+      n.btnTop = 'BET ' + this.naira(STAKE);
+      n.btnSub = 'Next race in ' + secs + 's';
+      n.btnBg = H.btnIdleBg; n.btnFg = H.btnIdleFg;
+      n.ticker = 'Going: good · next race in ' + secs + 's';
+    } else if (g.phase === 'run') {
+      n.btnTop = 'COLLECT';
+      n.btnSub = this.naira(STAKE * g.mult);
+      n.btnBg = H.btnBg; n.btnFg = H.btnFg;
+      const m = g.mult;
+      n.ticker = m < 1.3 ? 'And she’s away, lovely start' : m < 1.8 ? 'Settling into a good rhythm' : m < 2.6 ? 'Picking up real pace now' : m < 3.5 ? 'Flying along down the far side!' : 'What a gallop this is!';
+    } else if (g.phase === 'crash') {
+      n.btnTop = 'RACE OVER';
+      n.btnSub = 'Next race soon';
+      n.btnBg = H.btnIdleBg; n.btnFg = H.btnIdleFg;
+      n.showBanner = true;
+      n.banner = H.crashWord || 'PULLED UP';
+      n.bannerSub = 'Stake ' + this.naira(STAKE) + ' lost this race';
+      n.ticker = 'Pulled up · race over';
+    } else {
+      const ret = Math.round(STAKE * g.cash);
+      n.btnTop = 'COLLECTED';
+      n.btnSub = this.naira(ret);
+      n.btnBg = H.btnIdleBg; n.btnFg = H.btnIdleFg;
+      n.showBanner = true;
+      if (ret > STAKE) {
+        n.banner = 'WIN ' + this.naira(ret);
+        n.bannerSub = 'Net +' + this.naira(ret - STAKE) + ' this race';
+        n.bannerBg = H.winBg; n.bannerFg = H.winFg;
+      } else {
+        n.banner = 'RETURNED ' + this.naira(ret);
+        n.bannerSub = 'Net ' + (ret < STAKE ? '−' : '') + this.naira(ret - STAKE) + ' this race';
+      }
+      n.ticker = 'Collected at x' + g.cash.toFixed(2);
+    }
+    const key = JSON.stringify(n);
+    if (key !== this.hudKey) { this.hudKey = key; this.setState(n); }
+  }
+
+  paint(ctx, dt) {
+    const g = this.g;
+    const W = 780, H = 1688;
+    const reduced = !!this.props.reducedMotion;
+    const S = {
+      W, H, t: g.t, dt: g.frozen ? 0 : dt, phase: g.phase, pt: g.pt, mult: g.mult, k: g.k || 0,
+      speed: g.speed, hs: g.hs, scroll: g.scroll, gait: g.gait, hx: g.hx, reduced, frozen: g.frozen,
+      prevCrash: g.prevCrash, flash: g.flash,
+    };
+    ctx.save();
+    ctx.clearRect(0, 0, W, H);
+    if (!reduced && g.phase === 'run' && S.k > 0.45) {
+      const a = (S.k - 0.45) * 9;
+      ctx.translate((Math.random() - 0.5) * a, (Math.random() - 0.5) * a);
+    }
+    this.drawScene(ctx, S);
+    if (g.flash > 0 && !this.cfg().ownFlash) {
+      ctx.fillStyle = 'rgba(255,255,255,' + (g.flash * 0.8).toFixed(3) + ')';
+      ctx.fillRect(-20, -20, W + 40, H + 40);
+    }
+    ctx.restore();
+    if (g.phase === 'bet' && g.pt > 1.2) g.prevCrash = false;
+  }
+
+  rnd(n) {
+    const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+    return x - Math.floor(x);
+  }
+
+  tile(S, f, sp, fn) {
+    const off = S.scroll * f;
+    const base = Math.floor(off / sp);
+    const shift = off - base * sp;
+    const count = Math.ceil(S.W / sp) + 2;
+    for (let i = -1; i < count; i++) fn(i * sp - shift, base + i);
+  }
+
+  emit(x, y, n, o) {
+    const P = this.g.parts;
+    const cap = this.props.reducedMotion ? 120 : 320;
+    for (let i = 0; i < n; i++) {
+      if (P.length > cap) P.shift();
+      P.push({
+        x: x + (Math.random() - 0.5) * (o.jx || 20), y,
+        vx: (o.vx || 0) + (Math.random() - 0.5) * (o.spread || 80),
+        vy: (o.vy || 0) - Math.random() * (o.lift || 80),
+        life: 0, max: (o.life || 1) * (0.6 + Math.random() * 0.8),
+        r: (o.r || 10) * (0.5 + Math.random()), grow: o.grow || 0, grav: o.grav || 0,
+        color: o.color, alpha: o.alpha == null ? 0.6 : o.alpha, world: o.world == null ? 1 : o.world,
+        sq: !!o.square,
+      });
+    }
+  }
+
+  drawParts(ctx, S) {
+    const P = this.g.parts;
+    for (let i = P.length - 1; i >= 0; i--) {
+      const p = P[i];
+      if (S.dt > 0) {
+        p.life += S.dt;
+        p.vy += p.grav * S.dt;
+        p.x += (p.vx - S.speed * p.world) * S.dt;
+        p.y += p.vy * S.dt;
+      }
+      if (p.life >= p.max) { P.splice(i, 1); continue; }
+      ctx.globalAlpha = Math.max(0, p.alpha * (1 - p.life / p.max));
+      ctx.fillStyle = p.color;
+      const rr = p.r + p.grow * p.life;
+      if (p.sq) { ctx.fillRect(p.x - rr, p.y - rr, rr * 2, rr * 2); }
+      else { ctx.beginPath(); ctx.arc(p.x, p.y, rr, 0, 6.2832); ctx.fill(); }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Placeholder gallop: production art is pre-rendered 3D sprite sheets.
+  horse(ctx, S, L, G, s, opt) {
+    opt = opt || {};
+    const TAU = Math.PI * 2;
+    const p = S.gait;
+    const run = Math.min(1, S.hs / 520);
+    const bob = -Math.abs(Math.sin(TAU * p)) * 7 * run;
+    const pitch = Math.sin(TAU * p + 0.8) * 0.045 * run;
+    const upright = S.phase === 'run' ? 0 : S.phase === 'crash' ? 1 - Math.min(1, S.hs / 700) : S.phase === 'collect' ? 0.55 : 0.35;
+    const hooves = [];
+    ctx.save();
+    ctx.translate(S.hx, G);
+    if (opt.mirror) { ctx.scale(s, -s); ctx.globalAlpha = opt.alpha; }
+    else ctx.scale(s, s);
+    ctx.translate(0, bob);
+    ctx.rotate(pitch);
+    const amp = 0.18 + 0.5 * run;
+    const leg = (hx, hy, ph, front, near) => {
+      const th = TAU * (p + ph);
+      const a = amp * Math.sin(th);
+      const fold = Math.max(0, Math.cos(th)) * (front ? 1.5 : 1.0) * (0.3 + 0.7 * run);
+      const kx = hx + Math.sin(a) * 36, ky = hy + Math.cos(a) * 36;
+      const a2 = a - fold;
+      const fx = kx + Math.sin(a2) * 40, fy = ky + Math.cos(a2) * 40;
+      ctx.strokeStyle = near ? L.body : (L.far || L.body);
+      ctx.lineCap = 'round';
+      ctx.lineWidth = near ? (front ? 12 : 15) : (front ? 10 : 13);
+      ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(kx, ky); ctx.stroke();
+      ctx.lineWidth = near ? 7 : 6;
+      ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(fx, fy); ctx.stroke();
+      ctx.fillStyle = L.hoof || L.body;
+      ctx.beginPath(); ctx.arc(fx, fy + 1, 5, 0, TAU); ctx.fill();
+      hooves.push([S.hx + s * fx, G + s * (fy + bob)]);
+    };
+    leg(-38, -74, 0.0, false, false);
+    leg(40, -74, 0.44, true, false);
+    // tail
+    const tw = Math.sin(TAU * p) * 8 * run;
+    ctx.strokeStyle = L.mane || L.body;
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 10;
+    ctx.beginPath(); ctx.moveTo(-60, -98); ctx.quadraticCurveTo(-98, -104 + tw, -128, -72 - run * 22 + tw); ctx.stroke();
+    ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(-62, -94); ctx.quadraticCurveTo(-104, -94 + tw, -136, -58 - run * 16 + tw * 1.4); ctx.stroke();
+    // body
+    ctx.fillStyle = L.body;
+    ctx.beginPath(); ctx.ellipse(0, -88, 60, 22, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-36, -92, 31, 27, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(38, -90, 29, 26, 0, 0, TAU); ctx.fill();
+    // neck + head
+    const r1 = -0.95 + 0.4 * run + Math.sin(TAU * p + 1.6) * 0.09 * run;
+    const r2 = 0.95 - 0.25 * run;
+    ctx.save();
+    ctx.translate(46, -98);
+    ctx.rotate(r1);
+    ctx.beginPath(); ctx.moveTo(-8, -18); ctx.lineTo(62, -10); ctx.lineTo(66, 10); ctx.lineTo(-4, 24); ctx.closePath(); ctx.fill();
+    if (L.mane) {
+      ctx.strokeStyle = L.mane; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.moveTo(-6, -18); ctx.quadraticCurveTo(30, -20 - 5 * run, 60, -12); ctx.stroke();
+    }
+    ctx.translate(62, 0);
+    ctx.rotate(r2);
+    ctx.beginPath(); ctx.ellipse(20, 0, 27, 11, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(42, 2, 9, 9, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(4, -24); ctx.lineTo(11, -9); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    // mouth point in body frame, for the reins
+    const c1 = Math.cos(r1), s1 = Math.sin(r1);
+    const hx0 = 46 + 62 * c1, hy0 = -98 + 62 * s1;
+    const c2 = Math.cos(r1 + r2), s2 = Math.sin(r1 + r2);
+    const mouth = [hx0 + 40 * c2 - 3 * s2, hy0 + 40 * s2 + 3 * c2];
+    if (L.rim && !opt.mirror) {
+      ctx.strokeStyle = L.rim; ctx.lineWidth = 3; ctx.globalAlpha = 0.75;
+      ctx.beginPath(); ctx.ellipse(0, -90, 60, 22, 0, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(-36, -94, 31, 27, 0, Math.PI * 1.1, Math.PI * 1.7); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    // jockey (adult proportions: small head, long torso, clear riding kit)
+    const jb = -bob * 0.6;
+    const hip = [4, -118 + jb];
+    const sh = [40 - 22 * upright, -130 - 26 * upright + jb];
+    const head = [sh[0] + 12 - 6 * upright, sh[1] - 11 - 3 * upright];
+    const knee = [26, -106 + jb * 0.5];
+    const foot = [16, -92];
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = L.breeches || '#f1ede4'; ctx.lineWidth = 11;
+    ctx.beginPath(); ctx.moveTo(hip[0], hip[1]); ctx.lineTo(knee[0], knee[1]); ctx.stroke();
+    ctx.strokeStyle = L.boot || '#141414'; ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.moveTo(knee[0], knee[1]); ctx.lineTo(foot[0], foot[1]); ctx.stroke();
+    ctx.strokeStyle = L.silk1; ctx.lineWidth = 18;
+    ctx.beginPath(); ctx.moveTo(hip[0], hip[1]); ctx.lineTo(sh[0], sh[1]); ctx.stroke();
+    ctx.strokeStyle = L.silk2; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(hip[0] + 4, hip[1] - 2); ctx.lineTo(sh[0] + 2, sh[1] - 1); ctx.stroke();
+    const pump = Math.sin(TAU * p) * 5 * run;
+    const elbow = [sh[0] + 10, sh[1] + 16];
+    const hand = [sh[0] + 28 + pump, sh[1] + 12 - pump * 0.3];
+    ctx.strokeStyle = L.silk2; ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.moveTo(sh[0], sh[1]); ctx.lineTo(elbow[0], elbow[1]); ctx.lineTo(hand[0], hand[1]); ctx.stroke();
+    ctx.strokeStyle = L.rein || 'rgba(20,14,10,.9)'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(hand[0], hand[1]); ctx.lineTo(mouth[0], mouth[1]); ctx.stroke();
+    ctx.fillStyle = L.skin || '#5a3a26';
+    ctx.beginPath(); ctx.arc(head[0], head[1], 8.5, 0, TAU); ctx.fill();
+    ctx.fillStyle = L.cap;
+    ctx.beginPath(); ctx.arc(head[0], head[1] - 1, 9.5, Math.PI, TAU); ctx.fill();
+    ctx.fillRect(head[0], head[1] - 2, 13, 3);
+    ctx.fillStyle = 'rgba(20,20,24,.85)';
+    ctx.fillRect(head[0] + 2, head[1] + 1, 7, 3);
+    leg(-38, -74, 0.1, false, true);
+    leg(40, -74, 0.56, true, true);
+    ctx.restore();
+    return hooves;
+  }
+
+  kick(S, hooves, G, rate, o) {
+    if (S.dt <= 0 || S.hs < 150) return;
+    for (let i = 0; i < hooves.length; i++) {
+      const h = hooves[i];
+      if (h[1] > G - 12 && Math.random() < rate * S.dt) this.emit(h[0], G - 4, o.n || 1, o);
+    }
+  }
+
+  // ---- Night Meet: two slips per race, one debit, one round (overrides the single-bet loop above) ----
+
+  componentDidMount() {
+    const c = this.cfg();
+    this.g = {
+      round: 0, phase: 'bet', pt: 0, t: 0, mult: 1, k: 0, speed: 260, hs: 260, gait: 0,
+      scroll: 0, parts: [], flash: 0, net: 0, clock: 1394, hudT: 1, hx: 350,
+      prevCrash: !!c.startAfterCrash, raceNo: 27, frozen: false, slips: null,
+    };
+    this.loadRound();
+    if (c.pin) this.applyPin(true);
+    this.last = 0;
+    this.hudKey = '';
+    const step = (now) => {
+      this.raf = requestAnimationFrame(step);
+      if (!this.cv || !this.cv.isConnected) this.cv = document.getElementById('scene');
+      if (!this.cv) return;
+      const dt = this.last ? Math.min(0.05, (now - this.last) / 1000) : 0.016;
+      this.last = now;
+      this.tick(dt);
+      this.paint(this.cv.getContext('2d'), dt);
+    };
+    this.raf = requestAnimationFrame(step);
+  }
+
+  renderVals() {
+    const s = this.state || {};
+    const card = { top: 'BET ₦500', sub: 'Next race in 5s', bg: 'rgba(255,178,62,.12)', fg: '#ffcf85', border: 'rgba(255,178,62,.45)', stake: '₦500', auto: 'Off', stakeOpacity: 1 };
+    return Object.assign({
+      mult: 'x1.00', multOpacity: 0.55, raceLabel: 'RACE 27', clock: '00:23:14', net: '₦0',
+      a: card, b: card, showChip: false, chip: '', chipBg: 'rgba(6,8,16,.7)', chipFg: '#e9ecf5',
+      showBanner: false, banner: '', bannerSub: '', bannerBg: 'rgba(8,10,18,.9)', bannerFg: '#e9ecf5',
+      totalStake: '₦1,500',
+    }, s);
+  }
+
+  loadRound() {
+    const c = this.cfg();
+    const r = c.rounds[this.g.round % c.rounds.length];
+    this.g.slips = r.slips.map((s) => ({ stake: s.stake, auto: s.auto || null, manual: s.manual || null, at: null }));
+    this.g.crashAt = r.crash || 999;
+  }
+
+  applyPin(first) {
+    const p = this.cfg().pin;
+    const g = this.g;
+    g.phase = p.phase;
+    g.mult = p.mult || 1;
+    g.k = p.phase === 'bet' ? 0 : Math.min(1, Math.log(g.mult) / Math.log(5));
+    g.slips = p.slips.map((s) => ({ stake: s.stake, auto: s.auto || null, manual: null, at: s.at || null }));
+    g.prevCrash = !!p.afterCrash;
+    g.pt = 0;
+    if (p.phase === 'collect') g.flash = first ? 0 : 1;
+    if (p.phase === 'run') { g.speed = g.hs = 700 + 1500 * g.k; }
+    if (p.phase === 'crash' || p.phase === 'collect') { g.speed = g.hs = 700 + 1500 * g.k; }
+  }
+
+  totals() {
+    const g = this.g;
+    let staked = 0, returned = 0, open = 0;
+    for (const s of g.slips) {
+      staked += s.stake;
+      if (s.at) returned += Math.round(s.stake * s.at);
+      else open++;
+    }
+    return { staked, returned, open };
+  }
+
+  tick(dt) {
+    const c = this.cfg();
+    const g = this.g;
+    const BET = 5, RES = 3.4;
+    g.t += dt; g.pt += dt; g.clock += dt;
+    g.flash = Math.max(0, g.flash - dt * 2.2);
+    if (c.pin) {
+      if (c.pin.loop && g.pt >= c.pin.loop) this.applyPin(false);
+    } else if (g.phase === 'bet') {
+      g.mult = 1;
+      if (g.pt >= BET) {
+        g.phase = 'run'; g.pt = 0; g.raceNo++;
+        g.net -= this.totals().staked;
+      }
+    } else if (g.phase === 'run') {
+      g.mult = Math.exp(0.2 * g.pt);
+      if (g.mult >= g.crashAt) {
+        g.mult = g.crashAt;
+        g.phase = 'crash'; g.pt = 0; g.prevCrash = true;
+      } else {
+        const before = this.totals();
+        for (const s of g.slips) {
+          if (s.at) continue;
+          const target = s.auto || s.manual;
+          if (target && g.mult >= target) s.at = Math.round(target * 100) / 100;
+        }
+        const after = this.totals();
+        if (after.returned !== before.returned) {
+          g.net += after.returned - before.returned;
+          // Win effects wait for the race to settle, never on a single slip's collect (rule 11, RTS 14F).
+          if (after.open === 0) {
+            g.phase = 'collect'; g.pt = 0;
+            if (after.returned > after.staked) g.flash = this.props.reducedMotion ? 0.3 : 1;
+          }
+        }
+      }
+    } else if (g.pt >= RES) {
+      g.phase = 'bet'; g.pt = 0; g.round++;
+      if (g.round % c.rounds.length === 0) g.net = 0;
+      this.loadRound();
+    }
+    if (!c.pin) {
+      if (g.phase === 'run') g.k = Math.min(1, Math.log(g.mult) / Math.log(5));
+      if (g.phase === 'bet') g.k = 0;
+    }
+    g.frozen = g.phase === 'collect' && g.pt < 0.5;
+    let camT = 260, rate = 2.5;
+    if (g.phase === 'run') { camT = 700 + 1500 * g.k; rate = 3; }
+    else if (g.phase === 'crash') { camT = 0; rate = 1.3; }
+    else if (g.phase === 'collect') { rate = 1.2; }
+    if (g.frozen) { g.speed = 0; g.hs = 0; }
+    else { g.speed += (camT - g.speed) * Math.min(1, dt * rate); g.hs = g.speed; }
+    if (!g.frozen) {
+      g.gait += dt * (g.hs > 40 ? 1.0 + g.hs / 1100 : g.hs / 40);
+      g.scroll += g.speed * dt;
+    }
+    g.hudT += dt;
+    if (g.hudT > 0.08) { g.hudT = 0; this.pushHud(); }
+  }
+
+  slipCard(s, i) {
+    const g = this.g;
+    const on = { bg: '#ffb23e', fg: '#140d02', border: '#ffb23e' };
+    const idle = { bg: 'rgba(255,178,62,.1)', fg: '#ffcf85', border: 'rgba(255,178,62,.45)' };
+    const done = { bg: 'rgba(233,236,245,.08)', fg: '#e9ecf5', border: 'rgba(233,236,245,.35)' };
+    const dead = { bg: 'rgba(233,236,245,.04)', fg: 'rgba(233,236,245,.45)', border: 'rgba(233,236,245,.15)' };
+    const base = {
+      stake: this.naira(s.stake),
+      auto: s.auto ? 'x' + s.auto.toFixed(2) : 'Off',
+      stakeOpacity: g.phase === 'bet' ? 1 : 0.4,
+    };
+    if (g.phase === 'bet') {
+      const secs = Math.max(1, Math.ceil(5 - g.pt));
+      return Object.assign(base, idle, { top: 'BET ' + this.naira(s.stake), sub: 'Next race in ' + secs + 's' });
+    }
+    if (s.at) return Object.assign(base, done, { top: 'COLLECTED', sub: this.naira(s.stake * s.at) + ' at x' + s.at.toFixed(2) });
+    if (g.phase === 'run') return Object.assign(base, on, { top: 'COLLECT', sub: this.naira(s.stake * g.mult) });
+    if (g.phase === 'crash') return Object.assign(base, dead, { top: 'LOST', sub: 'Stake ' + this.naira(s.stake) });
+    return Object.assign(base, done, { top: 'SETTLED', sub: '' });
+  }
+
+  pushHud() {
+    const g = this.g;
+    const n = {};
+    const T = this.totals();
+    n.mult = 'x' + g.mult.toFixed(2);
+    n.multOpacity = g.phase === 'bet' ? 0.55 : g.phase === 'crash' ? 0 : 1;
+    n.raceLabel = 'RACE ' + g.raceNo;
+    const total = Math.floor(g.clock);
+    n.clock = String(Math.floor(total / 3600)).padStart(2, '0') + ':' + String(Math.floor(total / 60) % 60).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
+    n.net = (g.net > 0 ? '+' : g.net < 0 ? '−' : '') + this.naira(g.net);
+    n.totalStake = this.naira(T.staked);
+    n.a = this.slipCard(g.slips[0], 0);
+    n.b = this.slipCard(g.slips[1], 1);
+    n.showChip = g.phase === 'run' && T.returned > 0;
+    if (T.returned > T.staked) {
+      n.chip = 'Race in profit · collected ' + this.naira(T.returned) + ' of ' + this.naira(T.staked) + ' staked';
+      n.chipBg = 'rgba(6,8,16,.78)'; n.chipFg = '#ffcf85';
+    } else {
+      n.chip = 'Collected ' + this.naira(T.returned) + ' of ' + this.naira(T.staked) + ' staked';
+      n.chipBg = 'rgba(6,8,16,.78)'; n.chipFg = '#e9ecf5';
+    }
+    n.showBanner = g.phase === 'crash' || g.phase === 'collect';
+    n.banner = ''; n.bannerSub = ''; n.bannerBg = 'rgba(8,10,18,.92)'; n.bannerFg = '#e9ecf5';
+    if (n.showBanner) {
+      const netRace = T.returned - T.staked;
+      const netTxt = (netRace > 0 ? '+' : netRace < 0 ? '−' : '') + this.naira(netRace);
+      if (T.returned > T.staked) {
+        n.banner = 'WIN ' + this.naira(T.returned);
+        n.bannerSub = 'Net ' + netTxt + ' this race';
+        n.bannerBg = '#ffb23e'; n.bannerFg = '#140d02';
+      } else if (T.returned > 0) {
+        n.banner = 'RETURNED ' + this.naira(T.returned);
+        n.bannerSub = 'Net ' + netTxt + ' this race · lights out';
+      } else {
+        n.banner = 'LIGHTS OUT';
+        n.bannerSub = 'Stakes ' + this.naira(T.staked) + ' lost this race';
+      }
+    }
+    const key = JSON.stringify(n);
+    if (key !== this.hudKey) { this.hudKey = key; this.setState(n); }
+  }
+
+}
+</script>
+</body>
+</html>
