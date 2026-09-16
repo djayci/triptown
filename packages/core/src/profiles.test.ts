@@ -114,18 +114,18 @@ describe('game registry', () => {
   // This is the whole point: a new game is a skin on a certified engine, so it plays that engine's
   // config ids and its committed RTP reports. Nothing new to prove, nothing to recertify.
   it('runs a new game on an existing engine, with that engine\'s certified config', () => {
-    registerGame('going-viral', 'whack-crash');
-    expect(engineOf('going-viral')).toBe('whack-crash');
-    const skin = effectiveConfig('going-viral', profileFromTemplate('light'));
+    registerGame('skin-game', 'whack-crash');
+    expect(engineOf('skin-game')).toBe('whack-crash');
+    const skin = effectiveConfig('skin-game', profileFromTemplate('light'));
     const engine = effectiveConfig('whack-crash', profileFromTemplate('light'));
     expect(skin).toEqual(engine);
     expect(skin.id).toMatch(/^whack-crash\//);
   });
 
   it('is idempotent, and refuses to move a game to another engine', () => {
-    registerGame('going-viral', 'whack-crash');
-    expect(registeredGames().filter((g) => g === 'going-viral')).toHaveLength(1);
-    expect(() => registerGame('going-viral', 'paper-route')).toThrow(/already registered on engine/);
+    registerGame('skin-game', 'whack-crash');
+    expect(registeredGames().filter((g) => g === 'skin-game')).toHaveLength(1);
+    expect(() => registerGame('skin-game', 'paper-route')).toThrow(/already registered on engine/);
   });
 
   it('lets a game bring its own maths by defaulting the engine to itself', () => {

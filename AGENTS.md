@@ -34,8 +34,8 @@ Packages export TypeScript source directly (`"exports": "./src/index.ts"`). They
 **Shared packages name the model, never a game.** Events are `SETBACK` / `BOOST` / `PART_SETTLED`; a split stake has `stakeParts` and settles into `parts`. A game is registered at runtime, not listed in a type:
 
 ```ts
-registerGame('going-viral', 'whack-crash');   // a skin on a certified engine
-registerGame('some-game');                     // brings its own maths, needs its own report
+registerGame('skin-game', 'whack-crash');   // a skin on a certified engine
+registerGame('some-game'); // brings its own maths, needs its own report
 ```
 
 The second argument is the engine whose config ids the game plays, so a skin reuses the certified ids and their committed RTP reports and needs no recertification. That is the point: new games are presentation, not new maths. Adding a game must never mean editing a type in `core` or `fairness`.
@@ -73,9 +73,11 @@ These protect real money and certification. Breaking one is a bug, even when the
 
 ## Compliance (certification and licensing)
 
-These games are built to be certified by accredited test labs and licensed to regulated operators. The audit is **`docs/compliance/whack-crash-2026-09-15.md`** (GLI-19, the UK, EU/offshore jurisdictions, the Americas and Africa). Shared fixes land through the `compliance-baseline` OpenSpec change. To audit any game, run the **`game-compliance-audit`** skill (`.claude/skills/game-compliance-audit/`). Its `references/jurisdictions.md` holds the dated rules and the watch list. Everything here is research, not legal advice.
+These games are built to be certified by accredited test labs and licensed to regulated operators. The current Whack Crash audit is **`docs/compliance/whack-crash-2026-09-16.md`** (re-audit; supersedes the 2026-09-15 one). Its open blockers, in order: celebrating a return at or below the stake, no rules screen, the `'*'` postMessage, interactive decoy moles, no clock/net position/reality check, no in-game history view. **`docs/compliance/whack-crash-2026-09-15.md`** remains the platform baseline (GLI-19, the UK, EU/offshore jurisdictions, the Americas and Africa); `night-meet-2026-09-16.md` and `going-viral-2026-09-16.md` are concept-stage audits (Nigeria and Ghana); the latter's game was dropped but its market and display findings stand. Shared fixes land through the `compliance-baseline` OpenSpec change. To audit any game, run the **`game-compliance-audit`** skill (`.claude/skills/game-compliance-audit/`). Its `references/jurisdictions.md` holds the dated rules and the watch list. Everything here is research, not legal advice.
 
-**Rules for every game (from the audit; each is a certification blocker):**
+**Rules for every game (from the audits; each is a certification blocker):**
+
+0. **A modifier may never take the multiplier down in Brazil or Portugal.** Brazil 1.207 Annex I item 14(d) lists the only permitted round endings and assumes a multiplier that only increases, so a falling value fits none of them (primary text, verified 2026-09-16). Keep `setbacksMode: 'off'` for those markets. Upward modifiers are fine.
 
 1. **Never celebrate a return that is at or below the stake.** No confetti, win sound or "+payout" on those rounds; show the net result instead. Source: UKGC RTS 14F (applies to all casino games since Jan 2025), AGCO 2.20.
 2. **Enforce a minimum gap between round starts on the server.** It must be configurable per market: UK 5 s, Brazil 5 s (planned), Ontario 2.5 s. The player must release and press again to start the next round. Verify timing with automated tests, not a stopwatch (Stakelogic was fined for that).
@@ -85,16 +87,25 @@ These games are built to be certified by accredited test labs and licensed to re
 6. **No child-appealing art in regulated builds or marketing.** Portugal R7c and Kenya Reg 95 apply to the game itself. UK CAP 16.3.12, AGCO 2.03 and Brazil 1.231 cover tiles, demos and ads. Keep an adult skin available.
 7. **Support player-protection hooks:** session clock, net position, and an operator reality-check pause that only takes effect between rounds. Keep per-round history with an operator API, and use a pinned postMessage origin, never `'*'`.
 8. **Record per-market differences as jurisdiction profile flags, not forks.** Examples: `minCycleMs`, `maxMultiplier`, `minCashout`, `setbacksMode`, `skin`, `showNetPosition`, `hostingRegion`.
-9. **Rounding must not be one-way or break the published RTP.** GLI-19 §4.7.1(a) requires the minimum RTP at any single bet level. A game with several credits per round accrues exact values and rounds once per round, sets a minimum value per credit, and publishes RTP at the minimum bet. Nevada Notice 2026-14 bans "only round down" (by analogy).
-10. **No children, cute animals or runner-game looks, in the game or its tiles.** Characters must read as adults (realistic proportions, age cues, work gear). No "cuddly" animals, even as hazards. Source: CAP under-18 guidance (Oct 2025), CAP 16.3.14 ("seems to be under 25"), ASA Videoslots ruling (Jul 2026).
-11. **A split stake stays one game.** One debit, one round id, one cycle record. Celebrate only when the round's total return exceeds the stake, never per partial cash-out. Record every partial cash-out in recall. Portugal allows no partial cash-out (Reg. 308 art. 2 h, R12, R26, R29). Source: RTS 14C/14F, GLI-19 §4.14.2(i)(j).
-12. **Platform for certification:** server-side crypto via `node:crypto`, automatic seed rotation, encrypted seed storage, deterministic settlement maths, a single time authority, append-only audit logs, 24 h software hash self-checks, separate preview and production, and recorded change control. Any change to RNG, maths or rules means recertification.
+9. **Publish the RTP band, not just the headline.** Half-up rounding at the 0.20 minimum stake moves measured RTP to 96.68%-97.06% depending on strategy, always in the studio's favour at small stakes. GLI-19 4.7.1(a) wants the minimum RTP met at any single bet level and 4.7.2(a) wants the derivation explained, so state the band wherever the RTP appears.
+10. **Rounding must not be one-way or break the published RTP.** GLI-19 §4.7.1(a) requires the minimum RTP at any single bet level. A game with several credits per round accrues exact values and rounds once per round, sets a minimum value per credit, and publishes RTP at the minimum bet. Nevada Notice 2026-14 bans "only round down" (by analogy).
+11. **No children, cute animals or runner-game looks, in the game or its tiles.** Characters must read as adults (realistic proportions, age cues, work gear). No "cuddly" animals, even as hazards. Source: CAP under-18 guidance (Oct 2025), CAP 16.3.14 ("seems to be under 25"), ASA Videoslots ruling (Jul 2026).
+12. **A split stake stays one game.** One debit, one round id, one cycle record. Celebrate only when the round's total return exceeds the stake, never per partial cash-out. Record every partial cash-out in recall. Portugal allows no partial cash-out (Reg. 308 art. 2 h, R12, R26, R29). Source: RTS 14C/14F, GLI-19 §4.14.2(i)(j).
+13. **Platform for certification:** server-side crypto via `node:crypto`, automatic seed rotation, encrypted seed storage, deterministic settlement maths, a single time authority, append-only audit logs, 24 h software hash self-checks, separate preview and production, and recorded change control. Any change to RNG, maths or rules means recertification.
+
+**Themed-presentation rules (from the 16 Sep 2026 concept audit; the game it audited was dropped, these outlived it):**
+
+- **A themed number never replaces the multiplier.** Brazil Annex I item 14(c) and Portugal regra 4 require the multiplier value on screen; Italy likely requires a conversion value for anything that reads as game credits; the Netherlands and Spain require the money "sufficiently distinguishable". A theme is a layer over the multiplier and the local-currency payout, never a substitute.
+- **No player action may be presented as feeding the outcome.** Netherlands Bko art. 4.2(4) is a statutory ban on required player actions that do not influence the result. Cash-out is fine — it ends the bet.
+- **A game's theme is a minors-appeal question, not just its art.** UK CAP guidance (Oct 2025) §14 reaches in-game themes and gameplay resembling "social games popular with under-18s". Check the concept, not only the skin.
+- **A studio is directly liable for its own marketing in Nigeria.** ARCON Act s.54 names whoever "creates or places" an advert, and s.63 covers a lobby tile. The operator's approval does not cover the studio.
 
 **Open decisions this raises:**
+
 - **The falling multiplier.** Setbacks can take the value below x1.00. That is illegal in Portugal (R1/R22), conflicts with Brazil's crash rules (item 14), and is a misleading-design risk elsewhere. Hard rule 2 above keeps the maths as specced until this is decided through OpenSpec (`compliance-baseline` proposes `setbacksMode: off` for regulated profiles).
 - **The Candy art direction** is a minors-appeal risk in regulated markets. Keep an adult skin available for regulated builds and marketing.
 - **Licensing.** The UK needs a software licence plus a game-host licence if Triptown runs the servers (see the Spribe suspension). Sweden and Denmark need supplier permits even when supplying through an aggregator.
-- **Hosting.** Vercel/Upstash hosted in the US does not meet the MGA (EU/EEA), Italy (qualified cloud), Brazil, Kenya or New Jersey hosting rules.
+- **Hosting.** Vercel/Upstash hosted in the US does not meet the MGA (EU/EEA), Italy (qualified cloud), Brazil, Kenya or New Jersey hosting rules. Kenya is now confirmed hard: Conduct of Gambling Operations Regs 2026 reg 42(2) requires player data on servers in Kenya absent a written exemption, plus a real-time monitoring API (reg 41(d)) and central-system integration (reg 44).
 
 ## Client conventions (apps/whack, packages/engine)
 
@@ -112,6 +123,6 @@ These games are built to be certified by accredited test labs and licensed to re
 - Prettier: single quotes, semicolons, trailing commas, 100-char lines. ESM everywhere.
 - Prefix intentionally unused variables and arguments with `_`.
 - Tests are Vitest, colocated as `*.test.ts`. Math and fairness code gets fixed test vectors and statistical checks. Round-service behaviour goes in `rgs-client/testing/round-service-suite.ts` so the mock and the future `RemoteRoundService` run the same suite.
-- Comments explain *why* (a rule, an invariant, a float guard) rather than restate the code.
+- Comments explain _why_ (a rule, an invariant, a float guard) rather than restate the code.
 - Don't hand-edit generated output: `dist/`, `dist-demo/`, `.vercel/output/`, `atlas.*` or `reports/*`. Regenerate them instead.
 - `openspec/` and `design/` are skipped by lint and formatting. Edit them deliberately.
