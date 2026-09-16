@@ -19,9 +19,14 @@ export interface AudioManifest {
   sfx: { src: string[]; sprite: Record<string, [number, number]> };
   /** Music stems of identical length and tempo, started together. */
   stems: { base: LoopAsset; drums: LoopAsset; lead: LoopAsset };
+  /** Soft between-rounds bed, unrelated to the round stems. */
+  lobby?: LoopAsset;
   /** Short seamless loop whose rate follows the multiplier. */
   tone: LoopAsset;
 }
+
+/** The lobby bed sits under the game, well below the round mix. */
+const LOBBY_GAIN = 0.7;
 
 const loopHowl = (asset: LoopAsset) =>
   new Howl({ src: asset.src, sprite: { loop: [asset.loop[0], asset.loop[1], true] }, volume: 0, preload: true });
@@ -43,8 +48,8 @@ export class AudioManager {
   private toneId: number | null = null;
   private musicPlaying = false;
   private intensity: IntensityLevel = 0;
-  /** 'lobby' plays the chord bed alone and quietly; 'round' is the full layered mix. */
-  private musicMode: 'lobby' | 'round' = 'round';
+  private lobby: Howl | null = null;
+  private lobbyId: number | null = null;
   private ducked = false;
   private interacted = false;
   private readonly listeners = new Set<(s: AudioSettings) => void>();
@@ -87,6 +92,7 @@ export class AudioManager {
     if (this.stems) return;
     const { base, drums, lead } = this.manifest.stems;
     this.stems = this.safe(() => ({ base: loopHowl(base), drums: loopHowl(drums), lead: loopHowl(lead) }));
+    if (this.manifest.lobby) this.lobby = this.safe(() => loopHowl(this.manifest.lobby!));
   }
 
   /** Call from the first user gesture (the BET tap). */
@@ -141,12 +147,26 @@ export class AudioManager {
     });
   }
 
-  /** Switches between the quiet between-rounds bed and the round mix. */
-  setMusicMode(mode: 'lobby' | 'round') {
-    if (mode === this.musicMode) return;
-    this.musicMode = mode;
-    this.record(`music:mode:${mode}`);
-    this.applyLayerVolumes(LAYER_FADE_MS);
+  /** Starts the between-rounds bed. Separate track from the round stems, and quieter. */
+  startLobby() {
+    if (!this.interacted || !this.lobby || this.lobbyId !== null) return;
+    this.record('lobby:start');
+    this.safe(() => {
+      this.lobbyId = this.lobby!.play('loop');
+      this.lobby!.volume(0, this.lobbyId);
+      this.lobby!.fade(0, this.settings.music * LOBBY_GAIN, 600, this.lobbyId);
+    });
+  }
+
+  stopLobby(fadeMs = 250) {
+    if (!this.lobby || this.lobbyId === null) return;
+    const id = this.lobbyId;
+    this.lobbyId = null;
+    this.record('lobby:stop');
+    this.safe(() => {
+      this.lobby!.fade(Number(this.lobby!.volume(id)) || 0, 0, fadeMs, id);
+      setTimeout(() => this.safe(() => this.lobby?.stop(id)), fadeMs + 40);
+    });
   }
 
   setIntensity(level: IntensityLevel) {
@@ -220,8 +240,6 @@ export class AudioManager {
 
   get musicLayerTargets(): { base: number; drums: number; lead: number } {
     const m = this.ducked ? Math.min(0.08, this.settings.music) : this.settings.music;
-    // Between rounds only the chord bed plays, at about half volume: present, but easy to sit in.
-    if (this.musicMode === 'lobby') return { base: m * 0.55, drums: 0, lead: 0 };
     return {
       base: m,
       drums: this.intensity >= 1 ? m : 0,

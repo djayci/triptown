@@ -4,10 +4,54 @@ import { cappedConfigId, resolveConfigId, type GameConfig } from '@triptown/fair
 // 2026-09-15 compliance research (docs/compliance/) and need legal review before production use.
 
 export type SetbacksMode = 'off' | 'halve';
+/** Boosts: 'off' plays the unboosted config, 'boost' the boosted one (good-mole D7). */
+export type BoostsMode = 'off' | 'boost';
 export type Skin = 'candy' | 'adult';
 export type DisconnectPolicy = 'lose' | 'cashout-at-disconnect';
-export type PartialCashout = 'off' | 'papers';
-export type GameId = 'whack-crash' | 'paper-route';
+export type PartialCashout = 'off' | 'parts';
+/**
+ * A game's id. Open on purpose: a new game is a skin on an already-certified engine, so adding one
+ * must not mean editing a type in `core`. Games register at startup; an unregistered id is refused
+ * before a session can use it, which is the check the old closed union was really providing.
+ */
+export type GameId = string;
+
+/**
+ * Each registered game maps to the engine whose certified configs it plays. A game that names another
+ * game's engine ships with no maths of its own: same config ids, same committed RTP reports, nothing to
+ * recertify. That is what makes a new game a skin rather than a new product.
+ */
+const REGISTERED_GAMES = new Map<GameId, GameId>([['whack-crash', 'whack-crash']]);
+
+/**
+ * Registers a game so profiles may bind to it. `engine` names the game whose configs it plays, and
+ * defaults to the game itself (a game bringing its own maths). Idempotent for the same engine.
+ */
+export function registerGame(game: GameId, engine: GameId = game): void {
+  if (!game || game.includes('/')) throw new Error(`Invalid game id: ${JSON.stringify(game)}`);
+  if (!engine || engine.includes('/')) throw new Error(`Invalid engine id: ${JSON.stringify(engine)}`);
+  const existing = REGISTERED_GAMES.get(game);
+  if (existing && existing !== engine) {
+    throw new Error(`${game} is already registered on engine ${existing}, not ${engine}`);
+  }
+  REGISTERED_GAMES.set(game, engine);
+}
+
+/** Games currently registered, in registration order. */
+export function registeredGames(): GameId[] {
+  return [...REGISTERED_GAMES.keys()];
+}
+
+export function isRegisteredGame(game: GameId): boolean {
+  return REGISTERED_GAMES.has(game);
+}
+
+/** The engine a game plays: its own id unless it was registered on another game's engine. */
+export function engineOf(game: GameId): GameId {
+  const engine = REGISTERED_GAMES.get(game);
+  if (!engine) throw new Error(`Unregistered game: ${game}`);
+  return engine;
+}
 
 export interface JurisdictionProfile {
   name: string;
@@ -24,10 +68,12 @@ export interface JurisdictionProfile {
   /** Offer a one-tap same-stake bet on the result screen. */
   quickReplay: boolean;
   setbacksMode: SetbacksMode;
-  /** Partial cash-out (Paper Route papers). Portugal's Reg. 308/2023 only provides for a single withdrawal. */
+  boostsMode: BoostsMode;
+  /** Partial cash-out: the stake splits into parts collected separately. Portugal's Reg. 308/2023 only provides for a single withdrawal. */
   partialCashout: PartialCashout;
   /** Cap on the multiplier; below the config cap it derives a `+capN` config. */
   maxMultiplier: number;
+  /** Lowest multiplier a manual cash-out is accepted at; 0 means no floor, so a player can always bail. */
   minCashout: number;
   skin: Skin;
   soundDefault: 'on' | 'muted';
@@ -52,7 +98,9 @@ const base = {
   disconnectPolicy: 'lose',
   language: 'en',
   showRtpInGame: false,
-  partialCashout: 'papers',
+  partialCashout: 'parts',
+  // Regulated templates stay on the certified unboosted maths until a lab accepts the boosted ids (D7).
+  boostsMode: 'off',
 } as const;
 
 export const PROFILE_TEMPLATES: Readonly<Record<string, ProfileTemplate>> = Object.freeze({
@@ -64,6 +112,9 @@ export const PROFILE_TEMPLATES: Readonly<Record<string, ProfileTemplate>> = Obje
     minCycleMs: 2500,
     quickReplay: true,
     setbacksMode: 'halve',
+    boostsMode: 'boost',
+    // Bad moles can push the value under x1.00, and a player must always be able to take what is left.
+    minCashout: 0,
     skin: 'candy',
     soundDefault: 'on',
     intensityEffects: true,
@@ -142,13 +193,20 @@ export function profileFromTemplate(name: string, operatorOrigins: string[] = []
 }
 
 /** Base config id for a game under a setbacks mode. */
-export function baseConfigId(game: GameId, mode: SetbacksMode): string {
-  return mode === 'off' ? `${game}/v1-rising` : `${game}/v1`;
+export function baseConfigId(game: GameId, mode: SetbacksMode, boosts: BoostsMode = 'off'): string {
+  // Config ids belong to the engine, not the game, so a skin plays the certified ids unchanged.
+  const engine = isRegisteredGame(game) ? engineOf(game) : game;
+  // Two axes, four ids (good-mole D6): v1 is unboosted, v2 boosted; `-rising` means no setbacks.
+  const suffix = mode === 'off' ? '-rising' : '';
+  // An engine with no boosted config plays the unboosted maths, whatever the profile asks for.
+  if (boosts === 'boost' && resolveConfigId(`${engine}/v2${suffix}`)) return `${engine}/v2${suffix}`;
+  return `${engine}/v1${suffix}`;
 }
 
 /** The exact math config a round uses for this game and profile. */
 export function effectiveConfig(game: GameId, profile: JurisdictionProfile): GameConfig {
-  const baseId = baseConfigId(game, profile.setbacksMode);
+  if (!isRegisteredGame(game)) throw new Error(`Unregistered game: ${game}`);
+  const baseId = baseConfigId(game, profile.setbacksMode, profile.boostsMode);
   const baseConfig = resolveConfigId(baseId);
   if (!baseConfig) throw new Error(`No config registered for ${baseId}`);
   if (profile.maxMultiplier >= baseConfig.maxWinMultiplier) return baseConfig;
@@ -180,18 +238,23 @@ export interface ProfileValidationOptions {
 export type ProfileValidation = { ok: true } | { ok: false; errors: string[] };
 
 const SETBACK_MODES: SetbacksMode[] = ['off', 'halve'];
+const BOOST_MODES: BoostsMode[] = ['off', 'boost'];
 const SKINS: Skin[] = ['candy', 'adult'];
 const DISCONNECT: DisconnectPolicy[] = ['lose', 'cashout-at-disconnect'];
-const PARTIAL: PartialCashout[] = ['off', 'papers'];
+const PARTIAL: PartialCashout[] = ['off', 'parts'];
 
 export function validateProfile(p: JurisdictionProfile, opts: ProfileValidationOptions = {}): ProfileValidation {
   const errors: string[] = [];
   const at = (field: string, msg: string) => errors.push(`${p.name || '(unnamed)'}.${field}: ${msg}`);
   if (!p.name) at('name', 'is required');
   if (!(Number.isFinite(p.minCycleMs) && p.minCycleMs >= 0)) at('minCycleMs', 'must be 0 or more');
-  if (!(Number.isFinite(p.minCashout) && p.minCashout >= 1)) at('minCashout', 'must be at least 1.00');
+  // 0 means "no floor"; any other value under 1.00 would be a floor the value passes on its way up.
+  if (!(Number.isFinite(p.minCashout) && (p.minCashout === 0 || p.minCashout >= 1))) {
+    at('minCashout', 'must be 0 (no minimum) or at least 1.00');
+  }
   if (!(Number.isFinite(p.maxMultiplier) && p.maxMultiplier > p.minCashout)) at('maxMultiplier', 'must be greater than minCashout');
   if (!SETBACK_MODES.includes(p.setbacksMode)) at('setbacksMode', `must be one of ${SETBACK_MODES.join(', ')}`);
+  if (!BOOST_MODES.includes(p.boostsMode)) at('boostsMode', `must be one of ${BOOST_MODES.join(', ')}`);
   if (!SKINS.includes(p.skin)) at('skin', `must be one of ${SKINS.join(', ')}`);
   if (!PARTIAL.includes(p.partialCashout)) at('partialCashout', `must be one of ${PARTIAL.join(', ')}`);
   if (!DISCONNECT.includes(p.disconnectPolicy)) at('disconnectPolicy', `must be one of ${DISCONNECT.join(', ')}`);
@@ -201,7 +264,7 @@ export function validateProfile(p: JurisdictionProfile, opts: ProfileValidationO
     at('operatorOrigins', 'regulated profiles need at least one operator origin');
   }
   if (opts.reportIndex && errors.length === 0) {
-    for (const game of opts.games ?? (['whack-crash', 'paper-route'] as GameId[])) {
+    for (const game of opts.games ?? registeredGames()) {
       let id: string;
       try {
         id = effectiveConfig(game, p).id;

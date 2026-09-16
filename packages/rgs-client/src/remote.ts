@@ -1,11 +1,11 @@
-import { isTerminal, type RoundEvent, type TerminalEvent } from '@triptown/core';
+import { isTerminal, type GameId, type RoundEvent, type TerminalEvent } from '@triptown/core';
 import {
   RoundServiceError,
-  newThrowId,
+  newPartId,
   type CashoutOutcome,
-  type ThrowOutcome,
-  type ThrowRequest,
   type ClientTiming,
+  type PartOutcome,
+  type PartRequest,
   type RoundHandle,
   type RoundListener,
   type RoundService,
@@ -32,7 +32,7 @@ export interface RemoteRoundServiceOptions {
   /** Build id recorded on new sessions for recall. */
   clientVersion?: string;
   /** Game the session is created for; defaults to Whack Crash on the server. */
-  game?: 'whack-crash' | 'paper-route';
+  game?: GameId;
 }
 
 /** Browser storage for the session token that falls back to memory when storage is blocked. */
@@ -99,15 +99,15 @@ export class RemoteRoundService implements RoundService {
     return this.json<CashoutOutcome>('POST', `/v1/rounds/${encodeURIComponent(roundId)}/cashout`, timing);
   }
 
-  async throwPapers(roundId: string, request: ThrowRequest, timing: ClientTiming = {}) {
+  async settleParts(roundId: string, request: PartRequest, timing: ClientTiming = {}) {
     // The same throw id is reused on a retry, so a throw that reached the server before a network error
     // is never settled twice.
-    const body = { throwId: request.throwId ?? newThrowId(), count: request.count, ...timing };
+    const body = { partId: request.partId ?? newPartId(), count: request.count, ...timing };
     const path = `/v1/rounds/${encodeURIComponent(roundId)}/throws`;
     try {
-      return await this.json<ThrowOutcome>('POST', path, body);
+      return await this.json<PartOutcome>('POST', path, body);
     } catch (err) {
-      if (err instanceof RoundServiceError && err.code === 'network') return this.json<ThrowOutcome>('POST', path, body);
+      if (err instanceof RoundServiceError && err.code === 'network') return this.json<PartOutcome>('POST', path, body);
       throw err;
     }
   }

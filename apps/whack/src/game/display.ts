@@ -3,9 +3,9 @@ import { growth, growthRate, type GameConfig } from '@triptown/fairness';
 
 // Pure display math for the client. The server stays the source of truth for payouts.
 
-/** Multiplier to show at elapsed seconds t, given how many setbacks have arrived. */
-export function displayMultiplier(t: number, setbacksReceived: number, config: GameConfig): number {
-  return growth(Math.max(0, t), config) * config.setbackFactor ** setbacksReceived;
+/** Multiplier to show at elapsed seconds t, given how many setbacks and boosts have arrived. */
+export function displayMultiplier(t: number, setbacksReceived: number, config: GameConfig, boostsReceived = 0): number {
+  return growth(Math.max(0, t), config) * config.setbackFactor ** setbacksReceived * config.boostFactor ** boostsReceived;
 }
 
 export function formatMultiplier(m: number): string {
@@ -19,6 +19,35 @@ export function formatMoney(minor: number, currency: Pick<CurrencyRules, 'decima
 
 export function optimisticPayout(betMinor: number, multiplier: number, config: GameConfig): number {
   return payoutMinor(betMinor, Math.min(multiplier, config.maxWinMultiplier));
+}
+
+/** Milestone multipliers that get a blip, a colour change and a badge. All are above the stake. */
+export const CHECKPOINTS = [
+  1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 15, 20, 25, 30, 40, 50, 75, 100, 150, 200, 250, 500, 750, 1000,
+] as const;
+
+/** Spacing of the small in-between milestones, which get a flying number but no sound. */
+export function miniStep(multiplier: number): number {
+  if (multiplier < 2) return 0.1;
+  if (multiplier < 5) return 0.25;
+  if (multiplier < 10) return 0.5;
+  if (multiplier < 25) return 1;
+  if (multiplier < 100) return 5;
+  return 25;
+}
+
+/** The highest small milestone crossed between `previous` and `current`, or null for none. */
+export function crossedMini(previous: number, current: number): number | null {
+  const step = miniStep(current);
+  const mark = Math.floor(current / step + 1e-9) * step;
+  return mark > previous + 1e-9 && mark > 1 ? Number(mark.toFixed(2)) : null;
+}
+
+/** The highest checkpoint crossed going from `previous` up to `current`, or null for none. */
+export function crossedCheckpoint(previous: number, current: number): number | null {
+  let hit: number | null = null;
+  for (const c of CHECKPOINTS) if (previous < c && current >= c) hit = c;
+  return hit;
 }
 
 /** How far the round has ramped, 0..1, from the current growth rate. Continuous, for animation speed. */

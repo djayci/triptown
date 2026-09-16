@@ -1,13 +1,13 @@
 import { DEFAULT_CONFIG, commitServerSeed, growth, type GameConfig } from '@triptown/fairness';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_CURRENCY, accrueCashout, emptyAccrual, formatMinor, payoutMinor, settleAccrual, validateBet } from './money';
-import { growthAt, multiplierAt } from './path';
+import { growthAt, modifiersOfOutcome, multiplierAt } from './path';
 import {
   cashout as judgeCashout,
   createRound,
   roundStatus,
   scheduledSettlement,
-  setbackEvents,
+  modifierEvents,
   snapshot,
   startEvent,
   terminalEvent,
@@ -30,6 +30,7 @@ const SEED = 'ab'.repeat(32);
 function fixedRound(opts: {
   crashTime: number;
   setbacks?: number[];
+  boosts?: number[];
   betMinor?: number;
   autoCashout?: number | null;
   config?: Partial<GameConfig>;
@@ -45,7 +46,7 @@ function fixedRound(opts: {
     config: { ...C, ...opts.config },
     startedAt: T0,
   });
-  return { ...round, outcome: { crashTime: opts.crashTime, setbacks: opts.setbacks ?? [] } };
+  return { ...round, outcome: { crashTime: opts.crashTime, setbacks: opts.setbacks ?? [], boosts: opts.boosts ?? [] } };
 }
 
 const at = (seconds: number) => T0 + seconds * 1000;
@@ -61,18 +62,30 @@ function timeOfGrowth(m: number, config: GameConfig = C): number {
   return hi;
 }
 
+/** Modifier list for setback and boost times on a config. */
+const mods = (setbacks: number[], boosts: number[] = [], config: GameConfig = C) =>
+  modifiersOfOutcome({ setbacks, boosts }, config);
+
 describe('path value (3.1)', () => {
-  it('equals growth without setbacks', () => {
+  it('equals growth without modifiers', () => {
     expect(multiplierAt(5, [], C)).toBe(growthAt(5, C));
   });
 
   it('halves 4.20 to 2.10 after one setback', () => {
     const t = timeOfGrowth(4.2);
-    expect(multiplierAt(t, [t - 1], C)).toBeCloseTo(2.1, 9);
+    expect(multiplierAt(t, mods([t - 1]), C)).toBeCloseTo(2.1, 9);
   });
 
   it('applies a setback on the exact tie', () => {
-    expect(multiplierAt(3, [3], C)).toBeCloseTo(growthAt(3, C) / 2, 12);
+    expect(multiplierAt(3, mods([3]), C)).toBeCloseTo(growthAt(3, C) / 2, 12);
+  });
+
+  it('lifts the value by the boost factor, setback first on a tie', () => {
+    const boosted = { ...C, boostRate: 0.08, boostFactor: 1.25 };
+    const t = timeOfGrowth(4.2, boosted);
+    expect(multiplierAt(t, mods([], [t - 1], boosted), boosted)).toBeCloseTo(4.2 * 1.25, 9);
+    expect(multiplierAt(t, mods([t - 1], [t - 1], boosted), boosted)).toBeCloseTo(4.2 * 0.5 * 1.25, 9);
+    expect(multiplierAt(t, mods([], [t + 1], boosted), boosted)).toBeCloseTo(4.2, 9);
   });
 
   it('grows at most rmax per second after the ramp', () => {
@@ -251,7 +264,7 @@ describe('events and snapshots (3.4)', () => {
   it('emits setbacks up to the settlement then a terminal event', () => {
     const round = fixedRound({ crashTime: 9, setbacks: [2, 6] });
     const won = cashout(round, at(6)).settlement;
-    expect(setbackEvents(round, won).map((e) => e.time)).toEqual([2, 6]);
+    expect(modifierEvents(round, won).map((e) => e.time)).toEqual([2, 6]);
     expect(terminalEvent(round, won, 123)).toMatchObject({ type: 'CASHED_OUT', reason: 'manual', crashTime: 9 });
     const lost = scheduledSettlement(round);
     expect(terminalEvent(round, lost, 0)).toMatchObject({ type: 'CRASH', crashTime: 9 });

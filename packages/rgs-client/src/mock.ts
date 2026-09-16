@@ -12,20 +12,21 @@ import {
 import { deriveRound, type GameConfig, type RoundOutcome } from '@triptown/fairness';
 import {
   RoundServiceError,
-  newThrowId,
+  newPartId,
   type ClientTiming,
-  type ThrowRequest,
+  type PartRequest,
   type RoundHandle,
   type RoundListener,
   type RoundService,
   type StartRoundInput,
 } from './types';
 
-export type MockScenario = 'instantBust' | 'setback' | 'longRound' | 'quickCrash' | 'bigWin';
+export type MockScenario = 'instantBust' | 'setback' | 'boost' | 'longRound' | 'quickCrash' | 'bigWin';
 
 const SCENARIOS: Record<MockScenario, (o: RoundOutcome) => boolean> = {
   instantBust: (o) => o.crashTime === 0,
   setback: (o) => o.setbacks.length > 0 && o.setbacks[0]! > 1 && o.setbacks[0]! < 5 && o.crashTime > o.setbacks[0]! + 3,
+  boost: (o) => o.boosts.length > 0 && o.boosts[0]! > 1 && o.crashTime > o.boosts[0]! + 3,
   longRound: (o) => o.crashTime > 8,
   quickCrash: (o) => o.crashTime > 1 && o.crashTime < 2.5,
   bigWin: (o) => o.crashTime > 10 && (o.setbacks[0] ?? Infinity) > 10,
@@ -111,9 +112,9 @@ export class MockRoundService implements RoundService {
     return this.call(async (id) => this.host.cashout(id, roundId, timing));
   }
 
-  async throwPapers(roundId: string, request: ThrowRequest, timing: ClientTiming = {}) {
-    const throwId = request.throwId ?? newThrowId();
-    return this.call(async (id) => this.host.throwPapers(id, roundId, { throwId, count: request.count, ...timing }));
+  async settleParts(roundId: string, request: PartRequest, timing: ClientTiming = {}) {
+    const partId = request.partId ?? newPartId();
+    return this.call(async (id) => this.host.settleParts(id, roundId, { partId, count: request.count, ...timing }));
   }
 
   async getRound(roundId: string) {

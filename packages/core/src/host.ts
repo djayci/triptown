@@ -6,20 +6,30 @@ import {
   type CryptoProvider,
   type GameConfig,
 } from '@triptown/fairness';
-import type { CashoutEvidence, RoundEvent, RoundSnapshot, RoundSummary, Settlement, ThrowEntry, ThrownEvent } from './events';
+import type {
+  SetbackEvent,
+  CashoutEvidence,
+  BoostEvent,
+  RoundEvent,
+  RoundSnapshot,
+  RoundSummary,
+  Settlement,
+  PartEntry,
+  PartSettledEvent,
+} from './events';
 import { DEFAULT_CURRENCY, validateBet, type CurrencyRules } from './money';
 import {
   cashout as judgeCashout,
   createRound,
-  isPaperRound,
+  isSplitRound,
   judgeThrow,
   multiplierAtRound,
-  paperCount,
+  stakePartCount,
   paperSettlementAt,
   rebuildPaperSettlement,
-  thrownPapers,
+  settledPartCount,
   scheduledSettlement,
-  setbackEvents,
+  modifierEvents,
   settlementDue,
   snapshot,
   startEvent,
@@ -59,7 +69,7 @@ export type HostErrorCode =
   | 'integrity_blocked'
   | 'round_voided'
   | 'profile_not_allowed'
-  | 'no_papers_left';
+  | 'no_parts_left';
 
 export class HostError extends Error {
   constructor(
@@ -107,10 +117,10 @@ export interface CashoutOutcome {
   balanceMinor: number;
 }
 
-export interface ThrowOutcome {
-  /** `thrown`: papers settled and the round continues; `cashed_out`: the last papers ended the round. */
+export interface PartOutcome {
+  /** `thrown`: parts settled and the round continues; `cashed_out`: the last parts ended the round. */
   result: 'thrown' | 'cashed_out' | 'crashed' | 'already_settled' | 'duplicate';
-  throw: ThrowEntry | null;
+  throw: PartEntry | null;
   remaining: number;
   /** Present once the round has ended. */
   settlement: Settlement | null;
@@ -336,10 +346,10 @@ export class RoundHost {
     const config = this.configFor(profile);
     const bet = validateBet(input.betMinor, this.currency);
     if (!bet.ok) throw new HostError(bet.code, bet.message);
-    const papers = profile.partialCashout === 'papers' ? config.papers : 1;
-    if (papers > 1 && (input.betMinor % papers !== 0 || input.betMinor / papers < this.currency.minBetMinor)) {
+    const stakeParts = profile.partialCashout === 'parts' ? config.stakeParts : 1;
+    if (stakeParts > 1 && (input.betMinor % stakeParts !== 0 || input.betMinor / stakeParts < this.currency.minBetMinor)) {
       // Each paper is a stake of its own size, so it must be whole and at least the minimum stake (0.20).
-      throw new HostError('bet_limit', `The stake must split into ${papers} equal papers of at least ${this.currency.minBetMinor} minor units`);
+      throw new HostError('bet_limit', `The stake must split into ${stakeParts} equal stakeParts of at least ${this.currency.minBetMinor} minor units`);
     }
     const kills = await this.store.getKillSwitches();
     const disabledBy = [`game:${this.game}`, `config:${config.id}`, `profile:${profile.name}`].find((k) => kills.includes(k));
@@ -377,7 +387,7 @@ export class RoundHost {
       // Tracked first, so a crash between debit and record write is found by reconciliation.
       await this.store.addPending(roundId);
       const nonce = await this.store.takeNonce(sessionId);
-      return await this.recordStart(session, profile, config, playerId, roundId, nonce, startedAt, input, debit.balanceMinor, papers);
+      return await this.recordStart(session, profile, config, playerId, roundId, nonce, startedAt, input, debit.balanceMinor, stakeParts);
     } catch (err) {
       if (err instanceof HostError) throw err;
       await this.voidAfterDebit({ sessionId, playerId, roundId, betMinor: input.betMinor, startedAt, previousStartAt: claim.previousStartAt }, err);
@@ -395,7 +405,7 @@ export class RoundHost {
     startedAt: number,
     input: { betMinor: number; autoCashout?: number | null },
     balanceAfterDebitMinor: number,
-    papers = 1,
+    stakeParts = 1,
   ): Promise<StartResult> {
     const sessionId = session.id;
     const serverSeed = await this.cipher.decrypt(session.serverSeed);
@@ -416,7 +426,7 @@ export class RoundHost {
       clientVersion: session.clientVersion ?? null,
       balanceBeforeMinor: balanceAfterDebitMinor + input.betMinor,
       crypto: this.crypto,
-      papers,
+      stakeParts,
     });
     // Only the ciphertext is persisted; the outcome is already derived.
     const round: RoundRecord = { ...derived, seeds: { ...derived.seeds, serverSeed: session.serverSeed } };
@@ -429,7 +439,7 @@ export class RoundHost {
       profile: profile.name,
       betMinor: input.betMinor,
       autoCashout: input.autoCashout ?? null,
-      papers,
+      stakeParts,
       commit: session.commit,
       clientSeed: session.clientSeed,
       nonce,
@@ -543,18 +553,18 @@ export class RoundHost {
   }
 
   /**
-   * Throws one or all remaining papers (partial cash-out), judged at server receive time. Single-paper
+   * Collects one or all remaining parts (partial cash-out), judged at server receive time. Single-part
    * rounds behave exactly like `cashout`. Repeating a throw id returns the first result.
    */
-  async throwPapers(
+  async settleParts(
     sessionId: string,
     roundId: string,
-    request: { throwId: string; count: 1 | 'all' } & ClientTiming,
+    request: { partId: string; count: 1 | 'all' } & ClientTiming,
     receivedAt?: number,
-  ): Promise<ThrowOutcome> {
+  ): Promise<PartOutcome> {
     const now = receivedAt ?? this.clock.now();
     let round = await this.requireRound(sessionId, roundId);
-    if (!isPaperRound(round)) {
+    if (!isSplitRound(round)) {
       const out = await this.cashout(sessionId, roundId, request, now);
       return {
         result: out.result === 'won' ? 'cashed_out' : out.result,
@@ -564,23 +574,23 @@ export class RoundHost {
         balanceMinor: out.balanceMinor,
       };
     }
-    if (typeof request.throwId !== 'string' || !/^[\w-]{1,64}$/.test(request.throwId)) {
-      throw new HostError('invalid_bet', 'throwId must be 1-64 letters, digits, "-" or "_"');
+    if (typeof request.partId !== 'string' || !/^[\w-]{1,64}$/.test(request.partId)) {
+      throw new HostError('invalid_bet', 'partId must be 1-64 letters, digits, "-" or "_"');
     }
     const clientTapAt = finiteOrNull(request.clientTapAt);
     const rttMs = finiteOrNull(request.rttMs);
-    const judged = judgeThrow(round, now, { throwId: request.throwId, count: request.count === 'all' ? 'all' : 1, clientTapAt, rttMs });
-    await this.audit.append('cashout_received', { roundId, sessionId, throwId: request.throwId, count: request.count, judged: judged.kind, clientTapAt, rttMs, receivedAt: now });
+    const judged = judgeThrow(round, now, { partId: request.partId, count: request.count === 'all' ? 'all' : 1, clientTapAt, rttMs });
+    await this.audit.append('cashout_received', { roundId, sessionId, partId: request.partId, count: request.count, judged: judged.kind, clientTapAt, rttMs, receivedAt: now });
     const balance = () => this.store.getBalance(sessionId);
-    const remainingOf = (r: typeof round) => paperCount(r) - thrownPapers(r);
+    const remainingOf = (r: typeof round) => stakePartCount(r) - settledPartCount(r);
     switch (judged.kind) {
       case 'below_min_cashout':
         throw new HostError('below_min_cashout', `Throws are available from x${judged.minCashout.toFixed(2)}`, {
           minCashout: judged.minCashout,
           multiplier: judged.multiplier,
         });
-      case 'no_papers':
-        throw new HostError('no_papers_left', 'All papers have been thrown');
+      case 'no_parts':
+        throw new HostError('no_parts_left', 'All parts have been settled');
       case 'duplicate':
         return { result: 'duplicate', throw: judged.entry, remaining: remainingOf(round), settlement: round.settlement, balanceMinor: await balance() };
       case 'crashed':
@@ -589,7 +599,7 @@ export class RoundHost {
         return { result: stored.status === 'lost' ? 'crashed' : 'already_settled', throw: null, remaining: 0, settlement: stored, balanceMinor: await balance() };
       }
     }
-    const recorded = await this.store.recordThrow(sessionId, roundId, judged.entry, paperCount(round));
+    const recorded = await this.store.recordPartSettlement(sessionId, roundId, judged.entry, stakePartCount(round));
     if (recorded.kind === 'duplicate') {
       return { result: 'duplicate', throw: recorded.entry, remaining: remainingOf(round), settlement: round.settlement, balanceMinor: await balance() };
     }
@@ -601,10 +611,10 @@ export class RoundHost {
         const stored = await this.finalize(round, settled);
         return { result: stored.status === 'lost' ? 'crashed' : 'already_settled', throw: null, remaining: 0, settlement: stored, balanceMinor: await balance() };
       }
-      throw new HostError('no_papers_left', 'All papers have been thrown');
+      throw new HostError('no_parts_left', 'All parts have been settled');
     }
     await this.audit.append('paper_thrown', { roundId, sessionId, ...recorded.entry, balanceMinor: recorded.balanceMinor });
-    const remaining = paperCount(round) - recorded.thrownPapers;
+    const remaining = stakePartCount(round) - recorded.settledPartCount;
     if (remaining > 0) return { result: 'thrown', throw: recorded.entry, remaining, settlement: null, balanceMinor: recorded.balanceMinor };
     // Last paper: the round ends now with the half-up rounded total.
     const fresh = (await this.store.getRound(roundId)) ?? round;
@@ -627,7 +637,7 @@ export class RoundHost {
     const now = this.clock.now();
     const round = await this.requireRound(sessionId, roundId);
     if (round.settlement || round.disconnectPolicy !== 'cashout-at-disconnect') return round.settlement;
-    if (isPaperRound(round)) {
+    if (isSplitRound(round)) {
       const due = settlementDue(round, now);
       if (due) return this.finalize(round, due);
       const time = Math.max(0, (now - round.startedAt) / 1000);
@@ -763,51 +773,57 @@ export class RoundHost {
       }
       let scheduled = scheduledSettlement(round);
       // All setbacks the round could reach; each is sent when its time passes, or at the terminal event.
-      const pending = round.outcome.setbacks
-        .filter((t) => t < Math.min(round.outcome.crashTime, round.config.tMax))
-        .map((time) => ({ type: 'BAD_MOLE' as const, roundId: round.id, time, factor: round.config.setbackFactor }));
+      const horizon = Math.min(round.outcome.crashTime, round.config.tMax);
+      const pending: (SetbackEvent | BoostEvent)[] = [
+        ...round.outcome.setbacks
+          .filter((t) => t < horizon)
+          .map((time) => ({ type: 'SETBACK' as const, roundId: round.id, time, factor: round.config.setbackFactor })),
+        ...(round.outcome.boosts ?? [])
+          .filter((t) => t < horizon)
+          .map((time) => ({ type: 'BOOST' as const, roundId: round.id, time, factor: round.config.boostFactor })),
+      ].sort((a, b) => a.time - b.time || a.factor - b.factor);
 
       // Throws already made (e.g. before a reconnect) are replayed, later ones are sent as they are stored.
-      let sentThrows = 0;
-      const emitThrows = async (throws: readonly ThrowEntry[]) => {
-        if (sentThrows >= throws.length) return;
+      let sentSettledParts = 0;
+      const emitSettledParts = async (throws: readonly PartEntry[]) => {
+        if (sentSettledParts >= throws.length) return;
         const balanceMinor = await this.store.getBalance(sessionId);
-        let thrown = throws.slice(0, sentThrows).reduce((n, t) => n + t.papers, 0);
-        for (const t of throws.slice(sentThrows)) {
-          thrown += t.papers;
-          const event: ThrownEvent = {
-            type: 'THROWN',
+        let thrown = throws.slice(0, sentSettledParts).reduce((n, t) => n + t.parts, 0);
+        for (const t of throws.slice(sentSettledParts)) {
+          thrown += t.parts;
+          const event: PartSettledEvent = {
+            type: 'PART_SETTLED',
             roundId: round.id,
-            throwId: t.throwId,
-            papers: t.papers,
+            partId: t.partId,
+            parts: t.parts,
             reason: t.reason,
             time: t.time,
             multiplier: t.multiplier,
             exactMinor: t.exactMinor,
             creditedMinor: t.creditedMinor,
-            remaining: paperCount(round) - thrown,
+            remaining: stakePartCount(round) - thrown,
             balanceMinor,
           };
           emit(event);
         }
-        sentThrows = throws.length;
+        sentSettledParts = throws.length;
       };
 
       while (!stopped) {
         const now = this.clock.now();
         const elapsed = (now - round.startedAt) / 1000;
-        if (isPaperRound(round)) await emitThrows(round.throws ?? []);
+        if (isSplitRound(round)) await emitSettledParts(round.settledParts ?? []);
 
         const settled = round.settlement ?? settlementDue(round, now);
         if (settled) {
           const stored = round.settlement ?? (await this.finalize(round, settled));
-          if (isPaperRound(round)) {
+          if (isSplitRound(round)) {
             // Player throws not yet sent; the automatic final settlement entry is part of the terminal event.
-            const manual = ((stored.cashouts as ThrowEntry[] | undefined) ?? round.throws ?? []).filter((t) => t.reason === 'manual');
-            await emitThrows(manual);
+            const manual = ((stored.cashouts as PartEntry[] | undefined) ?? round.settledParts ?? []).filter((t) => t.reason === 'manual');
+            await emitSettledParts(manual);
           }
           const unsent = new Set(pending.map((p) => p.time));
-          for (const e of setbackEvents(round, stored)) if (unsent.has(e.time)) emit(e);
+          for (const e of modifierEvents(round, stored)) if (unsent.has(e.time)) emit(e);
           emit(terminalEvent(round, stored, await this.store.getBalance(sessionId)));
           return;
         }
@@ -876,23 +892,23 @@ export class RoundHost {
   /** Stores the settlement once, credits a win once, and releases the active slot. Returns the stored settlement. */
   private async finalize(round: RoundRecord, settlement: Settlement): Promise<Settlement> {
     let first: boolean;
-    if (isPaperRound(round) && settlement.status !== 'void') {
+    if (isSplitRound(round) && settlement.status !== 'void') {
       // A throw may land between computing this settlement and storing it; the store refuses stale ones,
       // so rebuild against the fresh throws and try again.
       let current = round;
       let candidate = settlement;
-      first = await this.store.settleOnce(round.id, candidate, thrownPapers(current));
+      first = await this.store.settleOnce(round.id, candidate, settledPartCount(current));
       for (let attempt = 0; !first && attempt < 5; attempt++) {
         const fresh = await this.store.getRound(round.id);
         if (!fresh || fresh.settlement) break;
         current = fresh;
         candidate = rebuildPaperSettlement(fresh, settlement);
-        first = await this.store.settleOnce(round.id, candidate, thrownPapers(current));
+        first = await this.store.settleOnce(round.id, candidate, settledPartCount(current));
       }
       if (first) {
         settlement = candidate;
         // Throws already credited their whole units; only the rounding top-up is left.
-        const alreadyCredited = (current.throws ?? []).reduce((n, t) => n + t.creditedMinor, 0);
+        const alreadyCredited = (current.settledParts ?? []).reduce((n, t) => n + t.creditedMinor, 0);
         const topUp = settlement.payoutMinor - alreadyCredited;
         if (topUp > 0) await this.store.creditOnce(round.sessionId, round.id, topUp);
       }

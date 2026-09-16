@@ -1,4 +1,4 @@
-import { setbackDrag, type GameConfig } from './config';
+import { modifierDrift, type GameConfig } from './config';
 
 // Math model from design.md D4. All times are seconds since round start.
 
@@ -20,9 +20,9 @@ export function growth(t: number, c: GameConfig): number {
   return Math.exp(logGrowth(t, c));
 }
 
-/** H(t) = ln E[m(t)] = K(t) - lambda*(1-f)*t. Strictly increasing for a valid config. */
+/** H(t) = ln E[m(t)] = K(t) - drift*t, where drift covers setbacks and boosts (design D3). */
 export function logExpectedMultiplier(t: number, c: GameConfig): number {
-  return logGrowth(t, c) - setbackDrag(c) * Math.max(0, t);
+  return logGrowth(t, c) - modifierDrift(c) * Math.max(0, t);
 }
 
 /** P(T > t) = RTP / E[m(t)] for t >= 0. */
@@ -39,20 +39,20 @@ export function crashTimeFromUniform(u: number, c: GameConfig): number {
   if (u > c.rtp) return 0;
   const target = Math.log(c.rtp / u);
   if (target === 0) return 0;
-  const drag = setbackDrag(c);
+  const drift = modifierDrift(c);
 
   if (c.tRamp > 0) {
     const hAtRamp = logExpectedMultiplier(c.tRamp, c);
     if (target <= hAtRamp) {
       // a*T^2 + b*T = target on the ramp; stable form of the positive root.
       const a = (c.rmax - c.r0) / (2 * c.tRamp);
-      const b = c.r0 - drag;
+      const b = c.r0 - drift;
       if (Math.abs(a) < 1e-15) return target / b;
       return (2 * target) / (b + Math.sqrt(b * b + 4 * a * target));
     }
-    return c.tRamp + (target - hAtRamp) / (c.rmax - drag);
+    return c.tRamp + (target - hAtRamp) / (c.rmax - drift);
   }
-  return target / (c.rmax - drag);
+  return target / (c.rmax - drift);
 }
 
 /**
@@ -65,11 +65,33 @@ export function setbackTimesFromUniforms(
   horizon: number,
   maxCount = 10_000,
 ): number[] {
+  if (c.setbackFactor >= 1) return [];
+  return poissonTimes(uniformAt, c.lambda, horizon, maxCount);
+}
+
+/** Boost times, drawn the same way from their own stream (good-mole D1). */
+export function boostTimesFromUniforms(
+  uniformAt: (index: number) => number,
+  c: GameConfig,
+  horizon: number,
+  maxCount = 10_000,
+): number[] {
+  if (c.boostFactor <= 1) return [];
+  return poissonTimes(uniformAt, c.boostRate, horizon, maxCount);
+}
+
+/** Exponential gaps at `rate`, keeping only times strictly before the horizon. */
+function poissonTimes(
+  uniformAt: (index: number) => number,
+  rate: number,
+  horizon: number,
+  maxCount: number,
+): number[] {
   const times: number[] = [];
-  if (c.lambda <= 0 || c.setbackFactor >= 1 || horizon <= 0) return times;
+  if (rate <= 0 || horizon <= 0) return times;
   let t = 0;
   for (let i = 0; i < maxCount; i++) {
-    t += -Math.log(uniformAt(i)) / c.lambda;
+    t += -Math.log(uniformAt(i)) / rate;
     if (t >= horizon) break;
     times.push(t);
   }

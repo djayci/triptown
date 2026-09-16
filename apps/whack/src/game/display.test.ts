@@ -2,6 +2,8 @@ import { DEFAULT_CURRENCY } from '@triptown/core';
 import { DEFAULT_CONFIG, growth } from '@triptown/fairness';
 import { describe, expect, it } from 'vitest';
 import {
+  crossedCheckpoint,
+  crossedMini,
   displayMultiplier,
   formatMultiplier,
   intensity10,
@@ -45,6 +47,22 @@ describe('display math', () => {
     expect(stepBet(10_00, -1, DEFAULT_CURRENCY)).toBe(5_00);
     expect(stepBet(100_00, 1, DEFAULT_CURRENCY)).toBe(100_00);
     expect(stepBet(20, -1, DEFAULT_CURRENCY)).toBe(20); // 0.20 minimum stake
+  });
+
+  it('reports the highest checkpoint crossed, once each', () => {
+    expect(crossedCheckpoint(1, 1.49)).toBeNull();
+    expect(crossedCheckpoint(1, 1.5)).toBe(1.5);
+    expect(crossedCheckpoint(2, 2.4)).toBeNull();
+    expect(crossedCheckpoint(1.6, 12)).toBe(10); // jumped several at once, reports the highest
+    expect(crossedCheckpoint(800, 1200)).toBe(1000);
+  });
+
+  it('spaces the small in-between milestones by size', () => {
+    expect(crossedMini(1.02, 1.1)).toBe(1.1);
+    expect(crossedMini(1.1, 1.19)).toBeNull();
+    expect(crossedMini(3.2, 3.5)).toBe(3.5); // 0.25 steps above x2
+    expect(crossedMini(12, 13.4)).toBe(13); // whole steps above x10
+    expect(crossedMini(1, 1.05)).toBeNull(); // nothing at or below x1
   });
 
   it('cycles auto cash-out presets', () => {

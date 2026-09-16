@@ -1,6 +1,6 @@
 import { serve } from '@hono/node-server';
-import { MemoryRoundStore, profileFromTemplate, type RoundStore } from '@triptown/core';
-import { DEFAULT_CONFIG, commitServerSeed, deriveRound, verifyRound, type RoundOutcome } from '@triptown/fairness';
+import { MemoryRoundStore, effectiveConfig, profileFromTemplate, type RoundStore } from '@triptown/core';
+import { DEFAULT_CONFIG, commitServerSeed, deriveRound, resolveConfigId, verifyRound, type RoundOutcome } from '@triptown/fairness';
 import { RemoteRoundService } from '@triptown/rgs-client/remote';
 import { roundServiceSuite } from '@triptown/rgs-client/testing';
 import type { AddressInfo } from 'node:net';
@@ -70,9 +70,11 @@ describe.each(stores)('round API (%s)', (_name, makeStore) => {
   /** Picks a client seed whose next round matches `predicate`. */
   async function seedFor(token: string, sessionId: string, predicate: (o: RoundOutcome) => boolean) {
     const s = (await store.getSession(sessionId))!;
+    // The session's own config: the light profile plays the boosted maths (good-mole D6).
+    const config = resolveConfigId(effectiveConfig('whack-crash', s.profile!).id)!;
     for (let i = 0; i < 50_000; i++) {
       const clientSeed = `t-${i}`;
-      const outcome = deriveRound({ serverSeed: s.serverSeed, clientSeed, nonce: s.nonce }, DEFAULT_CONFIG);
+      const outcome = deriveRound({ serverSeed: s.serverSeed, clientSeed, nonce: s.nonce }, config);
       if (predicate(outcome)) {
         expect((await call('PUT', '/v1/session/client-seed', token, { clientSeed })).status).toBe(200);
         return outcome;
@@ -195,7 +197,12 @@ describe.each(stores)('round API (%s)', (_name, makeStore) => {
   // Setback after 4 s keeps the halved value above the light profile's x1.01 minimum cash-out.
   it('7.4 a cash-out right at a setback gets the reduced value', async () => {
     const { token, sessionId } = await newSession();
-    const outcome = await seedFor(token, sessionId, (o) => o.setbacks.length > 0 && o.setbacks[0]! > 4 && o.crashTime > o.setbacks[0]! + 1);
+    // No boost before the cash-out, so the expected value is exactly growth × 0.5.
+    const outcome = await seedFor(
+      token,
+      sessionId,
+      (o) => o.setbacks.length > 0 && o.setbacks[0]! > 4 && o.crashTime > o.setbacks[0]! + 1 && (o.boosts[0] ?? 99) > o.setbacks[0]!,
+    );
     const r = await start(token, { betMinor: 10_00 });
     await time.advance(Math.ceil(outcome.setbacks[0]! * 1000));
     const res = (await (await call('POST', `/v1/rounds/${r.roundId}/cashout`, token)).json()) as { settlement: { time: number; multiplier: number } };
@@ -204,7 +211,7 @@ describe.each(stores)('round API (%s)', (_name, makeStore) => {
     expect(res.settlement.multiplier).toBeCloseTo(growth * 0.5, 9);
     await time.advance(1000);
     const events = await r.events;
-    expect(events.map((e) => e.type)).toEqual(['START', 'BAD_MOLE', 'CASHED_OUT']);
+    expect(events.map((e) => e.type)).toEqual(['START', 'SETBACK', 'CASHED_OUT']);
   });
 
   it('7.5 settles auto cash-out and crashes while no stream is connected', async () => {
@@ -230,13 +237,20 @@ describe.each(stores)('round API (%s)', (_name, makeStore) => {
 
   it('7.6 never exposes the crash time or future setbacks while running', async () => {
     const { token, sessionId } = await newSession();
-    const outcome = await seedFor(token, sessionId, (o) => o.setbacks.length >= 2 && o.setbacks[0]! < 3 && o.crashTime > o.setbacks[1]! + 1);
+    const outcome = await seedFor(
+      token,
+      sessionId,
+      (o) => o.setbacks.length >= 2 && o.setbacks[0]! < 3 && o.crashTime > o.setbacks[1]! + 1 && (o.boosts[0] ?? 99) > o.setbacks[0]!,
+    );
     const r = await start(token, { betMinor: 1_00 });
     await time.advance(Math.ceil(outcome.setbacks[0]! * 1000) + 10);
     const running = await (await call('GET', `/v1/rounds/${r.roundId}`, token)).text();
-    const snap = JSON.parse(running) as { status: string; setbacks: number[]; settlement: unknown };
+    const snap = JSON.parse(running) as { status: string; setbacks: number[]; boosts: number[]; settlement: unknown };
     expect(snap.status).toBe('running');
     expect(snap.setbacks).toEqual([outcome.setbacks[0]]);
+    // Boosts are hidden by the same rule: only those already past.
+    expect(snap.boosts).toEqual(outcome.boosts.filter((t) => t <= outcome.setbacks[0]! + 0.02));
+    for (const t of outcome.boosts.filter((b) => b > outcome.setbacks[0]! + 0.02)) expect(running).not.toContain(String(t));
     expect(snap.settlement).toBeNull();
     expect(running).not.toMatch(/crashTime|serverSeed/);
     expect(running).not.toContain(String(outcome.setbacks[1]));

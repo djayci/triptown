@@ -26,7 +26,6 @@ export interface ViewHandlers {
   onCycleAuto(): void;
   onSound(): void;
   onFairness(): void;
-  onSettings(): void;
   onEditBet(): void;
 }
 
@@ -48,6 +47,19 @@ const PORTRAIT = { w: 390, h: 844 };
 const DESKTOP = { w: 1440, h: 900 };
 
 /** Everything the player sees. Knows nothing about rounds or money rules; the controller drives it. */
+/** Bright colours the flying in-between numbers cycle through. */
+const MINI_TINTS = [COLORS.pink, COLORS.sky, COLORS.lime2, COLORS.violet, COLORS.sun, COLORS.red];
+
+/** Multiplier colour per checkpoint tier: cream, lime, sky, gold, pink. */
+const CHECKPOINT_TINTS: [number, number][] = [
+  [1.5, COLORS.lime2],
+  [3, COLORS.sky],
+  [5, COLORS.sun],
+  [10, COLORS.pink],
+  [25, COLORS.violet],
+  [100, COLORS.red],
+];
+
 /** How far the background moles peek out while betting (0 is fully up, RISE_HIDDEN is down). */
 const DECOY_PEEK = 96;
 
@@ -69,7 +81,8 @@ export class GameView {
   readonly stage: Stage;
   private readonly mainHole: Hole;
   private readonly decoys: Hole[] = [];
-  private readonly badHole: Hole;
+  /** Background hole index a modifier mole is currently using, so the idle pop leaves it alone. */
+  private busyDecoy: number | null = null;
   private readonly fx = new Container();
   private readonly confetti: Confetti;
   private readonly mult: BitmapText;
@@ -89,7 +102,6 @@ export class GameView {
   private readonly demo: StickerLabel;
   private readonly soundBtn: IconButton;
   private readonly shieldBtn: IconButton;
-  private readonly settingsBtn: IconButton;
 
   // Controls
   private readonly panel = new Graphics();
@@ -118,6 +130,10 @@ export class GameView {
   private decoyTimer = 0;
   private level = 0;
   private bob = 0;
+  /** Which side the bad mole pops from; chosen fresh for every setback. */
+  private modSide: 'left' | 'right' = 'right';
+  /** Colour of the current checkpoint tier; the multiplier and payout keep it until the next one. */
+  private tierTint: number = COLORS.cream;
   private stageH = 424;
   private readonly tick = (t: Ticker) => this.update(t.deltaMS / 1000);
 
@@ -140,8 +156,6 @@ export class GameView {
     // Holes
     this.decoys = [0, 1, 2, 3].map(() => new Hole(frames, 'mole-decoy-happy'));
     this.mainHole = new Hole(frames, 'mole-gold-sleep');
-    this.badHole = new Hole(frames, 'mole-bad-angry');
-    this.badHole.visible = false;
     this.mainHole.eventMode = 'static';
     this.mainHole.cursor = 'pointer';
     this.mainHole.hitArea = new Rectangle(30, 0, 220, 280);
@@ -182,10 +196,9 @@ export class GameView {
 
     this.soundBtn = new IconButton(frames('icon-sound'), 44, COLORS.cream, () => this.handlers.onSound(), 'Mute sound');
     this.shieldBtn = new IconButton(frames('icon-shield'), 44, COLORS.sky, () => this.handlers.onFairness(), 'Provably fair');
-    this.settingsBtn = new IconButton(frames('icon-sliders'), 44, COLORS.cream, () => this.handlers.onSettings(), 'Sound settings');
 
     this.confetti = new Confetti(app.ticker);
-    c.addChild(...this.decoys, this.badHole, this.mainHole, this.ready, this.resultCard, this.winNow, this.oldMult, this.strike, this.mult, this.meter, this.escaped, this.lostChip, this.bustBurst, this.fx, this.confetti, this.demo, this.soundBtn, this.shieldBtn, this.settingsBtn);
+    c.addChild(...this.decoys, this.mainHole, this.ready, this.resultCard, this.oldMult, this.strike, this.mult, this.winNow, this.meter, this.escaped, this.lostChip, this.bustBurst, this.fx, this.confetti, this.demo, this.soundBtn, this.shieldBtn);
 
     // Controls
     this.minus = new IconButton(frames('icon-minus'), 56, COLORS.sky, () => this.handlers.onStepBet(-1), 'Decrease bet', 0.5);
@@ -285,6 +298,7 @@ export class GameView {
   /** Switches to the betting screen. */
   showBetting() {
     this.phase = 'betting';
+    this.showSideButtons(true);
     this.resetStageFx();
     this.stage.setMood('sun');
     this.ready.visible = true;
@@ -293,7 +307,8 @@ export class GameView {
     this.mainHole.riseTo(140, 0.5, 'power2.out');
     // Background moles look out while the player is choosing a bet; they duck away once a round starts.
     this.decoys.forEach((d, i) => {
-      d.setFrame(this.frames, 'mole-decoy-happy');
+      // Both modifiers are introduced before the round: good mole on the left, bad mole on the right.
+      d.setFrame(this.frames, i === 1 ? 'mole-bad-angry' : i === 0 ? 'mole-good-happy' : 'mole-decoy-happy');
       d.riseTo(DECOY_PEEK, 0.45 + i * 0.08, 'back.out(1.4)');
     });
     this.bigButton.setEnabled(true);
@@ -302,17 +317,24 @@ export class GameView {
 
   showStarting() {
     this.phase = 'starting';
+    this.showSideButtons(false);
     this.bigButton.setEnabled(false);
   }
 
   /** Round started: mole pops out, multiplier appears. */
   showRunning(cashout: string) {
     this.phase = 'running';
+    this.showSideButtons(false);
     this.resetStageFx();
+    this.tierTint = COLORS.cream;
+    this.mult.tint = COLORS.cream;
+    this.winNow.caption.tint = COLORS.cream;
     this.stage.spinFrom(0); // fresh wind-up, but the curve's floor means it is never fully stopped
     this.ready.visible = false;
     this.mult.visible = this.winNow.visible = this.meter.visible = true;
     this.mult.text = 'x1.00';
+    // Background moles duck away when the run starts; they pop on their own timer from here.
+    this.decoys.forEach((d) => d.riseTo(RISE_HIDDEN, 0.22, 'power2.in'));
     this.mainHole.setFrame(this.frames, 'mole-gold-happy');
     this.mainHole.rise = RISE_HIDDEN;
     this.mainHole.riseTo(RISE_FULL, 0.45, 'back.out(1.8)');
@@ -326,11 +348,113 @@ export class GameView {
   /** Per-frame running values. */
   frame(multiplier: string, cashout: string, level10: number, levelName: string, pace: number) {
     this.mult.text = multiplier;
+    this.fitMult();
     this.winNow.set(`WIN NOW ${cashout}`);
+    this.layoutWinNow();
     this.meter.set(level10, levelName);
     this.level = level10;
     this.stage.speed = pace;
     if (this.phase === 'running') this.bigButton.setLabel('WHACK!', `Cash out ${cashout}`);
+  }
+
+  /**
+   * A milestone multiplier (x2, x5, x10 …): the number changes colour and pops, and a badge flies up.
+   * Milestones are all above the stake, so this never celebrates a losing round (RTS 14F).
+   */
+  checkpoint(value: number, label: string) {
+    let tint: number = COLORS.cream;
+    for (const [from, colour] of CHECKPOINT_TINTS) if (value >= from) tint = colour;
+    // Flash white, then settle on the tier colour and keep it for the rest of the round.
+    this.mult.tint = COLORS.white;
+    this.tierTint = tint;
+    gsap.delayedCall(0.1, () => {
+      if (this.phase === 'running' || this.phase === 'cashing') this.mult.tint = this.tierTint;
+    });
+    // The running payout carries the same tier colour as the multiplier.
+    this.winNow.caption.tint = tint;
+    pop(this.mult, 1.22, 0.24);
+
+    const badge = new Burst(this.frames(value >= 10 ? 'burst-gold' : 'burst-sky'), 84, label, 26);
+    // Below the multiplier and clear of the side buttons, so nothing important is covered.
+    badge.position.set(this.stage.size.width - 78, this.mult.y + this.mult.height + 18);
+    badge.scale.set(0.2);
+    this.fx.addChild(badge);
+    this.trackFx(gsap.timeline({ onComplete: () => badge.destroy({ children: true }) }))
+      .to(badge.scale, { x: 1, y: 1, duration: 0.16, ease: 'back.out(3)' })
+      .to(badge, { y: badge.y - 26, alpha: 0, duration: 0.28, delay: 0.1, ease: 'power2.in' });
+  }
+
+  /** A small in-between milestone: its number flies off the multiplier in a bright colour. */
+  miniCheckpoint(label: string) {
+    if (prefersReducedMotion()) return;
+    const colour = MINI_TINTS[Math.floor(Math.random() * MINI_TINTS.length)]!;
+    const chip = text(label, displayStyle(this.layout === 'desktop' ? 34 : 26, colour, 4, 0), [0.5, 0.5]);
+    const dir = Math.random() < 0.5 ? -1 : 1;
+    chip.position.set(this.mult.x + dir * (this.mult.width * 0.32), this.mult.y + this.mult.height * 0.55);
+    this.fx.addChild(chip);
+    chip.scale.set(0.5);
+    this.trackFx(gsap.timeline({ onComplete: () => chip.destroy() }))
+      .to(chip.scale, { x: 1.1, y: 1.1, duration: 0.12, ease: 'back.out(3)' })
+      .to(chip, { x: chip.x + dir * 70, y: chip.y - 60, rotation: dir * 0.35, alpha: 0, duration: 0.45, ease: 'power2.out' }, 0.05);
+  }
+
+  /**
+   * Good mole boost: the value jumps up. Deliberately calmer than the setback — no shake, no tilt,
+   * no hazard flash — so a modifier never reads like a win (D9).
+   */
+  boost(percent: number, to: string, cashout: string) {
+    this.mult.text = to;
+    this.fitMult();
+    if (this.phase === 'running') this.bigButton.setLabel('WHACK!', `Cash out ${cashout}`);
+    pop(this.mult, 1.12, 0.2);
+    if (prefersReducedMotion()) return;
+
+    const { width: w } = this.stage.size;
+    // Either background hole, but not the one the bad mole just used.
+    this.modSide = this.modSide === 'right' ? 'left' : 'right';
+    const good = this.popModifierMole(this.modSide, 'mole-good-happy', 0.5);
+    if (!good) return;
+
+    const burst = new Burst(this.frames('burst-lime'), 72, `+${percent}%`, 22);
+    // On the hole's rim, below the mole's face, so it never covers what the mole is doing.
+    burst.position.set(Math.min(Math.max(good.x + 140 * good.scale.x, 40), w - 40), good.y + 250 * good.scale.y);
+    burst.scale.set(0.2);
+    this.fx.addChild(burst);
+    this.trackFx(gsap.timeline({ onComplete: () => burst.destroy({ children: true }) }))
+      .to(burst.scale, { x: 0.75, y: 0.75, duration: 0.16, ease: 'back.out(3)' })
+      .to(burst, { y: burst.y - 22, alpha: 0, duration: 0.3, delay: 0.35, ease: 'power2.in' });
+    this.stage.flashBoon();
+    // A short hop of the gold mole, no shake and no stage tilt.
+    gsap.timeline()
+      .to(this.mainHole, { rise: RISE_FULL - 14, duration: 0.1, ease: 'power2.out' })
+      .to(this.mainHole, { rise: RISE_FULL, duration: 0.24, ease: 'bounce.out' });
+  }
+
+  /**
+   * Pops a modifier mole out of one of the two background holes and returns that hole, so the badge
+   * and the coin trail can sit on it. The hole goes back to its idle mole afterwards.
+   */
+  private popModifierMole(side: 'left' | 'right', frame: MoleFrame, holdSec: number): Hole | null {
+    const index = side === 'left' ? 0 : 1;
+    const hole = this.decoys[index];
+    if (!hole?.visible) return null;
+    this.busyDecoy = index;
+    gsap.killTweensOf(hole);
+    hole.setFrame(this.frames, frame);
+    hole.rise = RISE_HIDDEN;
+    gsap.timeline()
+      .to(hole, { rise: RISE_FULL, duration: 0.18, ease: 'back.out(2)' })
+      .to(hole, {
+        rise: RISE_HIDDEN,
+        duration: 0.25,
+        ease: 'power2.in',
+        delay: holdSec,
+        onComplete: () => {
+          hole.setFrame(this.frames, 'mole-decoy-happy');
+          if (this.busyDecoy === index) this.busyDecoy = null;
+        },
+      });
+    return hole;
   }
 
   /** Bad mole steals half. */
@@ -339,6 +463,7 @@ export class GameView {
     this.oldMult.text = from;
     this.oldMult.visible = this.strike.visible = true;
     this.mult.text = to;
+    this.fitMult();
     this.layoutStrike();
     gsap.killTweensOf([this.oldMult, this.strike]);
     this.oldMult.alpha = this.strike.alpha = 1;
@@ -354,11 +479,14 @@ export class GameView {
     this.setbacksShown++;
     pop(this.mult, 1.25, 0.3);
 
+    this.modSide = Math.random() < 0.5 ? 'left' : 'right';
+    const bad = this.popModifierMole(this.modSide, 'mole-bad-angry', 1.1);
     const burst = new Burst(this.frames('burst-red'), 104, '-50%', 28);
-    const bad = this.badHole;
     // The badge sits on the bad mole's head, clear of the multiplier and the side buttons.
     const badgeScale = this.layout === 'desktop' ? 1 : 0.72;
-    burst.position.set(Math.min(bad.x + 140 * bad.scale.x, w - 40), bad.y - 14);
+    const badX = bad ? bad.x + 140 * bad.scale.x : w / 2;
+    const badY = bad ? bad.y + 250 * bad.scale.y : 220;
+    burst.position.set(Math.min(Math.max(badX, 40), w - 40), badY);
     burst.rotation = 0.2;
     this.fx.addChild(burst);
     burst.scale.set(0.2);
@@ -366,26 +494,23 @@ export class GameView {
       .to(burst.scale, { x: badgeScale, y: badgeScale, duration: 0.3, ease: 'back.out(3)' })
       .to(burst, { alpha: 0, duration: 0.3, delay: 1.1 });
 
-    // Bad mole pops out of the right background hole, gold mole flinches, coins fly across.
-    const rightDecoy = this.decoys[1];
-    const decoyWasVisible = !!rightDecoy?.visible;
-    if (rightDecoy) rightDecoy.visible = false;
-    bad.visible = true;
-    bad.rise = RISE_HIDDEN;
-    gsap.timeline()
-      .to(bad, { rise: RISE_FULL, duration: 0.18, ease: 'back.out(2)' })
-      .to(bad, { rise: RISE_HIDDEN, duration: 0.25, ease: 'power2.in', delay: 1.1, onComplete: () => {
-        bad.visible = false;
-        if (rightDecoy && decoyWasVisible) rightDecoy.visible = true;
-      } });
+    // The gold mole flinches and coins fly across to the bad mole.
     this.mainHole.setFrame(this.frames, 'mole-gold-shock');
     gsap.timeline()
       .to(this.mainHole, { rise: 70, duration: 0.12 })
       .to(this.mainHole, { rise: RISE_FULL, duration: 0.5, delay: 0.6, ease: 'back.out(1.5)', onStart: () => this.mainHole.setFrame(this.frames, 'mole-gold-happy') });
-    this.flyCoins();
+    this.flyCoins(bad);
     this.stage.flashHazard();
     tilt(this.stage, -1.4, 0.6);
     shake(this.root, 8, 0.3);
+    this.bigButton.setLabel('WHACK!', `Cash out ${cashout}`);
+  }
+
+  /** The cash-out was refused and the round continues: the button goes back to live. */
+  cancelCashing(cashout: string) {
+    this.phase = 'running';
+    this.showSideButtons(false);
+    this.bigButton.setEnabled(true);
     this.bigButton.setLabel('WHACK!', `Cash out ${cashout}`);
   }
 
@@ -399,6 +524,7 @@ export class GameView {
 
   showWin(multiplier: string, payout: string, big: boolean) {
     this.phase = 'won';
+    this.showSideButtons(true);
     this.resetStageFx();
     this.stage.setMood('lime');
     this.mult.visible = this.winNow.visible = this.meter.visible = false;
@@ -428,11 +554,13 @@ export class GameView {
 
   showCrash(multiplier: string, lost: string, instant: boolean) {
     this.phase = 'lost';
+    this.showSideButtons(true);
     this.resetStageFx();
     this.stage.setMood('coral');
     this.winNow.visible = this.meter.visible = false;
     this.mult.visible = true;
     this.mult.text = multiplier;
+    this.fitMult();
     const { width: w } = this.stage.size;
     const h = this.stageH;
     const hole = this.holeRect();
@@ -445,7 +573,8 @@ export class GameView {
       gsap.to(this.bustBurst.scale, { x: 1, y: 1, duration: 0.35, ease: 'back.out(3)' });
       this.escaped.set('INSTANT BUST');
     } else {
-      this.mainHole.setFrame(this.frames, 'mole-gold-shock');
+      // The mole got away, so it looks pleased with itself rather than startled.
+      this.mainHole.setFrame(this.frames, 'mole-gold-smug');
       this.mainHole.riseTo(222, 0.22, 'power3.in');
       this.escaped.set('MOLE ESCAPED');
       this.puffs(hole);
@@ -485,6 +614,17 @@ export class GameView {
   // ---------- internals ----------
 
   private update(dt: number) {
+    if (this.phase === 'betting' || this.phase === 'starting') {
+      // Idle breathing so the holding screen is alive: the gold mole and the background moles bob.
+      this.bob += dt;
+      if (!prefersReducedMotion()) {
+        if (!gsap.isTweening(this.mainHole)) this.mainHole.rise = 140 + Math.sin(this.bob * 1.6) * 5;
+        this.decoys.forEach((d, i) => {
+          if (d.visible && !gsap.isTweening(d)) d.rise = DECOY_PEEK + Math.sin(this.bob * 1.3 + i * 1.7) * 7;
+        });
+      }
+      return;
+    }
     if (this.phase === 'running') {
       this.bob += dt * (2 + this.level * 0.6);
       if (!prefersReducedMotion() && !gsap.isTweening(this.mainHole)) {
@@ -494,7 +634,7 @@ export class GameView {
       this.decoyTimer -= dt;
       if (this.decoyTimer <= 0) {
         this.decoyTimer = Math.max(0.25, 1.4 - this.level * 0.12) * (0.6 + Math.random() * 0.8);
-        const visible = this.decoys.filter((d) => d.visible);
+        const visible = this.decoys.filter((d, i) => d.visible && i !== this.busyDecoy);
         const d = visible[Math.floor(Math.random() * visible.length)];
         if (d && !gsap.isTweening(d)) {
           const faces: MoleFrame[] = ['mole-decoy-happy', 'mole-decoy-shock'];
@@ -649,23 +789,16 @@ export class GameView {
     this.decoys.forEach((d, i) => {
       const spot = decoySpots[i];
       // The right decoy hole makes way while the bad mole is up.
-      d.visible = !!spot && !(i === 1 && this.badHole.visible);
+      d.visible = !!spot;
       if (spot) {
         d.position.set(spot[0]!, spot[1]!);
         d.scale.set(spot[2]!);
       }
     });
-    // Bad mole sits behind and beside the main mole, centred in the free space to its right. The mole body
-    // spans about x 60..225 in hole space (centre 140), and stays inside the stage.
-    const bs = desktop ? 0.75 : 0.42;
-    const mainBodyRight = w / 2 - holeW / 2 + 225 * s;
-    const gapCentre = (mainBodyRight + w) / 2;
-    this.badHole.position.set(Math.min(gapCentre - 140 * bs, w - 235 * bs), desktop ? 230 : 205);
-    this.badHole.scale.set(bs);
 
-    this.mult.style.fontSize = desktop ? 150 : 92;
+    this.fitMult();
     this.mult.position.set(w / 2, desktop ? 30 : this.oldMult.visible ? 52 : 20);
-    this.winNow.position.set(w / 2, desktop ? 262 : 140);
+    this.layoutWinNow();
     this.ready.position.set(w / 2, desktop ? 60 : 26);
     this.ready.scale.set(desktop ? 1.6 : 1);
     this.meter.resize(desktop ? 480 : 326);
@@ -673,9 +806,36 @@ export class GameView {
     this.demo.position.set(46, 26);
     this.soundBtn.position.set(w - 56, 12);
     this.shieldBtn.position.set(w - 56, 64);
-    this.settingsBtn.position.set(w - 56, 116);
     this.layoutResultCard();
     this.layoutStrike();
+  }
+
+  /**
+   * Bad mole sits behind and beside the main mole, centred in the free space on whichever side it
+   * came from. Its mole body spans about x 60..225 in hole space (centre 140) and stays on screen.
+   */
+  /** The mute and fairness buttons are hidden during a round, so nothing sits over the multiplier. */
+  private showSideButtons(show: boolean) {
+    this.soundBtn.visible = show;
+    this.shieldBtn.visible = show;
+  }
+
+  /** Keeps the multiplier inside the stage: long values (x1,234.56) shrink instead of running off. */
+  private fitMult() {
+    const { width: w } = this.stage.size;
+    const desktop = this.layout === 'desktop';
+    const base = desktop ? 150 : 92;
+    // Room for the side buttons when they are up, otherwise just a margin on each side.
+    const gutter = this.soundBtn.visible ? (desktop ? 180 : 120) : 56;
+    const max = w - gutter;
+    this.mult.style.fontSize = base;
+    if (this.mult.width > max) this.mult.style.fontSize = Math.max(28, Math.floor((base * max) / this.mult.width));
+  }
+
+  /** The pill hangs just under the multiplier, whose height changes with the number of digits. */
+  private layoutWinNow() {
+    const { width: w } = this.stage.size;
+    this.winNow.position.set(w / 2, this.mult.y + this.mult.height + (this.layout === 'desktop' ? 26 : 20));
   }
 
   private layoutStrike() {
@@ -687,6 +847,8 @@ export class GameView {
     const bw = this.oldMult.width + 12;
     const y = this.oldMult.y + this.oldMult.height * 0.55;
     this.strike.clear().roundRect(w / 2 - bw / 2, y - 3, bw, 6, 3).fill(COLORS.red);
+    // The multiplier shifts down while the struck-through value is shown, so the pill follows it.
+    this.layoutWinNow();
   }
 
   private layoutResultCard() {
@@ -721,8 +883,8 @@ export class GameView {
   }
 
   private resetStageFx() {
-    // Every round end (win, crash or back to betting) winds the rays down so the next run builds again.
-    this.stage.speed = 0;
+    // Every round end (win, crash or back to betting) drops the rays to their idle drift.
+    this.stage.idleSpin();
     this.fxTweens.forEach((t) => t.kill());
     this.fxTweens = [];
     this.fx.removeChildren().forEach((c) => {
@@ -732,15 +894,14 @@ export class GameView {
     this.resultCard.visible = false;
     this.escaped.visible = this.lostChip.visible = this.bustBurst.visible = false;
     this.oldMult.visible = this.strike.visible = false;
-    this.badHole.visible = false;
     this.stage.setMood('sun');
   }
 
-  private flyCoins() {
+  private flyCoins(bad: Hole | null) {
     const hole = this.holeRect();
-    const bad = this.badHole;
     const from = { x: hole.x + hole.w * 0.5, y: hole.y + hole.h * 0.3 };
-    const to = { x: bad.x + 140 * bad.scale.x, y: bad.y + 120 * bad.scale.y };
+    const target = bad ?? this.mainHole;
+    const to = { x: target.x + 140 * target.scale.x, y: target.y + 120 * target.scale.y };
     for (let i = 0; i < 6; i++) {
       const coin = new Sprite(this.frames('coin'));
       coin.anchor.set(0.5);

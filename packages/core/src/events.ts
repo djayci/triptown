@@ -33,10 +33,10 @@ export interface CashoutEntry {
   rttMs: number | null;
 }
 
-/** One paper throw in a partial cash-out round (a cash-out entry plus its idempotency key and paper count). */
-export interface ThrowEntry extends CashoutEntry {
-  throwId: string;
-  papers: number;
+/** One settled part of a split stake (a cash-out entry plus its idempotency key and part count). */
+export interface PartEntry extends CashoutEntry {
+  partId: string;
+  parts: number;
 }
 
 export type ResultKind = 'win' | 'even' | 'loss';
@@ -64,24 +64,32 @@ export interface StartEvent {
   clientSeed: string;
   nonce: number;
   configId: string;
-  /** Partial cash-out rounds only: papers in the round and the stake of each. */
-  papers?: number;
-  paperMinor?: number;
+  /** Split-stake rounds only: parts in the round and the stake of each. */
+  stakeParts?: number;
+  partMinor?: number;
 }
 
-export interface BadMoleEvent {
-  type: 'BAD_MOLE';
+export interface SetbackEvent {
+  type: 'SETBACK';
   roundId: string;
   time: number;
   factor: number;
 }
 
-/** A paper settled mid-round (partial cash-out rounds only). Never carries the crash time. */
-export interface ThrownEvent {
-  type: 'THROWN';
+/** A boost: the value jumps up by the config's boost factor. Never announced in advance. */
+export interface BoostEvent {
+  type: 'BOOST';
   roundId: string;
-  throwId: string;
-  papers: number;
+  time: number;
+  factor: number;
+}
+
+/** One part of a split stake settled mid-round. Never carries the crash time. */
+export interface PartSettledEvent {
+  type: 'PART_SETTLED';
+  roundId: string;
+  partId: string;
+  parts: number;
   reason: CashoutReason;
   time: number;
   multiplier: number;
@@ -100,9 +108,9 @@ export interface CashedOutEvent {
   payoutMinor: number;
   crashTime: number;
   balanceMinor: number;
-  /** Partial cash-out rounds: papers settled and lost. */
-  papersThrown?: number;
-  papersLost?: number;
+  /** Split-stake rounds: parts settled and lost. */
+  partsSettled?: number;
+  partsLost?: number;
 }
 
 export interface CrashEvent {
@@ -112,10 +120,10 @@ export interface CrashEvent {
   multiplier: number;
   crashTime: number;
   balanceMinor: number;
-  /** Partial cash-out rounds: total already returned from thrown papers, and the paper counts. */
+  /** Split-stake rounds: total already returned from settled parts, and the part counts. */
   returnMinor?: number;
-  papersThrown?: number;
-  papersLost?: number;
+  partsSettled?: number;
+  partsLost?: number;
 }
 
 export interface VoidEvent {
@@ -126,7 +134,7 @@ export interface VoidEvent {
   balanceMinor: number;
 }
 
-export type RoundEvent = StartEvent | BadMoleEvent | ThrownEvent | CashedOutEvent | CrashEvent | VoidEvent;
+export type RoundEvent = StartEvent | SetbackEvent | BoostEvent | PartSettledEvent | CashedOutEvent | CrashEvent | VoidEvent;
 export type TerminalEvent = CashedOutEvent | CrashEvent | VoidEvent;
 
 export function isTerminal(event: RoundEvent): event is TerminalEvent {
@@ -154,6 +162,8 @@ export interface RoundSnapshot {
   configId: string;
   /** Setbacks that have already happened. */
   setbacks: number[];
+  /** Boosts that have already happened. */
+  boosts: number[];
   settlement: Settlement | null;
   /** Recall fields (GLI-19 §4.14). Outcome-related values are null while the round is running. */
   profile: string | null;
@@ -165,11 +175,11 @@ export interface RoundSnapshot {
   resultKind: ResultKind | null;
   crashMultiplier: number | null;
   cashouts: CashoutEntry[];
-  /** Papers in the round (1 for single cash-out games) and the stake of each. */
-  papers: number;
-  paperMinor: number;
-  /** Papers thrown so far, including while the round is running. */
-  throws: ThrowEntry[];
+  /** Parts in the round (1 for single cash-out games) and the stake of each. */
+  stakeParts: number;
+  partMinor: number;
+  /** Parts settled so far, including while the round is running. */
+  settledParts: PartEntry[];
 }
 
 /** Public round record for history views and exports (same shape as a snapshot). */

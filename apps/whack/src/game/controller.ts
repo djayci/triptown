@@ -12,6 +12,8 @@ import {
   displayMultiplier,
   formatMoney,
   formatMultiplier,
+  crossedCheckpoint,
+  crossedMini,
   intensity10,
   intensityAudioLevel,
   pace,
@@ -30,15 +32,20 @@ interface ActiveRound {
   /** serverNow - clientNow, so elapsed time follows the server clock. */
   clockOffset: number;
   setbackTimes: Set<number>;
+  /** Boost times already applied, so a replay after a reconnect stays idempotent. */
+  boostTimes: Set<number>;
   handle: RoundHandle | null;
   resolved: boolean;
   cashRequested: boolean;
   lastDisplayed: number;
+  /** Highest milestone multiplier already celebrated this round. */
+  checkpoint: number;
+  /** Highest small in-between milestone shown this round. */
+  mini: number;
 }
 
 export interface ControllerHooks {
   onFairness?: () => void;
-  onSettings?: () => void;
 }
 
 /** Taps on the big button are ignored this long after a round ends. */
@@ -50,6 +57,7 @@ const ERROR_TEXT: Partial<Record<RoundServiceError['code'], string>> = {
   round_in_progress: 'Round still running',
   round_voided: 'Round voided · stake refunded',
   cycle_too_soon: 'Please wait a moment',
+  below_min_cashout: 'Too low to cash out yet',
   game_disabled: 'Game temporarily unavailable',
   integrity_blocked: 'Game temporarily unavailable',
   network: 'Connection problem',
@@ -87,7 +95,6 @@ export class GameController {
         this.audio.setMuted(!this.audio.current.muted);
       },
       onFairness: () => this.hooks.onFairness?.(),
-      onSettings: () => this.hooks.onSettings?.(),
       onEditBet: () => {
         if (this.phase === 'won' || this.phase === 'lost') this.toBetting();
       },
@@ -97,8 +104,12 @@ export class GameController {
       this.view.setMuted(audio.current.muted);
       audio.onChange((s) => this.view.setMuted(s.muted));
       game.onVisibility((visible) => audio.setVisible(visible));
-      // Any first touch unlocks audio (browsers block it until a gesture).
-      game.app.canvas.addEventListener('pointerdown', () => audio.unlock());
+      // Any first touch unlocks audio (browsers block it until a gesture) and starts the lobby bed.
+      game.app.canvas.addEventListener('pointerdown', () => {
+        audio.unlock();
+        audio.loadMusic();
+        if (this.phase !== 'running') audio.startLobby();
+      });
     }
     game.app.ticker.add(() => this.tick());
   }
@@ -159,8 +170,6 @@ export class GameController {
     this.audio?.unlock();
     this.audio?.loadMusic();
     this.audio?.playSfx('bet');
-    // Music keeps running between rounds; the round mix comes in when the round starts.
-    this.audio?.startMusic();
     this.phase = 'starting';
     this.view.showStarting();
     const betMinor = this.betMinor;
@@ -192,7 +201,18 @@ export class GameController {
         this.balanceMinor = res.balanceMinor;
         this.resolve(r, res.settlement);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        const code = err instanceof RoundServiceError ? err.code : 'unknown';
+        // A refused cash-out leaves the round running, so the button has to come back.
+        if (code === 'below_min_cashout' && !r.resolved && this.round === r) {
+          r.cashRequested = false;
+          this.phase = 'running';
+          const min = (err as RoundServiceError).details?.minCashout;
+          const now = displayMultiplier(this.elapsed(r), r.setbackTimes.size, this.config, r.boostTimes.size);
+          this.view.cancelCashing(formatMoney(optimisticPayout(r.betMinor, now, this.config), this.currency()));
+          this.view.toast(typeof min === 'number' ? `Cash out from x${min.toFixed(2)}` : (ERROR_TEXT[code] ?? 'Too low to cash out yet'));
+          return;
+        }
         // The stream or a round fetch will settle it.
         void this.recover(r);
       });
@@ -212,28 +232,31 @@ export class GameController {
         startedAt: e.startedAt,
         clockOffset: e.serverNow - Date.now(),
         setbackTimes: new Set(),
+        boostTimes: new Set(),
         handle: null,
         resolved: false,
         cashRequested: false,
         lastDisplayed: 1,
+        checkpoint: 0,
+        mini: 0,
       };
       this.balanceMinor -= e.betMinor;
       this.renderBalance();
       this.phase = 'running';
       this.view.showRunning(formatMoney(e.betMinor, this.currency()));
       this.renderBetUi();
+      this.audio?.stopLobby(200);
       this.audio?.startMusic();
-      this.audio?.setMusicMode('round');
       this.audio?.startTone();
       return;
     }
     const r = this.round;
     if (!r || r.id !== e.roundId || r.resolved) return;
-    if (e.type === 'BAD_MOLE') {
+    if (e.type === 'SETBACK') {
       if (r.setbackTimes.has(e.time)) return;
       const from = r.lastDisplayed;
       r.setbackTimes.add(e.time);
-      const to = displayMultiplier(this.elapsed(r), r.setbackTimes.size, this.config);
+      const to = displayMultiplier(this.elapsed(r), r.setbackTimes.size, this.config, r.boostTimes.size);
       r.lastDisplayed = to;
       if (this.phase === 'running' || this.phase === 'cashing') {
         this.view.setback(formatMultiplier(from), formatMultiplier(to), formatMoney(optimisticPayout(r.betMinor, to, this.config), this.currency()));
@@ -243,8 +266,20 @@ export class GameController {
       }
       return;
     }
+    if (e.type === 'BOOST') {
+      if (r.boostTimes.has(e.time)) return;
+      r.boostTimes.add(e.time);
+      const to = displayMultiplier(this.elapsed(r), r.setbackTimes.size, this.config, r.boostTimes.size);
+      r.lastDisplayed = to;
+      if (this.phase === 'running' || this.phase === 'cashing') {
+        this.view.boost(Math.round((e.factor - 1) * 100), formatMultiplier(to), formatMoney(optimisticPayout(r.betMinor, to, this.config), this.currency()));
+        this.audio?.playSfx('boost');
+        this.audio?.setToneMultiplier(to);
+      }
+      return;
+    }
     // Paper throws only exist in partial cash-out games; Whack rounds never send them.
-    if (e.type === 'THROWN') return;
+    if (e.type === 'PART_SETTLED') return;
     this.onTerminal(r, e);
   }
 
@@ -279,7 +314,10 @@ export class GameController {
           return;
         }
         snap.setbacks.forEach((time) => {
-          if (!r.setbackTimes.has(time)) this.onEvent({ type: 'BAD_MOLE', roundId: r.id, time, factor: this.config.setbackFactor });
+          if (!r.setbackTimes.has(time)) this.onEvent({ type: 'SETBACK', roundId: r.id, time, factor: this.config.setbackFactor });
+        });
+        snap.boosts.forEach((time) => {
+          if (!r.boostTimes.has(time)) this.onEvent({ type: 'BOOST', roundId: r.id, time, factor: this.config.boostFactor });
         });
         if (!r.cashRequested) {
           const handle = await this.service.watchRound(r.id, (e) => this.onEvent(e));
@@ -299,9 +337,9 @@ export class GameController {
     this.inputGuardUntil = performance.now() + RESULT_INPUT_GUARD_MS;
     r.handle?.close();
     this.audio?.stopTone();
-    // Back to the quiet lobby bed rather than silence, so the between-rounds screen is not dead air.
-    this.audio?.setIntensity(0);
-    this.audio?.setMusicMode('lobby');
+    // Round music stops as it always did; the lobby bed takes over between rounds.
+    this.audio?.stopMusic();
+    this.audio?.startLobby();
     this.renderBalance();
     if (s.status === 'void') {
       // System failure: the stake came back; no result to celebrate or mourn.
@@ -330,7 +368,19 @@ export class GameController {
     if (!r || r.resolved || (this.phase !== 'running' && this.phase !== 'cashing')) return;
     if (this.phase === 'cashing') return;
     const t = this.elapsed(r);
-    const m = displayMultiplier(t, r.setbackTimes.size, this.config);
+    const m = displayMultiplier(t, r.setbackTimes.size, this.config, r.boostTimes.size);
+    const floor = Math.max(r.lastDisplayed, r.checkpoint);
+    const milestone = crossedCheckpoint(floor, m);
+    if (milestone) {
+      r.checkpoint = milestone;
+      this.view.checkpoint(milestone, `x${milestone}`);
+      this.audio?.playSfx('tick', { volume: 1.4 });
+    }
+    const mini = crossedMini(Math.max(floor, r.mini), m);
+    if (mini && mini !== milestone) {
+      r.mini = mini;
+      this.view.miniCheckpoint(formatMultiplier(mini));
+    }
     r.lastDisplayed = m;
     const level = intensity10(t, this.config);
     this.view.frame(

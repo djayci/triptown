@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Triptown Games builds HTML5 crash-style games for real-money gambling operators. The games run inside operator iframes and native webviews on mid-range phones, and everything is hosted on Vercel. The first game is **Whack Crash**: a golden mole rises with a multiplier, WHACK cashes out, the mole diving is a crash, and a bad mole knocks the value down by x0.5.
+Triptown Games builds HTML5 crash-style games for real-money gambling operators. The games run inside operator iframes and native webviews on mid-range phones, and everything is hosted on Vercel. The first game is **Whack Crash**: a golden mole rises with a multiplier, WHACK cashes out, the mole diving is a crash, a bad mole knocks the value down by x0.5 and a good mole lifts it by x1.05.
 
 Many more games will follow. Shared packages must never depend on one particular game.
 
@@ -8,6 +8,7 @@ Many more games will follow. Shared packages must never depend on one particular
 
 - **Spec:** `openspec/changes/whack-crash-mvp/`. Read `design.md` (decisions D1–D10) before changing math, fairness, settlement, transport or rendering structure. `tasks.md` shows what is done and what comes next. Requirements are in `specs/*/spec.md`.
 - **Workflow:** changes go through OpenSpec (`/opsx:propose`, `/opsx:apply`, `/opsx:archive`). When implementing a task, tick it in `tasks.md` only after its stated "verify" step passes.
+- **New games:** run the **`new-game-concept`** skill (`.claude/skills/new-game-concept/`). It takes an idea through mechanics brainstorming, `opsx:explore`, a concept-stage compliance audit, a design canvas and an OpenSpec proposal, in that order.
 - **Art direction:** Candy Arcade Pop. The mockups are in `design/whack-crash/*.dc.html` (bright yellow, thick ink outlines, Lilita One for display text, Bricolage Grotesque for UI text). The Neon files there are the rejected alternative. Don't use them as reference.
 
 Settled decisions are not up for debate while you implement. If code and spec disagree, raise it; don't quietly diverge. Known open questions: the max win default (multiplier or fixed amount), the operator wallet API, and long-term seed storage.
@@ -20,8 +21,8 @@ apps/
   sandbox/      fake operator page: iframe embed + verifier       @triptown/sandbox
   api/          Hono on Vercel functions: rounds, SSE, cashout    @triptown/api
 packages/
-  fairness/     seeds, HMAC streams, crash time, setbacks, verifier, RTP simulator
-  core/         pure round model: path value, state machine, money, RoundHost, RoundStore
+  fairness/     seeds, HMAC streams, crash time, setbacks and boosts, verifier, RTP simulator
+  core/         pure round model: path value, state machine, money, RoundHost, RoundStore, game registry
   rgs-client/   RoundService interface, MockRoundService (./mock), shared test suite (./testing)
   engine/       Pixi helpers: app bootstrap/DPR, assets, tweens, particles, audio, reduced motion
 ```
@@ -29,6 +30,15 @@ packages/
 Dependency direction: `fairness` ← `core` ← `rgs-client` / `api` ← `whack`. `engine` knows nothing about rounds.
 
 Packages export TypeScript source directly (`"exports": "./src/index.ts"`). They have no build step, and apps bundle them.
+
+**Shared packages name the model, never a game.** Events are `SETBACK` / `BOOST` / `PART_SETTLED`; a split stake has `stakeParts` and settles into `parts`. A game is registered at runtime, not listed in a type:
+
+```ts
+registerGame('going-viral', 'whack-crash');   // a skin on a certified engine
+registerGame('some-game');                     // brings its own maths, needs its own report
+```
+
+The second argument is the engine whose config ids the game plays, so a skin reuses the certified ids and their committed RTP reports and needs no recertification. That is the point: new games are presentation, not new maths. Adding a game must never mean editing a type in `core` or `fairness`.
 
 ## Commands
 
@@ -53,8 +63,8 @@ Before calling work done, run `pnpm lint typecheck test` for the packages you to
 These protect real money and certification. Breaking one is a bug, even when the tests pass.
 
 1. **`fairness` and `core` stay pure.** No Pixi, GSAP, Howler, DOM globals or `node:*` imports. They must run unchanged in the browser mock, the API and the verifier. ESLint enforces this (`eslint.config.js`). Never weaken that rule to make an import work. Test files and `scripts/` are exempt.
-2. **Payout never depends on skill or strategy.** The payout is a martingale (D4). Crash hazard depends only on elapsed time. Setbacks are independent of the crash time. There are no warnings before a crash. Any change to growth, setbacks, config limits or crash sampling needs a fresh `simulate` run showing RTP at 97% ± 0.1% for every strategy, with the updated report committed.
-3. **The client never learns the outcome early.** A running round must not expose crash time `T` or future setbacks in any response, event or snapshot. `T` arrives only with `CRASH`. The server seed is revealed only on rotation.
+2. **Payout never depends on skill or strategy.** The payout is a martingale (D4). Crash hazard depends only on elapsed time. Setbacks and boosts are independent of the crash time and of each other. There are no warnings before a crash. Any change to growth, setbacks, boosts, config limits or crash sampling needs a fresh `simulate` run showing RTP at 97% ± 0.1% for every strategy, with the updated report committed. Each modifier combination is its own config id (`v1`/`v2`, `-rising`), and a profile may only use an id that has a committed passing report; boosted ids need their own lab acceptance before any regulated market uses them.
+3. **The client never learns the outcome early.** A running round must not expose crash time `T` or future setbacks or boosts in any response, event or snapshot. `T` arrives only with `CRASH`. The server seed is revealed only on rotation.
 4. **Server time is the truth.** Cash-out time is server receive time minus `t0`. There is no latency grace. Ties resolve setback first. Settlement is idempotent. Debit happens before the round starts. Auto cash-out, max win and `tMax` (60 s) settle on the server whether or not a client is connected.
 5. **Money is integer minor units.** Use `payoutMinor` / `accrueCashout` + `settleAccrual` and `formatMinor` from `core`: exact accrual, rounded half-up once per round (compliance-baseline D23). Minimum stake is 0.20. Never keep balances or payouts as float currency.
 6. **Determinism.** Randomness in a round comes only from `HMAC_SHA256(serverSeed, clientSeed:nonce:stream:i)`. `Math.random()` is fine for cosmetic effects in the client, and never allowed in `fairness`/`core` round derivation.

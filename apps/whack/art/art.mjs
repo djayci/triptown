@@ -17,6 +17,8 @@ function mole(kind, face) {
     gold: { body: '#ffb627', snout: '#ffe08a', shine: '#fff1b8' },
     decoy: { body: '#c98a55', snout: '#f3cf9f', shine: '#e2ac7c' },
     bad: { body: VIOLET, snout: '#c9b8ff', shine: '#b39bff' },
+    // Good mole: mint body with a lime shine, so it reads as the friendly opposite of the bad mole.
+    good: { body: '#49c46a', snout: '#d6f5c9', shine: '#9be86d' },
   }[kind];
   let eyes = '';
   let mouth = `<rect x="92" y="144" width="16" height="13" rx="2" fill="#fff" stroke="${INK}" stroke-width="4"/>`;
@@ -32,6 +34,10 @@ function mole(kind, face) {
   } else if (face === 'shock') {
     eyes = `<circle cx="78" cy="98" r="14" fill="#fff" stroke="${INK}" stroke-width="4"/><circle cx="122" cy="98" r="14" fill="#fff" stroke="${INK}" stroke-width="4"/><circle cx="78" cy="100" r="4" fill="${INK}"/><circle cx="122" cy="100" r="4" fill="${INK}"/>`;
     mouth = `<ellipse cx="100" cy="152" rx="9" ry="11" fill="#5a1630" stroke="${INK}" stroke-width="4"/>`;
+  } else if (face === 'smug') {
+    // Escaping mole: one eye winking, a pleased grin. The mole won this round, and shows it.
+    eyes = `<path d="M66 102 Q78 92 90 102" fill="none" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><circle cx="122" cy="100" r="9" fill="${INK}"/><circle cx="125" cy="97" r="3" fill="#fff"/>`;
+    mouth = `<path d="M84 144 q16 16 32 0" fill="none" stroke="${INK}" stroke-width="5" stroke-linecap="round"/>`;
   } else if (face === 'angry') {
     eyes = `<path d="M32 86 Q100 70 168 86 L168 116 Q100 104 32 116 Z" fill="${INK}"/><circle cx="78" cy="98" r="8" fill="${RED}"/><circle cx="122" cy="98" r="8" fill="${RED}"/><circle cx="80" cy="95" r="2.5" fill="#fff"/><circle cx="124" cy="95" r="2.5" fill="#fff"/><path d="M60 74 L92 84 M140 74 L108 84" stroke="${INK}" stroke-width="7" stroke-linecap="round"/>`;
     mouth = `<path d="M84 146 l6 8 l5 -8 l5 8 l5 -8 l5 8 l6 -8" fill="#fff" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/>`;
@@ -43,8 +49,8 @@ function mole(kind, face) {
   const ears = `<circle cx="42" cy="66" r="14" fill="${c.body}" stroke="${INK}" stroke-width="6"/><circle cx="158" cy="66" r="14" fill="${c.body}" stroke="${INK}" stroke-width="6"/>`;
   return svg(
     200,
-    260,
-    `${ears}<path d="M30 263 L30 110 C30 58 62 34 100 34 C138 34 170 58 170 110 L170 263 Z" fill="${c.body}" stroke="${INK}" stroke-width="6"/>${crown}<ellipse cx="62" cy="80" rx="8" ry="16" fill="${c.shine}"/>${eyes}<ellipse cx="56" cy="126" rx="11" ry="7" fill="#ff7eb6" opacity="0.9"/><ellipse cx="144" cy="126" rx="11" ry="7" fill="#ff7eb6" opacity="0.9"/><ellipse cx="100" cy="130" rx="26" ry="18" fill="${c.snout}" stroke="${INK}" stroke-width="5"/><ellipse cx="100" cy="121" rx="10" ry="7" fill="${PINK}" stroke="${INK}" stroke-width="4"/>${mouth}`,
+    300,
+    `${ears}<path d="M30 303 L30 110 C30 58 62 34 100 34 C138 34 170 58 170 110 L170 303 Z" fill="${c.body}" stroke="${INK}" stroke-width="6"/>${crown}<ellipse cx="62" cy="80" rx="8" ry="16" fill="${c.shine}"/>${eyes}<ellipse cx="56" cy="126" rx="11" ry="7" fill="#ff7eb6" opacity="0.9"/><ellipse cx="144" cy="126" rx="11" ry="7" fill="#ff7eb6" opacity="0.9"/><ellipse cx="100" cy="130" rx="26" ry="18" fill="${c.snout}" stroke="${INK}" stroke-width="5"/><ellipse cx="100" cy="121" rx="10" ry="7" fill="${PINK}" stroke="${INK}" stroke-width="4"/>${mouth}`,
   );
 }
 
@@ -106,7 +112,9 @@ export const SPRITES = {
   'mole-gold-shock': mole('gold', 'shock'),
   'mole-gold-dizzy': mole('gold', 'dizzy'),
   'mole-gold-sleep': mole('gold', 'sleep'),
+  'mole-gold-smug': mole('gold', 'smug'),
   'mole-bad-angry': mole('bad', 'angry'),
+  'mole-good-happy': mole('good', 'happy'),
   'mole-decoy-happy': mole('decoy', 'happy'),
   'mole-decoy-shock': mole('decoy', 'shock'),
   'mole-decoy-sleep': mole('decoy', 'sleep'),
@@ -120,6 +128,7 @@ export const SPRITES = {
   'burst-red': starburst(RED),
   'burst-sky': starburst(SKY),
   'burst-gold': starburst('#ffe14d'),
+  'burst-lime': starburst(LIME),
   ...Object.fromEntries(Object.entries(ICONS).map(([k, p]) => [`icon-${k}`, icon(p)])),
   ...Object.fromEntries(Object.entries(ICONS).map(([k, p]) => [`icon-${k}-cream`, icon(p, 48, CREAM, 2.8)])),
 };

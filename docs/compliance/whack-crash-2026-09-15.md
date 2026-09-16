@@ -84,12 +84,36 @@
 - A below-stake cash-out is celebrated: `packages/core/src/round.ts` (no floor on manual cash-out) → `apps/whack/src/game/view.ts` `showWin` (confetti, BONK, `+payout`) → `controller.ts` `resolve` plays `win`.
 - No cycle-time setting: `packages/fairness/src/config.ts` has no `minCycleMs`. Replay guard is 700 ms: `controller.ts` `RESULT_INPUT_GUARD_MS`.
 - Decoys are interactive and speed up: `view.ts` (decoy `pointertap`, `update()` decoy timer).
-- No rules/help, clock or net position: `apps/whack/src/dom/` contains only `fairness-panel.ts` and `sound-panel.ts`.
+- No rules/help, clock or net position: `apps/whack/src/dom/` contains only `fairness-panel.ts` (the sound settings panel was removed on 2026-09-16; mute stays on the speaker button).
 - The operator bridge posts balance to `'*'`: `controller.ts` `renderBalance`.
 - The server seed rotates only when the player asks: `packages/core/src/host.ts` `rotateSeed`.
 - Hand-written SHA/HMAC: `packages/fairness/src/sha256.ts`. Float maths in settlement: `packages/fairness/src/model.ts` (`Math.exp`/`Math.log`).
 - One active-round lock per session: `RoundStore.claimActiveRound`.
 - Hosting is Vercel plus Upstash with no region pinned (`apps/api/scripts/build.mjs`).
+
+## 6b. Round modifiers and config ids (added by the `good-mole` change, 2026-09-16)
+
+Whack Crash has two in-round modifiers, both random, both non-interactive, neither announced in advance:
+
+| Modifier | Effect | Rate | Streams from |
+|---|---|---|---|
+| Bad mole | × 0.5 | 0.12/s | `setbacks` |
+| Good mole | × 1.05 | 0.4/s | `boosts` |
+
+Each combination of modifiers is a separate config id, and each id has its own committed 10M-round RTP report under `packages/fairness/reports/`:
+
+| Config id | Setbacks | Boosts | Report |
+|---|---|---|---|
+| `whack-crash/v1` | yes | no | `rtp-whack-crash-v1.md` |
+| `whack-crash/v1-rising` | no | no | `rtp-whack-crash-v1-rising.md` |
+| `whack-crash/v2` | yes | yes | `rtp-whack-crash-v2.md` |
+| `whack-crash/v2-rising` | no | yes | `rtp-whack-crash-v2-rising.md` |
+
+Rounding band reports at stakes 0.20, 0.50 and 1.00 accompany each boosted id (`rtp-whack-crash-v2*-halfup-*-jitter50.md`).
+
+The crash hazard absorbs the boost: `H(t) = K(t) − [λ_b(1−f) − λ_g(g−1)]·t`, so the return stays 97% for every strategy and only round length changes (mean 3.89 s → 3.68 s). One residual effect is disclosed in the reports: a boost can cross the max-win cap and the excess above 10,000× is not paid, which costs about 0.05 pp for strategies that ride to the cap. That is why the boost is ×1.05 rather than something larger.
+
+Profiles choose modifiers with `setbacksMode` and `boostsMode`. Every regulated template ships with both off or setbacks off, so a boosted id reaches a regulated market only after its own lab acceptance.
 
 ## 7. Not verified. Confirm with counsel or the lab
 

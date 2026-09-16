@@ -1,8 +1,16 @@
-import { PAPER_ROUTE_CONFIG, resolveConfigId } from '@triptown/fairness';
+import { resolveConfigId } from '@triptown/fairness';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_CURRENCY } from './money';
-import { effectiveConfig, profileFromTemplate } from './profiles';
+import { effectiveConfig, profileFromTemplate, registerGame } from './profiles';
 import { describeRules } from './rules';
+
+// The split-stake code path still ships, but its only config belongs to a retired game. Tests register
+// that game explicitly to exercise the path; no shipped profile has it registered (design D1, D2).
+registerGame('paper-route');
+
+// Retired game config: resolvable for verification, no longer exported (design D2).
+const PAPER_ROUTE_CONFIG = resolveConfigId('paper-route/v1')!;
+
 
 const O = ['https://op.example'];
 const keys = (items: { key: string }[]) => items.map((i) => i.key);
@@ -48,22 +56,22 @@ describe('describeRules (compliance-baseline 6.1)', () => {
     expect(param(items, 'autoCashout')).toMatchObject({ maximum: 100 });
   });
 
-  it('adds the paper items right after minCashout for partial cash-out games', () => {
+  it('adds the part items right after minCashout for partial cash-out games', () => {
     const p = profileFromTemplate('regulated-uk', O);
     const items = describeRules(effectiveConfig('paper-route', p), p, DEFAULT_CURRENCY);
     const k = keys(items);
     const at = k.indexOf('minCashout');
-    expect(k.slice(at + 1, at + 8)).toEqual(['papers', 'throwTiming', 'minPaperValue', 'roundRounding', 'wipeout', 'disconnectRemainingPapers', 'landingIsDecoration']);
-    expect(param(items, 'papers')).toEqual({ count: 5 });
-    expect(param(items, 'minPaperValue')).toMatchObject({ minor: 20 });
+    expect(k.slice(at + 1, at + 8)).toEqual(['stakeParts', 'partTiming', 'minPartValue', 'roundRounding', 'wipeout', 'disconnectRemainingParts', 'landingIsDecoration']);
+    expect(param(items, 'stakeParts')).toEqual({ count: 5 });
+    expect(param(items, 'minPartValue')).toMatchObject({ minor: 20 });
     expect(param(items, 'rounding')).toMatchObject({ minStakeMinor: 100 });
-    expect(param(items, 'autoCashout')).toMatchObject({ settlesRemainingPapers: true });
+    expect(param(items, 'autoCashout')).toMatchObject({ settlesRemainingParts: true });
   });
 
-  it('leaves the paper items out when the profile turns partial cash-out off', () => {
+  it('leaves the part items out when the profile turns partial cash-out off', () => {
     const p = profileFromTemplate('pt-draft', O);
     const items = describeRules({ ...PAPER_ROUTE_CONFIG, maxWinMultiplier: 100 }, p, DEFAULT_CURRENCY);
-    expect(keys(items)).not.toContain('papers');
+    expect(keys(items)).not.toContain('stakeParts');
     expect(keys(items)).not.toContain('landingIsDecoration');
     expect(param(items, 'disconnect')).toEqual({ policy: 'cashout-at-disconnect' });
   });

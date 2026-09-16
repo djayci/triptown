@@ -4,7 +4,8 @@ All files in this folder are **placeholders** generated from code in this reposi
 
 | File | Made by | Licence |
 |---|---|---|
-| `sfx.webm`, `sfx.mp3` (tick, bet, whack, setback, win, bigwin, crash) | `apps/whack/scripts/synth.mjs` | Original work of Triptych Studio, no third-party material |
+| `sfx.webm`, `sfx.mp3` (tick, bet, whack, setback, boost, win, bigwin, crash) | `apps/whack/scripts/synth.mjs` | Original work of Triptych Studio, no third-party material |
+| `lobby` (arcade loop for the betting screen) | `apps/whack/scripts/synth.mjs` | Same as above |
 | `stem-base`, `stem-drums`, `stem-lead` (`.webm`, `.mp3`) | `apps/whack/scripts/synth.mjs` | Same as above |
 | `tone.webm`, `tone.mp3` | `apps/whack/scripts/synth.mjs` | Same as above |
 

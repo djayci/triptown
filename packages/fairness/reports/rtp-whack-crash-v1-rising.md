@@ -1,10 +1,13 @@
 # RTP simulation: whack-crash/v1-rising
 
-- Rounds: 10,000,000 (seed 1), 18.6s
-- Config: `{"id":"whack-crash/v1-rising","rtp":0.97,"r0":0.12,"rmax":0.95,"tRamp":12,"lambda":0,"setbackFactor":0.5,"maxWinMultiplier":10000,"tMax":60,"papers":1}`
+- Rounds: 10,000,000 (seed 1), 21.9s
+- Config: `{"id":"whack-crash/v1-rising","rtp":0.97,"r0":0.12,"rmax":0.95,"tRamp":12,"lambda":0,"setbackFactor":0.5,"boostRate":0,"boostFactor":1.25,"maxWinMultiplier":10000,"tMax":60,"stakeParts":1}`
 - Minimum cash-out: none
+- Time strategy jitter: none
 - Rounding: none (theoretical)
 - Target RTP 97.000%, tolerance ±0.100%
+- Round length: mean 3.325 s, median 2.983 s (first 200,000 rounds)
+- Modifiers: setbacks x0.5 at 0/s; boosts off
 - Instant bust share: 3.008% (±0.005% SE), target 3.000% ±0.05% → PASS
 
 "Direct" counts a payout only when the stop beats the sampled crash time.

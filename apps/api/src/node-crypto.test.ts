@@ -1,4 +1,7 @@
-import { DEFAULT_CONFIG, PAPER_ROUTE_CONFIG, WHACK_CRASH_RISING_CONFIG, commitServerSeed, deriveRound, pureCrypto } from '@triptown/fairness';
+import { DEFAULT_CONFIG, WHACK_CRASH_RISING_CONFIG, commitServerSeed, deriveRound, pureCrypto, resolveConfigId } from '@triptown/fairness';
+
+// Retired game config: resolvable for verification, no longer exported (design D4).
+const PAPER_ROUTE_CONFIG = resolveConfigId('paper-route/v1')!;
 import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { nodeCrypto } from './node-crypto';

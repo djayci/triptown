@@ -13,6 +13,8 @@ Re-verify an entry before relying on it if it is **older than 90 days**, or if i
 - **GLI-19:** whether a v4 has replaced v3.0 (Jul 2020).
 - **Germany:** GGL €3/€5 stake pilot (runs to 31 Dec 2027); any GGL statement on crash games.
 - **Partial cash-out:** any lab or regulator statement on N-way partial cash-out in crash games; Brazil lab reading of item 14 d) for throws framed as independent bets; Colombia Acuerdo 01/2026 text. Added 2026-09-15.
+- **Nigeria:** LSLGA homologation (6-month window from Jul 2026; Global Lab exclusivity and GLI acceptance unconfirmed); FSGRN reciprocity for B2B; Central Gaming Bill after the Dec 2025 assent refusal. Added 2026-09-16.
+- **Ghana:** GCG Legislative Instrument (submitted 2025) and Act 721 amendments; Data Protection Bill 2025 (localisation effort, transfer approval); GRA gaming monitoring system. Added 2026-09-16.
 - **Rounding:** lab practice for payout rounding in PAR sheets and certified RTP; operator wallet support for round-level carry settlement. Added 2026-09-15.
 
 ## Test-lab baseline
@@ -158,11 +160,37 @@ Re-verify an entry before relying on it if it is **older than 90 days**, or if i
 - **Tax.** 5% excise on deposits, 5% withholding on withdrawals, 15% GGR.
 
 ## Other Africa. verified 2026-09-15, M/L
-- **Nigeria:** state-regulated (Lagos LSLGA licence; GLI-33 reported).
+- **Nigeria, Ghana:** see their own sections below (verified 2026-09-16).
 - **Uganda:** NLGRB gambling software licence.
-- **Ghana:** through operators; crash games allowed (L).
 - **Tanzania:** unclear.
 - **South Africa:** online casino prohibited.
+
+## Nigeria (state-regulated). verified 2026-09-16, H/M
+- **Structure.** Supreme Court *AG Lagos v AG Federation* (22 Nov 2024): the National Lottery Act applies only in the FCT; states regulate elsewhere (M). FCT Lottery Regulatory Office since May 2025 (M). The Central Gaming Bill was passed by the National Assembly but assent refused, Dec 2025 (M). FSGRN (state regulators' forum): 11% GGR contribution, reciprocity certificate from 1 Jan 2026 (L/M, no primary text).
+- **Lagos law.** Lagos State Lotteries and Gaming Authority Law No. 7 of 2021 (Gazette Extraordinary No. 14 Vol. 54):
+  - s.1 "horse racing" excludes virtual horse racing;
+  - s.33 licence categories (incl. remote gaming);
+  - s.59 only software approved and registered by the Authority or a certified institution (5 years);
+  - s.81(f) player tools, rules, history, "anticipated pay-outs";
+  - s.85 unlicensed activity.
+  - Casino & Gaming Regs reg.18: testing by the designated lab at the applicant's cost.
+  - RG Regs reg.3 (18+) and reg.7 (ads: no youth culture, skill claims, celebrities, "toughness… recklessness", cultural beliefs about luck; 18+ warning). (H)
+- **Suppliers.** A B2B "software/gaming service provider" licence is needed (L/M). Lagos High Court 2026 rulings apply LSLGA to remote operators taking Lagos wagers (H, LSLGA notice 25 Jul 2026).
+- **Certification.** LSLGA mandatory homologation from 20 Jul 2026 (6 months): census, source code and RNG submission, Certificate of Homologation; uncertified systems disconnected (H). Global Lab reported as the accredited lab (L/M).
+- **Crash games.** Not named in Lagos law; offered under Online Casino by licensees; no regulator statement found (L).
+- **Ads.** ARCON pre-vetting of every advert incl. social media; minimum penalty ₦500k (H, Vetting Guidelines).
+- **Data.** NDPA 2023 s.41 cross-border transfer bases (recorded), s.44 registration for major importance (H). GAID 2025 in force 19 Sep 2025 (M). No gaming localisation rule found (M).
+- **Tax.** Nigeria Tax Act 2025: stakes VAT-exempt (M); 5% withholding on winnings reported (L/M).
+- **North.** 12 Sharia states ban gambling for Muslims; Kano Hisbah raids resumed Nov 2024 (M). Operators must geo-block.
+
+## Ghana (Gaming Commission). verified 2026-09-16, H/M
+- **Law.** Gaming Act 2006 (Act 721): s.13 licenses only those who operate games of chance; no supplier licence category (H). A draft L.I. was submitted in 2025 and Act amendments started (H, GCG Annual Report 2025); not passed as of Sep 2026 (L).
+- **Operators.** Licence and renewal filings need "details of game software system/information on software providers… Certification of software", renewed annually (H, GCG Requirements for Licence 2025). No named lab or technical standard (H/M). Online Casino US$50k licence, $25k renewal, $50k annual fee (H, Fees and Charges Regs 2025).
+- **Crash games.** Aviator widely offered by licensees; no GCG statement or action found (L/M).
+- **Design.** Under 18 is a child (s.72) (H); GCG self-exclusion scheme (H). No autoplay, speed, RTP or cycle-time rule found (H absence).
+- **Ads.** GCG Guidelines on Advertisement: pre-approval; no celebrities; no impression of assured wins or wealth; no "cartoon characters etc., or the imitation thereof"; warnings ≥30% of the largest font or crawl; no prime-time broadcast (H).
+- **Data.** Act 843 registration with the Data Protection Commission (M). Draft DP Bill 2025: "reasonable efforts to localise", written consent and Authority approval for large transfers (H draft, status L).
+- **Tax.** 10% withholding on winnings repealed from 2 Apr 2025 (Act 1129) (M); 20% GGR tax (M).
 
 ## Australia. verified 2026-09-15, H
 - Online casino games are prohibited under the Interactive Gambling Act. Not a market.

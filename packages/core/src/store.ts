@@ -1,4 +1,4 @@
-import type { Settlement, ThrowEntry } from './events';
+import type { Settlement, PartEntry } from './events';
 import type { GameId, JurisdictionProfile } from './profiles';
 import type { RoundRecord } from './round';
 
@@ -69,14 +69,14 @@ export interface RoundStore {
   setHeartbeat(roundId: string, atMs: number): Promise<void>;
   /**
    * Atomic set-if-absent. True only for the call that stored the settlement. For paper rounds pass the
-   * number of papers the settlement was computed from; the store refuses it if more have been thrown since.
+   * number of parts the settlement was computed from; the store refuses it if more have settled since.
    */
-  settleOnce(roundId: string, settlement: Settlement, expectedThrownPapers?: number): Promise<boolean>;
+  settleOnce(roundId: string, settlement: Settlement, expectedSettledParts?: number): Promise<boolean>;
   /**
    * Atomic: appends a throw if the round is unsettled, the throw id is new and the bag has room, then credits
    * the whole minor units newly earned by the running exact total (design D23) to the session balance.
    */
-  recordThrow(sessionId: string, roundId: string, entry: Omit<ThrowEntry, 'creditedMinor'>, papers: number): Promise<RecordThrowResult>;
+  recordPartSettlement(sessionId: string, roundId: string, entry: Omit<PartEntry, 'creditedMinor'>, stakeParts: number): Promise<RecordPartResult>;
 
   /**
    * Atomic: claims the player's active-round slot and records the start time, unless a round is
@@ -101,9 +101,9 @@ export interface RoundStore {
   setKillSwitch(key: string, enabled: boolean): Promise<void>;
 }
 
-export type RecordThrowResult =
-  | { kind: 'recorded'; entry: ThrowEntry; thrownPapers: number; balanceMinor: number }
-  | { kind: 'duplicate'; entry: ThrowEntry }
+export type RecordPartResult =
+  | { kind: 'recorded'; entry: PartEntry; settledPartCount: number; balanceMinor: number }
+  | { kind: 'duplicate'; entry: PartEntry }
   | { kind: 'settled' }
   | { kind: 'full' };
 
@@ -207,29 +207,29 @@ export class MemoryRoundStore implements RoundStore {
     if (r) r.lastHeartbeatAt = Math.max(r.lastHeartbeatAt ?? 0, atMs);
   }
 
-  async settleOnce(roundId: string, settlement: Settlement, expectedThrownPapers?: number) {
+  async settleOnce(roundId: string, settlement: Settlement, expectedSettledParts?: number) {
     const r = this.rounds.get(roundId);
     if (!r || r.settlement) return false;
-    if (expectedThrownPapers !== undefined && (r.throws ?? []).reduce((n, t) => n + t.papers, 0) !== expectedThrownPapers) return false;
+    if (expectedSettledParts !== undefined && (r.settledParts ?? []).reduce((n, t) => n + t.parts, 0) !== expectedSettledParts) return false;
     r.settlement = { ...settlement };
     return true;
   }
 
-  async recordThrow(sessionId: string, roundId: string, entry: Omit<ThrowEntry, 'creditedMinor'>, papers: number): Promise<RecordThrowResult> {
+  async recordPartSettlement(sessionId: string, roundId: string, entry: Omit<PartEntry, 'creditedMinor'>, stakeParts: number): Promise<RecordPartResult> {
     const r = this.rounds.get(roundId);
     if (!r || r.settlement) return { kind: 'settled' };
-    const throws = (r.throws ??= []);
-    const dup = throws.find((t) => t.throwId === entry.throwId);
+    const throws = (r.settledParts ??= []);
+    const dup = throws.find((t) => t.partId === entry.partId);
     if (dup) return { kind: 'duplicate', entry: { ...dup } };
-    const thrown = throws.reduce((n, t) => n + t.papers, 0);
-    if (thrown + entry.papers > papers) return { kind: 'full' };
+    const thrown = throws.reduce((n, t) => n + t.parts, 0);
+    if (thrown + entry.parts > stakeParts) return { kind: 'full' };
     const exact = throws.reduce((n, t) => n + t.exactMinor, 0) + entry.exactMinor;
     const credited = throws.reduce((n, t) => n + t.creditedMinor, 0);
     const creditedMinor = Math.max(0, Math.floor(exact + EPSILON) - credited);
-    const stored: ThrowEntry = { ...entry, creditedMinor };
+    const stored: PartEntry = { ...entry, creditedMinor };
     throws.push(stored);
     const balanceMinor = await this.credit(sessionId, creditedMinor);
-    return { kind: 'recorded', entry: { ...stored }, thrownPapers: thrown + entry.papers, balanceMinor };
+    return { kind: 'recorded', entry: { ...stored }, settledPartCount: thrown + entry.parts, balanceMinor };
   }
 
   async claimRoundStart(playerId: string, roundId: string, nowMs: number, minCycleMs: number): Promise<ClaimResult> {

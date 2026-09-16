@@ -22,7 +22,7 @@ The system SHALL define named jurisdiction profiles on the server. Each profile 
 ### Requirement: Profile validation
 The system MUST reject an invalid profile at startup, before any session can use it. At minimum these are invalid:
 - `minCycleMs` below 0;
-- `minCashout` below 1.00;
+- `minCashout` other than 0 and below 1.00;
 - `maxMultiplier` at or below `minCashout`;
 - an unknown `setbacksMode`, `skin` or `disconnectPolicy`;
 - a regulated profile without any `operatorOrigins`.
@@ -54,7 +54,7 @@ The system SHALL cash out a round automatically when the multiplier reaches the 
 - **THEN** the round settles as won at x100 with reason `maxWin`
 
 ### Requirement: Minimum cash-out
-The system SHALL reject a manual cash-out while the current multiplier is below the profile's `minCashout`, and the round SHALL continue. Auto cash-out targets below `minCashout` MUST be rejected when the round starts.
+The system SHALL reject a manual cash-out while the current multiplier is below the profile's `minCashout`, and the round SHALL continue. A `minCashout` of 0 SHALL accept a cash-out at any multiplier, including below x1.00 after a setback, so a player can always take what is left. Auto cash-out targets below `minCashout` MUST be rejected when the round starts.
 
 #### Scenario: Cash-out below minimum
 - **WHEN** a profile sets `minCashout` to 1.10 and a player cashes out at x1.05
@@ -63,6 +63,10 @@ The system SHALL reject a manual cash-out while the current multiplier is below 
 #### Scenario: Cash-out at minimum
 - **WHEN** the multiplier is x1.10 or higher under the same profile
 - **THEN** the cash-out settles normally
+
+#### Scenario: No minimum
+- **WHEN** a profile sets `minCashout` to 0 and a player cashes out at x0.72 after a setback
+- **THEN** the cash-out settles as won at x0.72, returning less than the stake
 
 ### Requirement: Kill switch
 An operator-level control SHALL disable new rounds for a game, a config id or a profile. Rounds already running when the switch is set SHALL still settle normally.

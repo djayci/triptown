@@ -9,6 +9,27 @@ export interface Stop {
   multiplier: number;
 }
 
+/** One in-round modifier: a setback (factor below 1) or a boost (factor above 1). */
+export interface Modifier {
+  time: number;
+  factor: number;
+}
+
+/** Merges setbacks and boosts into one ascending list; a setback wins a tie (design D5). */
+export function modifiersOf(setbacks: readonly number[], boosts: readonly number[], c: GameConfig): Modifier[] {
+  return [
+    ...setbacks.map((time) => ({ time, factor: c.setbackFactor })),
+    ...boosts.map((time) => ({ time, factor: c.boostFactor })),
+  ].sort((a, b) => a.time - b.time || a.factor - b.factor);
+}
+
+/** Cumulative log factor of the first `n` modifiers. */
+function logFactor(mods: readonly Modifier[], n: number): number {
+  let k = 0;
+  for (let i = 0; i < n; i++) k += Math.log(mods[i]!.factor);
+  return k;
+}
+
 /** Inverse of K(t) for k >= 0. */
 export function logGrowthInverse(k: number, c: GameConfig): number {
   if (k <= 0) return 0;
@@ -23,38 +44,39 @@ export function logGrowthInverse(k: number, c: GameConfig): number {
   return c.tRamp + (k - kRamp) / c.rmax;
 }
 
-/** m(t) with setbacks at or before t applied (setback wins ties). */
-export function pathValue(t: number, setbacks: readonly number[], c: GameConfig): number {
+/** m(t) with every modifier at or before t applied (setbacks and boosts alike). */
+export function pathValue(t: number, mods: readonly Modifier[], c: GameConfig): number {
   let n = 0;
-  while (n < setbacks.length && setbacks[n]! <= t) n++;
-  return Math.exp(logGrowth(t, c)) * c.setbackFactor ** n;
+  while (n < mods.length && mods[n]!.time <= t) n++;
+  return Math.exp(logGrowth(t, c) + logFactor(mods, n));
 }
 
 /** First time m(t) >= target, capped by tMax. Returns null if never within tMax. */
-export function firstReach(target: number, setbacks: readonly number[], c: GameConfig): number | null {
-  const lnF = Math.log(c.setbackFactor);
-  for (let n = 0; n <= setbacks.length; n++) {
-    const segStart = n === 0 ? 0 : setbacks[n - 1]!;
-    const segEnd = n < setbacks.length ? setbacks[n]! : c.tMax;
-    const t = Math.max(segStart, logGrowthInverse(Math.log(target) - n * lnF, c));
+export function firstReach(target: number, mods: readonly Modifier[], c: GameConfig): number | null {
+  for (let n = 0; n <= mods.length; n++) {
+    const segStart = n === 0 ? 0 : mods[n - 1]!.time;
+    const segEnd = n < mods.length ? mods[n]!.time : c.tMax;
+    const t = Math.max(segStart, logGrowthInverse(Math.log(target) - logFactor(mods, n), c));
     if (t < segEnd && t <= c.tMax) return t;
+    // A boost can lift the value to the target exactly at its own time.
+    if (n < mods.length && pathValue(segEnd, mods, c) >= target) return segEnd;
     if (segEnd >= c.tMax) break;
   }
   return null;
 }
 
 /** First time at or after `after` that m(t) >= target, within tMax. */
-export function firstReachAfter(target: number, after: number, setbacks: readonly number[], c: GameConfig): number | null {
-  if (after <= 0) return firstReach(target, setbacks, c);
-  const lnF = Math.log(c.setbackFactor);
+export function firstReachAfter(target: number, after: number, mods: readonly Modifier[], c: GameConfig): number | null {
+  if (after <= 0) return firstReach(target, mods, c);
   let n = 0;
-  while (n < setbacks.length && setbacks[n]! <= after) n++;
-  for (; n <= setbacks.length; n++) {
-    const segStart = n === 0 ? 0 : Math.max(after, setbacks[n - 1]!);
+  while (n < mods.length && mods[n]!.time <= after) n++;
+  for (; n <= mods.length; n++) {
+    const segStart = n === 0 ? 0 : Math.max(after, mods[n - 1]!.time);
     const from = Math.max(after, segStart);
-    const segEnd = n < setbacks.length ? setbacks[n]! : c.tMax;
-    const t = Math.max(from, logGrowthInverse(Math.log(target) - n * lnF, c));
+    const segEnd = n < mods.length ? mods[n]!.time : c.tMax;
+    const t = Math.max(from, logGrowthInverse(Math.log(target) - logFactor(mods, n), c));
     if (t < segEnd && t <= c.tMax) return t;
+    if (n < mods.length && pathValue(segEnd, mods, c) >= target) return segEnd;
     if (segEnd >= c.tMax) break;
   }
   return null;
@@ -65,28 +87,29 @@ export function firstReachAfter(target: number, after: number, setbacks: readonl
  * stops as soon as the value reaches the minimum. Caps and the tMax forced cash-out are unaffected.
  * Still a stopping time, so RTP is unchanged.
  */
-export function withMinCashout(stop: Stop, minCashout: number, setbacks: readonly number[], c: GameConfig): Stop {
+export function withMinCashout(stop: Stop, minCashout: number, mods: readonly Modifier[], c: GameConfig): Stop {
   if (minCashout <= 1 || stop.multiplier >= minCashout || stop.time >= c.tMax) return stop;
-  const t = firstReachAfter(minCashout, stop.time, setbacks, c);
-  if (t === null) return { time: c.tMax, multiplier: Math.min(pathValue(c.tMax, setbacks, c), c.maxWinMultiplier) };
-  return { time: t, multiplier: Math.min(pathValue(t, setbacks, c), c.maxWinMultiplier) };
+  const t = firstReachAfter(minCashout, stop.time, mods, c);
+  if (t === null) return { time: c.tMax, multiplier: Math.min(pathValue(c.tMax, mods, c), c.maxWinMultiplier) };
+  return { time: t, multiplier: Math.min(pathValue(t, mods, c), c.maxWinMultiplier) };
 }
 
 /** Applies the max win and max duration caps to a desired stop time (or null = never). */
-function capped(desired: number | null, setbacks: readonly number[], c: GameConfig): Stop {
-  const capTime = firstReach(c.maxWinMultiplier, setbacks, c);
+function capped(desired: number | null, mods: readonly Modifier[], c: GameConfig): Stop {
+  const capTime = firstReach(c.maxWinMultiplier, mods, c);
   let time = c.tMax;
   if (desired !== null) time = Math.min(time, desired);
   if (capTime !== null && capTime <= time) {
     return { time: capTime, multiplier: c.maxWinMultiplier };
   }
-  return { time, multiplier: Math.min(pathValue(time, setbacks, c), c.maxWinMultiplier) };
+  return { time, multiplier: Math.min(pathValue(time, mods, c), c.maxWinMultiplier) };
 }
 
 export type Strategy =
   | { kind: 'target'; target: number }
   | { kind: 'time'; seconds: number }
   | { kind: 'afterSetback'; index?: number }
+  | { kind: 'afterBoost'; index?: number }
   | { kind: 'never' };
 
 export function strategyLabel(s: Strategy): string {
@@ -97,39 +120,45 @@ export function strategyLabel(s: Strategy): string {
       return `cash out at ${s.seconds}s`;
     case 'afterSetback':
       return s.index ? `cash out right after setback ${s.index + 1}` : 'cash out right after first setback';
+    case 'afterBoost':
+      return s.index ? `cash out right after boost ${s.index + 1}` : 'cash out right after first boost';
     case 'never':
       return 'never cash out (caps only)';
   }
 }
 
-export function stopFor(s: Strategy, setbacks: readonly number[], c: GameConfig): Stop {
+export function stopFor(s: Strategy, mods: readonly Modifier[], c: GameConfig): Stop {
   switch (s.kind) {
     case 'target':
-      return capped(firstReach(s.target, setbacks, c), setbacks, c);
+      return capped(firstReach(s.target, mods, c), mods, c);
     case 'time':
-      return capped(s.seconds, setbacks, c);
+      return capped(s.seconds, mods, c);
     case 'afterSetback': {
-      const at = setbacks[s.index ?? 0];
-      return capped(at ?? null, setbacks, c);
+      const at = mods.filter((m) => m.factor < 1)[s.index ?? 0];
+      return capped(at?.time ?? null, mods, c);
+    }
+    case 'afterBoost': {
+      const at = mods.filter((m) => m.factor > 1)[s.index ?? 0];
+      return capped(at?.time ?? null, mods, c);
     }
     case 'never':
-      return capped(null, setbacks, c);
+      return capped(null, mods, c);
   }
 }
 
-// Partial cash-out: the bet is split into papers and each group of papers has its own stop.
+// Partial cash-out: the bet is split into equal parts and each group of parts has its own stop.
 
-export interface ThrowLeg {
-  papers: number;
+export interface PartLeg {
+  parts: number;
   rule: Strategy;
 }
 
-export interface PaperStrategy {
+export interface PartStrategy {
   label: string;
-  legs: ThrowLeg[];
+  legs: PartLeg[];
 }
 
-export interface PaperStop extends Stop {
+export interface PartStop extends Stop {
   /** Fraction of the bet settled at this stop. */
   share: number;
 }
@@ -137,14 +166,16 @@ export interface PaperStop extends Stop {
 // Guards against float noise such as 1000 * 4.35 = 4349.999999999999, same as payoutMinor.
 const EPSILON = 1e-7;
 
-/** Multiplier actually paid on one paper after rounding its payout down to the minor unit. */
-export function roundedMultiple(multiplier: number, paperMinor: number): number {
-  return Math.floor(paperMinor * multiplier + EPSILON) / paperMinor;
+/** Multiplier actually paid on one stake part after rounding its payout down to the minor unit. */
+export function roundedMultiple(multiplier: number, partMinor: number): number {
+  return Math.floor(partMinor * multiplier + EPSILON) / partMinor;
 }
 
-/** Stops for each leg; throws if the legs don't use exactly `config.papers` papers. */
-export function paperStops(ps: PaperStrategy, setbacks: readonly number[], c: GameConfig): PaperStop[] {
-  const used = ps.legs.reduce((n, leg) => n + leg.papers, 0);
-  if (used !== c.papers) throw new Error(`${ps.label}: legs use ${used} papers, config has ${c.papers}`);
-  return ps.legs.map((leg) => ({ ...stopFor(leg.rule, setbacks, c), share: leg.papers / c.papers }));
+/** Stops for each leg; throws if the legs don't use exactly `config.stakeParts` parts. */
+export function partStops(ps: PartStrategy, mods: readonly Modifier[], c: GameConfig): PartStop[] {
+  const used = ps.legs.reduce((n, leg) => n + leg.parts, 0);
+  if (used !== c.stakeParts) {
+    throw new Error(`${ps.label}: legs use ${used} parts, config has ${c.stakeParts}`);
+  }
+  return ps.legs.map((leg) => ({ ...stopFor(leg.rule, mods, c), share: leg.parts / c.stakeParts }));
 }

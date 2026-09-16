@@ -205,7 +205,7 @@ describe('RoundHost streaming', () => {
     await stream.done;
 
     expect(events[0]!.e.type).toBe('START');
-    const setbacks = events.filter((x) => x.e.type === 'BAD_MOLE');
+    const setbacks = events.filter((x) => x.e.type === 'SETBACK');
     expect(setbacks.map((x) => (x.e as { time: number }).time)).toEqual(outcome.setbacks);
     setbacks.forEach((x) => {
       const t = (x.e as { time: number }).time;
@@ -248,7 +248,7 @@ describe('RoundHost streaming', () => {
     const events: RoundEvent[] = [];
     const stream = host.streamRound(sessionId, round.id, (e) => events.push(e));
     await time.advance(0);
-    expect(events.slice(0, 2).map((e) => e.type)).toEqual(['START', 'BAD_MOLE']);
+    expect(events.slice(0, 2).map((e) => e.type)).toEqual(['START', 'SETBACK']);
     expect(events[1]).toMatchObject({ time: outcome.setbacks[0] });
     stream.stop();
   });

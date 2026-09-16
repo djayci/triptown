@@ -4,9 +4,20 @@ import { prefersReducedMotion } from './motion';
 
 export { gsap };
 
+/** Resting scale per target, so overlapping pops can never stack up on each other. */
+const restingScale = new WeakMap<Container, number>();
+
 /** Scale pop used for chips, buttons and stickers. */
 export function pop(target: Container, amount = 1.12, duration = 0.18): gsap.core.Timeline {
-  const base = target.scale.x;
+  // A pop that starts while a previous one is still running would otherwise take the inflated
+  // scale as its base, and a run of pops would grow the element for good.
+  const running = gsap.isTweening(target.scale);
+  const base = running ? (restingScale.get(target) ?? 1) : target.scale.x;
+  restingScale.set(target, base);
+  if (running) {
+    gsap.killTweensOf(target.scale);
+    target.scale.set(base);
+  }
   return gsap
     .timeline()
     .to(target.scale, { x: base * amount, y: base * amount, duration: duration / 2, ease: 'power2.out' })

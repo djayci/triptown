@@ -11,7 +11,9 @@ import {
   SR,
   TONE_SECONDS,
   doubled,
+  lobbyLoop,
   sfxBet,
+  sfxBoost,
   sfxBigWin,
   sfxCrash,
   sfxSetback,
@@ -48,7 +50,7 @@ function mp3(f32, kbps) {
 
 // --- sfx sprite ---
 const GAP = 0.25;
-const effects = { tick: sfxTick(), bet: sfxBet(), whack: sfxWhack(), setback: sfxSetback(), win: sfxWin(), bigwin: sfxBigWin(), crash: sfxCrash() };
+const effects = { tick: sfxTick(), bet: sfxBet(), whack: sfxWhack(), setback: sfxSetback(), boost: sfxBoost(), win: sfxWin(), bigwin: sfxBigWin(), crash: sfxCrash() };
 let total = Math.round(GAP * SR);
 for (const b of Object.values(effects)) total += b.length + Math.round(GAP * SR);
 const sprite = new Float32Array(total);
@@ -66,6 +68,7 @@ const files = {
   'stem-base': { pcm: doubled(stemBase()), kbps: 48 },
   'stem-drums': { pcm: doubled(stemDrums()), kbps: 48 },
   'stem-lead': { pcm: doubled(stemLead()), kbps: 48 },
+  lobby: { pcm: doubled(lobbyLoop()), kbps: 48 },
   tone: { pcm: doubled(toneLoop()), kbps: 48 },
 };
 
@@ -114,6 +117,7 @@ const manifest = {
     drums: { src: src('stem-drums'), loop: loopRegion(LOOP_SECONDS) },
     lead: { src: src('stem-lead'), loop: loopRegion(LOOP_SECONDS) },
   },
+  lobby: { src: src('lobby'), loop: loopRegion(LOOP_SECONDS) },
   tone: { src: src('tone'), loop: loopRegion(TONE_SECONDS) },
 };
 writeFileSync(`${OUT}/audio.json`, JSON.stringify(manifest, null, 2));

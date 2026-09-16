@@ -1,4 +1,4 @@
-import type { ClaimResult, RecordThrowResult, RoundRecord, RoundStore, SessionRecord, Settlement, ThrowEntry } from '@triptown/core';
+import type { ClaimResult, RecordPartResult, RoundRecord, RoundStore, SessionRecord, Settlement, PartEntry } from '@triptown/core';
 
 /** The handful of Redis commands the store needs, so Upstash (REST) and test clients can both back it. */
 export interface RedisLike {
@@ -77,8 +77,8 @@ return redis.call('ZREVRANGEBYSCORE', KEYS[1], ARGV[2], ARGV[1], 'LIMIT', tonumb
 
 // Paper throw, atomically: refuse if settled, return the index of a repeated throw id, refuse if the bag is
 // full, otherwise append the entry and credit the whole minor units newly earned by the running exact total.
-// KEYS: settle, throws, throw credits, throw ids, thrown papers, exact total, credited total, balance.
-// Returns {1, credit, thrownPapers, balance} | {0} settled | {2, index} duplicate | {3} full.
+// KEYS: settle, throws, throw credits, throw ids, thrown stakeParts, exact total, credited total, balance.
+// Returns {1, credit, settledPartCount, balance} | {0} settled | {2, index} duplicate | {3} full.
 const RECORD_THROW = `
 if redis.call('EXISTS', KEYS[1]) == 1 then return {0} end
 local idx = redis.call('HGET', KEYS[4], ARGV[1])
@@ -106,7 +106,7 @@ const READ_THROWS = `
 return {redis.call('LRANGE', KEYS[1], 0, -1), redis.call('LRANGE', KEYS[2], 0, -1)}
 `;
 
-// Settle a paper round only if it was computed from the papers thrown so far.
+// Settle a paper round only if it was computed from the stakeParts thrown so far.
 const SETTLE_IF_THROWN = `
 if redis.call('EXISTS', KEYS[1]) == 1 then return 0 end
 if tonumber(redis.call('GET', KEYS[2]) or '0') ~= tonumber(ARGV[2]) then return 0 end
@@ -140,11 +140,14 @@ export class RedisRoundStore implements RoundStore {
     round: (id: string) => `${this.prefix}r:${id}`,
     settlement: (id: string) => `${this.prefix}r:${id}:settle`,
     credited: (id: string) => `${this.prefix}r:${id}:credited`,
+    // The key SUFFIXES below keep their original spelling on purpose. They address stored data, and a
+    // settled round is an audit record (GLI-19 4.14): renaming them would orphan every round already
+    // written. The builder names are neutral; the bytes in Redis are not ours to rewrite here.
     heartbeat: (id: string) => `${this.prefix}r:${id}:hb`,
-    throws: (id: string) => `${this.prefix}r:${id}:throws`,
+    settledParts: (id: string) => `${this.prefix}r:${id}:throws`,
     throwCredits: (id: string) => `${this.prefix}r:${id}:tcred`,
-    throwIds: (id: string) => `${this.prefix}r:${id}:tids`,
-    thrownPapers: (id: string) => `${this.prefix}r:${id}:tpapers`,
+    partIds: (id: string) => `${this.prefix}r:${id}:tids`,
+    settledPartCount: (id: string) => `${this.prefix}r:${id}:tpapers`,
     throwExact: (id: string) => `${this.prefix}r:${id}:texact`,
     throwCredited: (id: string) => `${this.prefix}r:${id}:tcredited`,
     pending: () => `${this.prefix}pending`,
@@ -209,8 +212,8 @@ export class RedisRoundStore implements RoundStore {
   }
 
   async putRound(round: RoundRecord) {
-    // Throws live in their own keys so they can be appended atomically.
-    const { settlement, throws: _throws, ...rest } = round;
+    // Settled parts live in their own keys so they can be appended atomically.
+    const { settlement, settledParts: _settledParts, ...rest } = round;
     await this.redis.set(this.k.round(round.id), JSON.stringify(rest), { exSeconds: this.roundTtl });
     if (settlement) await this.settleOnce(round.id, settlement);
   }
@@ -224,10 +227,10 @@ export class RedisRoundStore implements RoundStore {
     ]);
     if (!raw) return null;
     const round = JSON.parse(raw) as Omit<RoundRecord, 'settlement'>;
-    const throws = (round.papers ?? 1) > 1 ? await this.readThrows(id) : undefined;
+    const settledParts = (round.stakeParts ?? 1) > 1 ? await this.readSettledParts(id) : undefined;
     return {
       ...round,
-      ...(throws && { throws }),
+      ...(settledParts && { settledParts }),
       ...(after ? { balanceAfterMinor: Number(after) } : {}),
       ...(heartbeat ? { lastHeartbeatAt: Math.max(round.lastHeartbeatAt ?? 0, Number(heartbeat)) } : {}),
       settlement: settlement ? (JSON.parse(settlement) as Settlement) : null,
@@ -238,46 +241,46 @@ export class RedisRoundStore implements RoundStore {
     await this.redis.set(this.k.heartbeat(roundId), String(atMs), { exSeconds: 3600 });
   }
 
-  async settleOnce(roundId: string, settlement: Settlement, expectedThrownPapers?: number) {
-    if (expectedThrownPapers === undefined) {
+  async settleOnce(roundId: string, settlement: Settlement, expectedSettledParts?: number) {
+    if (expectedSettledParts === undefined) {
       return this.redis.set(this.k.settlement(roundId), JSON.stringify(settlement), { nx: true, exSeconds: this.roundTtl });
     }
     const ok = await this.redis.eval(
       SETTLE_IF_THROWN,
-      [this.k.settlement(roundId), this.k.thrownPapers(roundId)],
-      [JSON.stringify(settlement), String(expectedThrownPapers), String(this.roundTtl)],
+      [this.k.settlement(roundId), this.k.settledPartCount(roundId)],
+      [JSON.stringify(settlement), String(expectedSettledParts), String(this.roundTtl)],
     );
     return Number(ok) === 1;
   }
 
-  private async readThrows(roundId: string): Promise<ThrowEntry[]> {
-    const [entries, credits] = (await this.redis.eval(READ_THROWS, [this.k.throws(roundId), this.k.throwCredits(roundId)], [])) as [string[], string[]];
-    return (entries ?? []).map((raw, i) => ({ ...(JSON.parse(raw) as Omit<ThrowEntry, 'creditedMinor'>), creditedMinor: Number(credits?.[i] ?? 0) }));
+  private async readSettledParts(roundId: string): Promise<PartEntry[]> {
+    const [entries, credits] = (await this.redis.eval(READ_THROWS, [this.k.settledParts(roundId), this.k.throwCredits(roundId)], [])) as [string[], string[]];
+    return (entries ?? []).map((raw, i) => ({ ...(JSON.parse(raw) as Omit<PartEntry, 'creditedMinor'>), creditedMinor: Number(credits?.[i] ?? 0) }));
   }
 
-  async recordThrow(sessionId: string, roundId: string, entry: Omit<ThrowEntry, 'creditedMinor'>, papers: number): Promise<RecordThrowResult> {
+  async recordPartSettlement(sessionId: string, roundId: string, entry: Omit<PartEntry, 'creditedMinor'>, stakeParts: number): Promise<RecordPartResult> {
     const res = (await this.redis.eval(
       RECORD_THROW,
       [
         this.k.settlement(roundId),
-        this.k.throws(roundId),
+        this.k.settledParts(roundId),
         this.k.throwCredits(roundId),
-        this.k.throwIds(roundId),
-        this.k.thrownPapers(roundId),
+        this.k.partIds(roundId),
+        this.k.settledPartCount(roundId),
         this.k.throwExact(roundId),
         this.k.throwCredited(roundId),
         this.k.balance(sessionId),
       ],
-      [entry.throwId, JSON.stringify(entry), String(entry.papers), String(papers), String(entry.exactMinor), String(this.roundTtl)],
+      [entry.partId, JSON.stringify(entry), String(entry.parts), String(stakeParts), String(entry.exactMinor), String(this.roundTtl)],
     )) as number[];
     const code = Number(res[0]);
     if (code === 0) return { kind: 'settled' };
     if (code === 3) return { kind: 'full' };
     if (code === 2) {
-      const existing = (await this.readThrows(roundId))[Number(res[1])];
+      const existing = (await this.readSettledParts(roundId))[Number(res[1])];
       return existing ? { kind: 'duplicate', entry: existing } : { kind: 'settled' };
     }
-    return { kind: 'recorded', entry: { ...entry, creditedMinor: Number(res[1]) }, thrownPapers: Number(res[2]), balanceMinor: Number(res[3]) };
+    return { kind: 'recorded', entry: { ...entry, creditedMinor: Number(res[1]) }, settledPartCount: Number(res[2]), balanceMinor: Number(res[3]) };
   }
 
   async claimRoundStart(playerId: string, roundId: string, nowMs: number, minCycleMs: number): Promise<ClaimResult> {

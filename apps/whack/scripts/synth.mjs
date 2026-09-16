@@ -119,6 +119,16 @@ function fanfare(b, start, notes, step, sustain, gain = 0.5) {
   });
 }
 
+/** Good mole: a short rising two-note blip, quieter than the win fanfare. */
+export function sfxBoost() {
+  const b = buffer(0.36);
+  [72, 79].forEach((n, i) =>
+    add(b, i * 0.07, 0.22, (t, len) => (Math.sin(TAU * midi(n) * t) * 0.7 + tri(midi(n) * 2 * t) * 0.3) * expDecay(t, 9) * env(t, len, 0.004, 0.08), 0.42),
+  );
+  add(b, 0.14, 0.18, (t, len) => Math.sin(TAU * midi(84) * t) * expDecay(t, 12) * env(t, len, 0.003, 0.06), 0.22);
+  return normalize(lowpass(b, 9000), 0.7);
+}
+
 export function sfxWin() {
   const b = buffer(1.1);
   fanfare(b, 0, [72, 76, 79, 84], 0.1, 0.6);
@@ -200,6 +210,46 @@ export function stemLead() {
     }
   }
   return normalize(lowpass(b, 6500), 0.65);
+}
+
+/**
+ * Lobby loop: upbeat arcade chiptune for the betting screen. Its own chord progression (Am-F-C-G) and
+ * riff keep it distinct from the round stems, with lighter drums so it can play indefinitely.
+ */
+export function lobbyLoop() {
+  const b = buffer(LOOP_SECONDS);
+  const chords = [
+    [45, 52, 57, 60], // Am
+    [41, 48, 53, 57], // F
+    [48, 55, 60, 64], // C
+    [43, 50, 55, 59], // G
+  ];
+  const riff = [0, 2, 3, 2, 1, 2, 3, 4, 3, 2, 1, 2, 0, 2, 1, 0];
+  for (let bar = 0; bar < 4; bar++) {
+    const chord = chords[bar];
+    const scale = [chord[0], chord[1], chord[2], chord[3], chord[2] + 5];
+    for (let s = 0; s < 16; s++) {
+      const t0 = (bar * 4 + s / 4) * BEAT;
+      // Lead: bright detuned square riff, an octave and a half up.
+      const n = scale[riff[s]] + 24;
+      add(b, t0, BEAT * 0.2, (t, len) => (square(midi(n) * t) * 0.5 + saw(midi(n) * 1.005 * t) * 0.3) * env(t, len, 0.002, 0.05), 0.3, true);
+      // Bass: pumping eighths on the root, with an octave lift at the end of each bar.
+      if (s % 2 === 0) {
+        const root = midi(chord[0] - 12 + (s === 14 ? 12 : 0));
+        add(b, t0, BEAT * 0.42, (t, len) => (square(root * t) * 0.55 + Math.sin(TAU * root * t) * 0.45) * expDecay(t, 6) * env(t, len, 0.003, 0.04), 0.5, true);
+      }
+      // Hats on every eighth, kick on the downbeats, clap on 2 and 4.
+      if (s % 2 === 0) add(b, t0, 0.05, hat, s % 4 === 0 ? 0.2 : 0.12, true);
+      if (s === 0 || s === 8) add(b, t0, 0.25, kick, 0.8, true);
+      if (s === 4 || s === 12) add(b, t0, 0.18, snare, 0.35, true);
+    }
+    // Chord stabs on the off-beats give it the arcade bounce.
+    [1.5, 3.5].forEach((beat) => {
+      const t0 = (bar * 4 + beat) * BEAT;
+      chord.slice(1).forEach((n) => add(b, t0, BEAT * 0.3, (t, len) => tri(midi(n + 12) * t) * expDecay(t, 8) * env(t, len, 0.004, 0.05), 0.14, true));
+    });
+  }
+  return normalize(lowpass(b, 7000), 0.62);
 }
 
 /** One-second tone loop. Integer frequencies and a 5 Hz wobble keep it periodic in exactly 1 s. */

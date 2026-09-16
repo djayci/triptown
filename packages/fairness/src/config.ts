@@ -9,16 +9,20 @@ export interface GameConfig {
   rmax: number;
   /** Seconds to ramp linearly from r0 to rmax. 0 means rmax from the start. */
   tRamp: number;
-  /** Bad mole setbacks per second (Poisson rate). */
+  /** Setbacks per second (Poisson rate). */
   lambda: number;
   /** Multiplier applied by each setback, e.g. 0.5. */
   setbackFactor: number;
+  /** Boosts per second (Poisson rate). 0 disables them. */
+  boostRate: number;
+  /** Multiplier applied by each boost, e.g. 1.05. Must be above 1 whenever boostRate is above 0. */
+  boostFactor: number;
   /** Payout cap as a multiple of the bet. */
   maxWinMultiplier: number;
   /** Forced cash-out after this many seconds. */
   tMax: number;
   /** Equal parts the bet is split into, each cashed out separately. 1 = a single cash-out. */
-  papers: number;
+  stakeParts: number;
 }
 
 export const DEFAULT_CONFIG: GameConfig = Object.freeze({
@@ -29,16 +33,11 @@ export const DEFAULT_CONFIG: GameConfig = Object.freeze({
   tRamp: 12,
   lambda: 0.12,
   setbackFactor: 0.5,
+  boostRate: 0,
+  boostFactor: 1.05,
   maxWinMultiplier: 10_000,
   tMax: 60,
-  papers: 1,
-});
-
-/** Paper Route: same path model, the bet split into 5 papers thrown separately. */
-export const PAPER_ROUTE_CONFIG: GameConfig = Object.freeze({
-  ...DEFAULT_CONFIG,
-  id: 'paper-route/v1',
-  papers: 5,
+  stakeParts: 1,
 });
 
 /** Rising-only variants: no setbacks, so the multiplier never falls (regulated markets). */
@@ -48,18 +47,40 @@ export const WHACK_CRASH_RISING_CONFIG: GameConfig = Object.freeze({
   lambda: 0,
 });
 
-export const PAPER_ROUTE_RISING_CONFIG: GameConfig = Object.freeze({
-  ...PAPER_ROUTE_CONFIG,
-  id: 'paper-route/v1-rising',
-  lambda: 0,
+/** Boosted variants (good-mole D6): boosts lift the value and the crash hazard pays for it. */
+export const WHACK_CRASH_BOOST_CONFIG: GameConfig = Object.freeze({
+  ...DEFAULT_CONFIG,
+  id: 'whack-crash/v2',
+  boostRate: 0.4,
+});
+
+export const WHACK_CRASH_BOOST_RISING_CONFIG: GameConfig = Object.freeze({
+  ...WHACK_CRASH_RISING_CONFIG,
+  id: 'whack-crash/v2-rising',
+  boostRate: 0.4,
 });
 
 export const GAME_CONFIGS: Readonly<Record<string, GameConfig>> = Object.freeze({
   [DEFAULT_CONFIG.id]: DEFAULT_CONFIG,
-  [PAPER_ROUTE_CONFIG.id]: PAPER_ROUTE_CONFIG,
   [WHACK_CRASH_RISING_CONFIG.id]: WHACK_CRASH_RISING_CONFIG,
-  [PAPER_ROUTE_RISING_CONFIG.id]: PAPER_ROUTE_RISING_CONFIG,
+  [WHACK_CRASH_BOOST_CONFIG.id]: WHACK_CRASH_BOOST_CONFIG,
+  [WHACK_CRASH_BOOST_RISING_CONFIG.id]: WHACK_CRASH_BOOST_RISING_CONFIG,
 });
+
+/**
+ * Configs of retired games. A config id is a permanent public fact: the verifier must still check a
+ * round settled under one, and the archived RTP reports name them (design D4). They resolve but are
+ * not exported and are not in GAME_CONFIGS, so no new round can start on one.
+ */
+const RETIRED_CONFIGS: Readonly<Record<string, GameConfig>> = Object.freeze({
+  'paper-route/v1': Object.freeze({ ...DEFAULT_CONFIG, id: 'paper-route/v1', stakeParts: 5 }),
+  'paper-route/v1-rising': Object.freeze({ ...DEFAULT_CONFIG, id: 'paper-route/v1-rising', stakeParts: 5, lambda: 0 }),
+});
+
+/** Every id that resolves, registered or retired. */
+export function retiredConfigIds(): string[] {
+  return Object.keys(RETIRED_CONFIGS);
+}
 
 const CAP_SUFFIX = /^(.+)\+cap(\d+(?:\.\d+)?)$/;
 
@@ -73,17 +94,25 @@ export function cappedConfigId(baseId: string, maxWinMultiplier: number): string
  * forced cash-outs are stopping times, so RTP is unchanged but the variant still gets its own report.
  */
 export function resolveConfigId(id: string): GameConfig | null {
-  const direct = GAME_CONFIGS[id];
+  const direct = GAME_CONFIGS[id] ?? RETIRED_CONFIGS[id];
   if (direct) return direct;
   const m = CAP_SUFFIX.exec(id);
   if (!m) return null;
-  const base = GAME_CONFIGS[m[1]!];
+  const base = GAME_CONFIGS[m[1]!] ?? RETIRED_CONFIGS[m[1]!];
   const cap = Number(m[2]);
   if (!base || !(cap > 1) || cap >= base.maxWinMultiplier) return null;
   return Object.freeze({ ...base, id, maxWinMultiplier: cap });
 }
 
-/** Expected log-drag per second caused by setbacks: lambda * (1 - f). */
+/**
+ * Net expected log-drift per second from both modifiers: setbacks drag the value down, boosts lift
+ * it up. `H(t) = K(t) - modifierDrift * t` (design D3). May be negative for a boost-heavy config.
+ */
+export function modifierDrift(config: GameConfig): number {
+  return config.lambda * (1 - config.setbackFactor) - config.boostRate * (config.boostFactor - 1);
+}
+
+/** Expected log-drag per second caused by setbacks alone: lambda * (1 - f). */
 export function setbackDrag(config: GameConfig): number {
   return config.lambda * (1 - config.setbackFactor);
 }
@@ -93,7 +122,8 @@ export type ConfigValidation = { ok: true } | { ok: false; errors: string[] };
 export function validateConfig(config: GameConfig): ConfigValidation {
   const errors: string[] = [];
   const numeric: (keyof GameConfig)[] = [
-    'rtp', 'r0', 'rmax', 'tRamp', 'lambda', 'setbackFactor', 'maxWinMultiplier', 'tMax', 'papers',
+    'rtp', 'r0', 'rmax', 'tRamp', 'lambda', 'setbackFactor', 'boostRate', 'boostFactor',
+    'maxWinMultiplier', 'tMax', 'stakeParts',
   ];
   for (const key of numeric) {
     const v = config[key];
@@ -110,17 +140,24 @@ export function validateConfig(config: GameConfig): ConfigValidation {
   if (!(config.setbackFactor > 0 && config.setbackFactor <= 1)) {
     errors.push('setbackFactor must be in (0, 1]');
   }
+  if (!(config.boostRate >= 0)) errors.push('boostRate must be zero or positive');
+  if (config.boostRate > 0 && !(config.boostFactor > 1)) {
+    errors.push('boostFactor must be greater than 1 when boostRate is above 0');
+  }
   if (!(config.maxWinMultiplier > 1)) errors.push('maxWinMultiplier must be greater than 1');
   if (!(config.tMax > 0)) errors.push('tMax must be positive');
-  if (!(Number.isInteger(config.papers) && config.papers >= 1)) errors.push('papers must be a whole number of at least 1');
+  if (!(Number.isInteger(config.stakeParts) && config.stakeParts >= 1)) {
+    errors.push('stakeParts must be a whole number of at least 1');
+  }
 
   // The growth rate is linear between r0 and rmax, so its minimum is at one end.
-  // Survival must strictly decrease, so the rate has to beat the setback drag everywhere.
-  const drag = setbackDrag(config);
+  // Survival must strictly decrease, so the rate has to beat the net modifier drift everywhere.
+  const drift = modifierDrift(config);
   const minRate = config.tRamp > 0 ? Math.min(config.r0, config.rmax) : config.rmax;
-  if (!(minRate > drag)) {
-    errors.push(`growth rate (min ${minRate}) must exceed setback drag lambda*(1-f) = ${drag}`);
+  if (!(minRate > drift)) {
+    errors.push(`growth rate (min ${minRate}) must exceed modifier drift ${drift}`);
   }
+
   return errors.length ? { ok: false, errors } : { ok: true };
 }
 

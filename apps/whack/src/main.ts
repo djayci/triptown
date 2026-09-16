@@ -4,7 +4,6 @@ import '@fontsource/bricolage-grotesque/700.css';
 import '@fontsource/bricolage-grotesque/800.css';
 import { AudioManager, createGameApp, loadAtlas, loadFonts, type AudioManifest } from '@triptown/engine';
 import { FairnessPanel } from './dom/fairness-panel';
-import { SoundPanel } from './dom/sound-panel';
 import { GameController } from './game/controller';
 import { createRoundService } from './services';
 
@@ -17,6 +16,7 @@ async function loadAudio(): Promise<AudioManager | null> {
     return new AudioManager({
       sfx: resolve(manifest.sfx),
       stems: { base: resolve(manifest.stems.base), drums: resolve(manifest.stems.drums), lead: resolve(manifest.stems.lead) },
+      ...(manifest.lobby ? { lobby: resolve(manifest.lobby) } : {}),
       tone: resolve(manifest.tone),
     });
   } catch (err) {
@@ -37,10 +37,8 @@ async function boot() {
     loadAudio(),
   ]);
   let fairness: FairnessPanel | null = null;
-  const sound = audio ? new SoundPanel(audio) : null;
   const controller = new GameController(game, frames, service, audio, {
     onFairness: () => void fairness?.open(),
-    onSettings: () => sound?.open(),
   });
   fairness = new FairnessPanel(service, () => controller.refreshSession());
   await controller.init();

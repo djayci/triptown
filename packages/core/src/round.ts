@@ -1,16 +1,17 @@
 import { deriveRound, type CryptoProvider, type GameConfig, type RoundOutcome, type RoundSeeds } from '@triptown/fairness';
 import type {
-  BadMoleEvent,
+  SetbackEvent,
+  BoostEvent,
   CashoutEntry,
   CashoutReason,
   RoundSnapshot,
   Settlement,
   StartEvent,
   TerminalEvent,
-  ThrowEntry,
+  PartEntry,
 } from './events';
 import { accrueCashout, emptyAccrual, payoutMinor, resultKind, settleAccrual, type Accrual } from './money';
-import { multiplierAt, setbacksUpTo, timeToReach } from './path';
+import { modifiersOfOutcome, multiplierAt, setbacksUpTo, timeToReach } from './path';
 
 export interface RoundRecord {
   id: string;
@@ -40,9 +41,9 @@ export interface RoundRecord {
   outcome: RoundOutcome;
   settlement: Settlement | null;
   /** Papers the stake is split into (partial cash-out games); absent or 1 = single cash-out. */
-  papers?: number;
+  stakeParts?: number;
   /** Papers thrown so far, in order (partial cash-out games). Stored atomically by the round store. */
-  throws?: ThrowEntry[];
+  settledParts?: PartEntry[];
 }
 
 export interface NewRound {
@@ -63,8 +64,8 @@ export interface NewRound {
   profileName?: string;
   clientVersion?: string | null;
   balanceBeforeMinor?: number;
-  /** Partial cash-out: number of papers (the bet must divide evenly). */
-  papers?: number;
+  /** Split stake: number of parts (the bet must divide evenly). */
+  stakeParts?: number;
 }
 
 /** A player counts as disconnected this long after their last heartbeat or stream poll. */
@@ -110,29 +111,29 @@ export function createRound(input: NewRound): RoundRecord {
     ...(input.balanceBeforeMinor !== undefined && { balanceBeforeMinor: input.balanceBeforeMinor }),
     outcome: deriveRound(input.seeds, input.config, input.crypto),
     settlement: null,
-    ...((input.papers ?? 1) > 1 && { papers: input.papers, throws: [] }),
+    ...((input.stakeParts ?? 1) > 1 && { stakeParts: input.stakeParts, settledParts: [] }),
   };
 }
 
-// ---------- partial cash-out (papers) ----------
+// ---------- partial cash-out (stake parts) ----------
 
 /** Multiplier at `time` seconds after start for this round's path (uncapped). */
-export const multiplierAtRound = (round: RoundRecord, time: number): number => multiplierAt(time, round.outcome.setbacks, round.config);
+export const multiplierAtRound = (round: RoundRecord, time: number): number => multiplierAt(time, modifiersOfOutcome(round.outcome, round.config), round.config);
 
-export const paperCount = (round: Pick<RoundRecord, 'papers'>): number => round.papers ?? 1;
-export const isPaperRound = (round: Pick<RoundRecord, 'papers'>): boolean => paperCount(round) > 1;
-export const paperMinorOf = (round: Pick<RoundRecord, 'papers' | 'betMinor'>): number => round.betMinor / paperCount(round);
-export const thrownPapers = (round: Pick<RoundRecord, 'throws'>): number => (round.throws ?? []).reduce((n, t) => n + t.papers, 0);
+export const stakePartCount = (round: Pick<RoundRecord, 'stakeParts'>): number => round.stakeParts ?? 1;
+export const isSplitRound = (round: Pick<RoundRecord, 'stakeParts'>): boolean => stakePartCount(round) > 1;
+export const partMinorOf = (round: Pick<RoundRecord, 'stakeParts' | 'betMinor'>): number => round.betMinor / stakePartCount(round);
+export const settledPartCount = (round: Pick<RoundRecord, 'settledParts'>): number => (round.settledParts ?? []).reduce((n, t) => n + t.parts, 0);
 
 /** Accrual state implied by the stored throws. */
-export function accrualOf(throws: readonly ThrowEntry[]): Accrual {
+export function accrualOf(throws: readonly PartEntry[]): Accrual {
   return throws.reduce((a, t) => ({ exactMinor: a.exactMinor + t.exactMinor, creditedMinor: a.creditedMinor + t.creditedMinor }), emptyAccrual);
 }
 
 const cappedMultiplier = (round: RoundRecord, time: number, reason: CashoutReason) =>
   reason === 'maxWin'
     ? round.config.maxWinMultiplier
-    : Math.min(multiplierAt(time, round.outcome.setbacks, round.config), round.config.maxWinMultiplier);
+    : Math.min(multiplierAt(time, modifiersOfOutcome(round.outcome, round.config), round.config), round.config.maxWinMultiplier);
 
 /**
  * Settlement of a paper round at `time` for `reason`: every unthrown paper settles there, and the round
@@ -142,23 +143,23 @@ export function paperSettlementAt(
   round: RoundRecord,
   time: number,
   reason: CashoutReason,
-  extra?: { throwId?: string; clientTapAt?: number | null; rttMs?: number | null },
+  extra?: { partId?: string; clientTapAt?: number | null; rttMs?: number | null },
 ): Settlement {
-  const throws = [...(round.throws ?? [])];
-  const remaining = paperCount(round) - thrownPapers(round);
+  const throws = [...(round.settledParts ?? [])];
+  const remaining = stakePartCount(round) - settledPartCount(round);
   const multiplier = cappedMultiplier(round, time, reason);
   let accrual = accrualOf(throws);
   if (remaining > 0) {
-    const step = accrueCashout(accrual, paperMinorOf(round) * remaining, multiplier);
+    const step = accrueCashout(accrual, partMinorOf(round) * remaining, multiplier);
     accrual = step.state;
     throws.push({
-      throwId: extra?.throwId ?? `${reason}@${time.toFixed(3)}`,
-      papers: remaining,
+      partId: extra?.partId ?? `${reason}@${time.toFixed(3)}`,
+      parts: remaining,
       reason,
       time,
       multiplier,
-      share: remaining / paperCount(round),
-      exactMinor: paperMinorOf(round) * remaining * multiplier,
+      share: remaining / stakePartCount(round),
+      exactMinor: partMinorOf(round) * remaining * multiplier,
       creditedMinor: step.creditNowMinor,
       clientTapAt: extra?.clientTapAt ?? null,
       rttMs: extra?.rttMs ?? null,
@@ -167,7 +168,7 @@ export function paperSettlementAt(
   const payout = settleAccrual(accrual).totalMinor;
   if (remaining > 0) {
     // The last entry receives everything not already credited by earlier throws, rounding included.
-    const earlier = (round.throws ?? []).reduce((n, t) => n + t.creditedMinor, 0);
+    const earlier = (round.settledParts ?? []).reduce((n, t) => n + t.creditedMinor, 0);
     throws[throws.length - 1] = { ...throws[throws.length - 1]!, creditedMinor: payout - earlier };
   }
   return {
@@ -181,14 +182,14 @@ export function paperSettlementAt(
   };
 }
 
-/** Wipeout of a paper round: unthrown papers are lost, thrown papers keep their (rounded) total. */
+/** Wipeout of a split-stake round: unsettled parts are lost, settled parts keep their (rounded) total. */
 function paperCrashSettlement(round: RoundRecord): Settlement {
-  const throws = round.throws ?? [];
+  const throws = round.settledParts ?? [];
   return {
     status: 'lost',
     reason: 'crash',
     time: round.outcome.crashTime,
-    multiplier: multiplierAt(round.outcome.crashTime, round.outcome.setbacks, round.config),
+    multiplier: multiplierAt(round.outcome.crashTime, modifiersOfOutcome(round.outcome, round.config), round.config),
     payoutMinor: settleAccrual(accrualOf(throws)).totalMinor,
     crashTime: round.outcome.crashTime,
     ...(throws.length && { cashouts: [...throws] }),
@@ -202,44 +203,44 @@ export function rebuildPaperSettlement(fresh: RoundRecord, stale: Settlement): S
 }
 
 export type ThrowJudgement =
-  | { kind: 'thrown'; entry: Omit<ThrowEntry, 'creditedMinor'>; remainingAfter: number }
-  | { kind: 'duplicate'; entry: ThrowEntry }
+  | { kind: 'thrown'; entry: Omit<PartEntry, 'creditedMinor'>; remainingAfter: number }
+  | { kind: 'duplicate'; entry: PartEntry }
   | { kind: 'crashed'; settlement: Settlement }
   | { kind: 'already_settled'; settlement: Settlement }
-  | { kind: 'no_papers' }
+  | { kind: 'no_parts' }
   | { kind: 'below_min_cashout'; multiplier: number; minCashout: number };
 
 /**
- * Judges a throw of one or all remaining papers at server receive time. Pure: the caller records the
+ * Judges a collect of one or all remaining parts at server receive time. Pure: the caller records the
  * throw atomically (which fixes its credit) and finalizes the round when the bag is empty.
  */
 export function judgeThrow(
   round: RoundRecord,
   nowMs: number,
-  request: { throwId: string; count: 1 | 'all'; clientTapAt?: number | null; rttMs?: number | null },
+  request: { partId: string; count: 1 | 'all'; clientTapAt?: number | null; rttMs?: number | null },
 ): ThrowJudgement {
-  const existing = (round.throws ?? []).find((t) => t.throwId === request.throwId) ?? round.settlement?.cashouts?.find((t) => (t as ThrowEntry).throwId === request.throwId);
-  if (existing) return { kind: 'duplicate', entry: existing as ThrowEntry };
+  const existing = (round.settledParts ?? []).find((t) => t.partId === request.partId) ?? round.settlement?.cashouts?.find((t) => (t as PartEntry).partId === request.partId);
+  if (existing) return { kind: 'duplicate', entry: existing as PartEntry };
   const due = round.settlement ?? settlementDue(round, nowMs);
   if (due) return due.status === 'lost' ? { kind: 'crashed', settlement: due } : { kind: 'already_settled', settlement: due };
-  const remaining = paperCount(round) - thrownPapers(round);
-  if (remaining <= 0) return { kind: 'no_papers' };
+  const remaining = stakePartCount(round) - settledPartCount(round);
+  if (remaining <= 0) return { kind: 'no_parts' };
   const time = elapsedSeconds(round, nowMs);
   const multiplier = cappedMultiplier(round, time, 'manual');
   const min = round.minCashout ?? 0;
   if (multiplier < min) return { kind: 'below_min_cashout', multiplier, minCashout: min };
-  const papers = request.count === 'all' ? remaining : 1;
+  const parts = request.count === 'all' ? remaining : 1;
   return {
     kind: 'thrown',
-    remainingAfter: remaining - papers,
+    remainingAfter: remaining - parts,
     entry: {
-      throwId: request.throwId,
-      papers,
+      partId: request.partId,
+      parts,
       reason: 'manual',
       time,
       multiplier,
-      share: papers / paperCount(round),
-      exactMinor: paperMinorOf(round) * papers * multiplier,
+      share: parts / stakePartCount(round),
+      exactMinor: partMinorOf(round) * parts * multiplier,
       clientTapAt: request.clientTapAt ?? null,
       rttMs: request.rttMs ?? null,
     },
@@ -252,7 +253,7 @@ function wonAt(round: RoundRecord, time: number, reason: CashoutReason): Settlem
   const multiplier =
     reason === 'maxWin'
       ? config.maxWinMultiplier
-      : Math.min(multiplierAt(time, outcome.setbacks, config), config.maxWinMultiplier);
+      : Math.min(multiplierAt(time, modifiersOfOutcome(outcome, config), config), config.maxWinMultiplier);
   return {
     status: 'won',
     reason,
@@ -270,10 +271,10 @@ function wonAt(round: RoundRecord, time: number, reason: CashoutReason): Settlem
 export function scheduledSettlement(round: RoundRecord): Settlement {
   const { config, outcome, autoCashout } = round;
   const candidates: { time: number; reason: CashoutReason }[] = [];
-  const cap = timeToReach(config.maxWinMultiplier, outcome.setbacks, config);
+  const cap = timeToReach(config.maxWinMultiplier, modifiersOfOutcome(outcome, config), config);
   if (cap !== null) candidates.push({ time: cap, reason: 'maxWin' });
   if (autoCashout !== null) {
-    const auto = timeToReach(autoCashout, outcome.setbacks, config);
+    const auto = timeToReach(autoCashout, modifiersOfOutcome(outcome, config), config);
     // When auto and cap coincide the cap label wins because the payout is capped.
     if (auto !== null && (cap === null || auto < cap)) candidates.push({ time: auto, reason: 'auto' });
   }
@@ -282,12 +283,12 @@ export function scheduledSettlement(round: RoundRecord): Settlement {
     // Backstop when no stream close was seen: treat the player as gone 3 s after the last sign of life,
     // and cash out then if the value is at or above the minimum.
     const gone = (round.lastHeartbeatAt + HEARTBEAT_GRACE_MS - round.startedAt) / 1000;
-    const value = multiplierAt(gone, outcome.setbacks, config);
+    const value = multiplierAt(gone, modifiersOfOutcome(outcome, config), config);
     if (gone >= 0 && value >= (round.minCashout ?? 0)) candidates.push({ time: gone, reason: 'disconnect' });
   }
   const first = candidates.reduce((a, b) => (b.time < a.time ? b : a));
 
-  if (isPaperRound(round)) {
+  if (isSplitRound(round)) {
     return first.time < outcome.crashTime ? paperSettlementAt(round, first.time, first.reason) : paperCrashSettlement(round);
   }
   if (first.time < outcome.crashTime) return wonAt(round, first.time, first.reason);
@@ -295,7 +296,7 @@ export function scheduledSettlement(round: RoundRecord): Settlement {
     status: 'lost',
     reason: 'crash',
     time: outcome.crashTime,
-    multiplier: multiplierAt(outcome.crashTime, outcome.setbacks, config),
+    multiplier: multiplierAt(outcome.crashTime, modifiersOfOutcome(outcome, config), config),
     payoutMinor: 0,
     crashTime: outcome.crashTime,
   };
@@ -354,7 +355,7 @@ export function startEvent(round: RoundRecord, serverNow: number): StartEvent {
     clientSeed: round.seeds.clientSeed,
     nonce: round.seeds.nonce,
     configId: round.config.id,
-    ...(isPaperRound(round) && { papers: paperCount(round), paperMinor: paperMinorOf(round) }),
+    ...(isSplitRound(round) && { stakeParts: stakePartCount(round), partMinor: partMinorOf(round) }),
   };
 }
 
@@ -371,17 +372,18 @@ export function voidSettlement(round: Pick<RoundRecord, 'betMinor' | 'outcome' |
   };
 }
 
-/** Setback events that happen before the round ends (a setback tied with a cash-out comes first). */
-export function setbackEvents(round: RoundRecord, settlement: Settlement): BadMoleEvent[] {
+/** Modifier events that happen before the round ends (one tied with a cash-out still counts). */
+export function modifierEvents(round: RoundRecord, settlement: Settlement): (SetbackEvent | BoostEvent)[] {
   if (settlement.status === 'void') return [];
-  return round.outcome.setbacks
-    .filter((t) => (settlement.status === 'won' ? t <= settlement.time : t < settlement.time))
-    .map((time) => ({
-      type: 'BAD_MOLE',
-      roundId: round.id,
-      time,
-      factor: round.config.setbackFactor,
-    }));
+  const before = (t: number) => (settlement.status === 'won' ? t <= settlement.time : t < settlement.time);
+  const bad: (SetbackEvent | BoostEvent)[] = round.outcome.setbacks
+    .filter(before)
+    .map((time) => ({ type: 'SETBACK', roundId: round.id, time, factor: round.config.setbackFactor }));
+  const good: (SetbackEvent | BoostEvent)[] = (round.outcome.boosts ?? [])
+    .filter(before)
+    .map((time) => ({ type: 'BOOST', roundId: round.id, time, factor: round.config.boostFactor }));
+  // Setback first when a boost shares its time (design D5).
+  return [...bad, ...good].sort((a, b) => a.time - b.time || a.factor - b.factor);
 }
 
 export function terminalEvent(round: RoundRecord, settlement: Settlement, balanceMinor: number): TerminalEvent {
@@ -389,8 +391,8 @@ export function terminalEvent(round: RoundRecord, settlement: Settlement, balanc
     return { type: 'VOID', roundId: round.id, reason: settlement.reason, refundMinor: settlement.payoutMinor, balanceMinor };
   }
   const paperCounts = () => {
-    const thrown = (settlement.cashouts as ThrowEntry[] | undefined)?.reduce((n, t) => n + (t.papers ?? 0), 0) ?? 0;
-    return { papersThrown: thrown, papersLost: paperCount(round) - thrown };
+    const thrown = (settlement.cashouts as PartEntry[] | undefined)?.reduce((n, t) => n + (t.parts ?? 0), 0) ?? 0;
+    return { partsSettled: thrown, partsLost: stakePartCount(round) - thrown };
   };
   if (settlement.status === 'won') {
     return {
@@ -402,7 +404,7 @@ export function terminalEvent(round: RoundRecord, settlement: Settlement, balanc
       payoutMinor: settlement.payoutMinor,
       crashTime: settlement.crashTime,
       balanceMinor,
-      ...(isPaperRound(round) && paperCounts()),
+      ...(isSplitRound(round) && paperCounts()),
     };
   }
   return {
@@ -412,7 +414,7 @@ export function terminalEvent(round: RoundRecord, settlement: Settlement, balanc
     multiplier: settlement.multiplier,
     crashTime: settlement.crashTime,
     balanceMinor,
-    ...(isPaperRound(round) && { returnMinor: settlement.payoutMinor, ...paperCounts() }),
+    ...(isSplitRound(round) && { returnMinor: settlement.payoutMinor, ...paperCounts() }),
   };
 }
 
@@ -438,7 +440,7 @@ export function snapshot(round: RoundRecord, nowMs: number): RoundSnapshot {
   const settlement = round.settlement?.status === 'void' ? round.settlement : settlementDue(round, nowMs);
   const elapsed = elapsedSeconds(round, nowMs);
   const visibleUntil = settlement ? settlement.time : elapsed;
-  // Lost single cash-out rounds pay 0; a paper wipeout still returns the papers thrown before it.
+  // Lost single cash-out rounds pay 0; a split-stake wipeout still returns the parts settled before it.
   const returnMinor = settlement ? settlement.payoutMinor : null;
   const readable = !!round.outcome;
   return {
@@ -461,6 +463,9 @@ export function snapshot(round: RoundRecord, nowMs: number): RoundSnapshot {
     setbacks: readable
       ? setbacksUpTo(visibleUntil, round.outcome.setbacks).filter((t) => (settlement?.status === 'lost' ? t < settlement.time : true))
       : [],
+    boosts: readable
+      ? setbacksUpTo(visibleUntil, round.outcome.boosts ?? []).filter((t) => (settlement?.status === 'lost' ? t < settlement.time : true))
+      : [],
     settlement,
     profile: round.profileName ?? null,
     clientVersion: round.clientVersion ?? null,
@@ -470,10 +475,10 @@ export function snapshot(round: RoundRecord, nowMs: number): RoundSnapshot {
     netMinor: returnMinor === null ? null : returnMinor - round.betMinor,
     resultKind: returnMinor === null || settlement?.status === 'void' ? null : resultKind(round.betMinor, returnMinor),
     crashMultiplier:
-      settlement && readable && settlement.crashTime >= 0 ? multiplierAt(settlement.crashTime, round.outcome.setbacks, round.config) : null,
+      settlement && readable && settlement.crashTime >= 0 ? multiplierAt(settlement.crashTime, modifiersOfOutcome(round.outcome, round.config), round.config) : null,
     cashouts: cashoutEntries(round, settlement),
-    papers: paperCount(round),
-    paperMinor: paperMinorOf(round),
-    throws: (settlement?.cashouts as ThrowEntry[] | undefined)?.filter((t) => typeof t.throwId === 'string') ?? round.throws ?? [],
+    stakeParts: stakePartCount(round),
+    partMinor: partMinorOf(round),
+    settledParts: (settlement?.cashouts as PartEntry[] | undefined)?.filter((t) => typeof t.partId === 'string') ?? round.settledParts ?? [],
   };
 }

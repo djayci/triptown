@@ -9,12 +9,16 @@
     "tRamp": 12,
     "lambda": 0,
     "setbackFactor": 0.5,
+    "boostRate": 0,
+    "boostFactor": 1.25,
     "maxWinMultiplier": 10000,
     "tMax": 60,
-    "papers": 1
+    "stakeParts": 1
   },
   "bustShare": 0.0300755,
   "bustSe": 0.00005401015117526519,
+  "meanLength": 3.3252381310180357,
+  "medianLength": 2.9832934906167883,
   "rows": [
     {
       "strategy": "auto cash-out x1.5",

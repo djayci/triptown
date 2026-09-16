@@ -26,7 +26,7 @@
   "whack-crash/v1-rising": {
     "pass": true,
     "rounds": 10000000,
-    "date": "2026-09-15",
+    "date": "2026-09-16",
     "report": "rtp-whack-crash-v1-rising.md"
   },
   "whack-crash/v1-rising+cap100": {
@@ -34,5 +34,17 @@
     "rounds": 10000000,
     "date": "2026-09-15",
     "report": "rtp-whack-crash-v1-rising-cap100.md"
+  },
+  "whack-crash/v2": {
+    "pass": true,
+    "rounds": 10000000,
+    "date": "2026-09-16",
+    "report": "rtp-whack-crash-v2.md"
+  },
+  "whack-crash/v2-rising": {
+    "pass": true,
+    "rounds": 10000000,
+    "date": "2026-09-16",
+    "report": "rtp-whack-crash-v2-rising.md"
   }
 }

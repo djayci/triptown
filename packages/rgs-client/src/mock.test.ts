@@ -1,8 +1,13 @@
-import { MemoryRoundStore, profileFromTemplate, type RoundRecord } from '@triptown/core';
+import { MemoryRoundStore, profileFromTemplate, registerGame, type RoundRecord } from '@triptown/core';
 import { describe, expect, it } from 'vitest';
 import { MockRoundService } from './mock';
 import { paperRouteSuite, roundServiceSuite } from './testing/round-service-suite';
 import type { RoundEvent } from './types';
+
+// The split-stake code path still ships, but its only config belongs to a retired game. Tests register
+// that game explicitly to exercise the path; no shipped profile has it registered (design D1, D2).
+registerGame('paper-route');
+
 
 // Pacing is covered separately; the random-outcome suite plays rounds back to back.
 const unpaced = { defaultProfile: { ...profileFromTemplate('light'), minCycleMs: 0 } };
@@ -10,7 +15,9 @@ roundServiceSuite('MockRoundService', async () => new MockRoundService({ initial
   makePacedService: async () => new MockRoundService({ profiles: { defaultProfile: profileFromTemplate('light') } }),
 });
 
-paperRouteSuite('MockRoundService (paper-route)', async () => new MockRoundService({ initialBalanceMinor: 500_00, profiles: unpaced, game: 'paper-route' }));
+// Paper Route keeps the unboosted maths: the good mole is a Whack Crash config.
+const unpacedUnboosted = { defaultProfile: { ...unpaced.defaultProfile, boostsMode: 'off' as const } };
+paperRouteSuite('MockRoundService (paper-route)', async () => new MockRoundService({ initialBalanceMinor: 500_00, profiles: unpacedUnboosted, game: 'paper-route' }));
 
 describe('MockRoundService extras', () => {
   it('forces a setback scenario for dev tooling', async () => {
@@ -19,7 +26,7 @@ describe('MockRoundService extras', () => {
     const events: RoundEvent[] = [];
     const handle = await service.startRound({ betMinor: 100 }, (e) => events.push(e));
     await handle.ended;
-    expect(events.some((e) => e.type === 'BAD_MOLE')).toBe(true);
+    expect(events.some((e) => e.type === 'SETBACK')).toBe(true);
   }, 30_000);
 
   it('forces an instant bust', async () => {

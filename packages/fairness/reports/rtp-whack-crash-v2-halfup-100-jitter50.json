@@ -1,0 +1,114 @@
+{
+  "rounds": 4000000,
+  "seed": 2,
+  "config": {
+    "id": "whack-crash/v2",
+    "rtp": 0.97,
+    "r0": 0.12,
+    "rmax": 0.95,
+    "tRamp": 12,
+    "lambda": 0.12,
+    "setbackFactor": 0.5,
+    "boostRate": 0.4,
+    "boostFactor": 1.05,
+    "maxWinMultiplier": 10000,
+    "tMax": 60,
+    "stakeParts": 1
+  },
+  "bustShare": 0.02985225,
+  "bustSe": 0.00008508979546622717,
+  "meanLength": 3.6851998284946776,
+  "medianLength": 3.356652219556706,
+  "rows": [
+    {
+      "strategy": "auto cash-out x1.5",
+      "winRate": 0.6455955,
+      "directRtp": 0.9700727424986496,
+      "directSe": 0.0003593988872887159,
+      "conditionalRtp": 0.9697694026210595,
+      "conditionalSe": 0.0001250172706354017,
+      "pass": true
+    },
+    {
+      "strategy": "auto cash-out x2",
+      "winRate": 0.48440875,
+      "directRtp": 0.9701674924994692,
+      "directSe": 0.0005004746335910693,
+      "conditionalRtp": 0.9697621222359306,
+      "conditionalSe": 0.0001524582134847728,
+      "pass": true
+    },
+    {
+      "strategy": "auto cash-out x10",
+      "winRate": 0.0968045,
+      "directRtp": 0.9688397799999998,
+      "directSe": 0.0014796924350806663,
+      "conditionalRtp": 0.9700701601813688,
+      "conditionalSe": 0.00023090799196522793,
+      "pass": true
+    },
+    {
+      "strategy": "auto cash-out x100",
+      "winRate": 0.009697,
+      "directRtp": 0.970235424999999,
+      "directSe": 0.00490248616763411,
+      "conditionalRtp": 0.9699908382272832,
+      "conditionalSe": 0.0002910077552045923,
+      "pass": true
+    },
+    {
+      "strategy": "cash out at 2s",
+      "winRate": 0.72023925,
+      "directRtp": 0.9704283775014093,
+      "directSe": 0.0003352692751764377,
+      "conditionalRtp": 0.9698301260684004,
+      "conditionalSe": 0.00012272906394132508,
+      "pass": true
+    },
+    {
+      "strategy": "cash out at 5s",
+      "winRate": 0.27394325,
+      "directRtp": 0.9697660599999173,
+      "directSe": 0.0008760035753380217,
+      "conditionalRtp": 0.9698986514591779,
+      "conditionalSe": 0.00019863500947348497,
+      "pass": true
+    },
+    {
+      "strategy": "cash out at 10s",
+      "winRate": 0.013746,
+      "directRtp": 0.9687756849999871,
+      "directSe": 0.00480624225359073,
+      "conditionalRtp": 0.9700674220106713,
+      "conditionalSe": 0.0002924378036995114,
+      "pass": true
+    },
+    {
+      "strategy": "cash out right after first setback",
+      "winRate": 0.3312645,
+      "directRtp": 0.9533354424978435,
+      "directSe": 0.03177412550477723,
+      "conditionalRtp": 0.9696617088549763,
+      "conditionalSe": 0.00032723769174040316,
+      "pass": true
+    },
+    {
+      "strategy": "cash out right after first boost",
+      "winRate": 0.66470125,
+      "directRtp": 0.9691233875000015,
+      "directSe": 0.0028743649124415406,
+      "conditionalRtp": 0.9699229112247991,
+      "conditionalSe": 0.00013322955818602592,
+      "pass": true
+    },
+    {
+      "strategy": "never cash out (caps only)",
+      "winRate": 0.000099,
+      "directRtp": 0.99,
+      "directSe": 0.049746909200471943,
+      "conditionalRtp": 0.9691958092768783,
+      "conditionalSe": 0.0003718311576004131,
+      "pass": true
+    }
+  ]
+}

@@ -9,18 +9,18 @@ import type {
   SeedRotation,
   SessionInfo,
   TerminalEvent,
-  ThrowOutcome,
+  PartOutcome,
 } from '@triptown/core';
 
-export type { CashoutOutcome, ClientTiming, RevealedSeed, RoundEvent, RoundSnapshot, RoundSummary, SeedRotation, SessionInfo, TerminalEvent, ThrowOutcome };
+export type { CashoutOutcome, ClientTiming, RevealedSeed, RoundEvent, RoundSnapshot, RoundSummary, SeedRotation, SessionInfo, TerminalEvent, PartOutcome };
 
-export interface ThrowRequest {
+export interface PartRequest {
   count: 1 | 'all';
-  throwId?: string;
+  partId?: string;
 }
 
 /** Random throw id for idempotent retries (letters, digits, "-"). */
-export function newThrowId(): string {
+export function newPartId(): string {
   const bytes = new Uint8Array(12);
   globalThis.crypto.getRandomValues(bytes);
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
@@ -69,7 +69,7 @@ export interface RoundService {
    * Partial cash-out: throws one or all remaining papers. The throw id makes retries safe; one is generated
    * when omitted and reused if the request has to be retried. Single-paper rounds behave like `cashout`.
    */
-  throwPapers(roundId: string, request: ThrowRequest, timing?: ClientTiming): Promise<ThrowOutcome>;
+  settleParts(roundId: string, request: PartRequest, timing?: ClientTiming): Promise<PartOutcome>;
   getRound(roundId: string): Promise<RoundSnapshot>;
   /** The player's rounds, newest first, at most 50. Running rounds carry no outcome data. */
   history(limit?: number): Promise<RoundSummary[]>;

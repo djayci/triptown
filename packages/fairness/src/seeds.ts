@@ -2,7 +2,7 @@ import { fromHex, toHex, utf8 } from './bytes';
 import { hmacSha256, sha256 } from './sha256';
 
 /** Named, independent random streams per round. */
-export type StreamName = 'crash' | 'setbacks';
+export type StreamName = 'crash' | 'setbacks' | 'boosts';
 
 export interface RoundSeeds {
   /** 32 random bytes, hex encoded. Secret until revealed. */

@@ -156,9 +156,11 @@ export function roundServiceSuite(name: string, makeService: () => Promise<Round
         let setbackAt = -1;
         let startedAt = 0;
         let cashed: Promise<unknown> | null = null;
+        let boosts = 0;
         const played = await play(service, (e, roundId) => {
           if (e.type === 'START') startedAt = e.startedAt;
-          if (e.type === 'BAD_MOLE' && setbackAt < 0) {
+          if (e.type === 'BOOST') boosts++;
+          if (e.type === 'SETBACK' && setbackAt < 0) {
             setbackAt = e.time;
             cashed = service.cashout(roundId).catch(() => null);
           }
@@ -168,9 +170,9 @@ export function roundServiceSuite(name: string, makeService: () => Promise<Round
           const t = played.terminal;
           expect(startedAt).toBeGreaterThan(0);
           expect(t.time).toBeGreaterThanOrEqual(setbackAt);
-          // Value after one setback is half the growth at the cash-out time (no further setbacks that fast).
+          // Value after one setback is half the growth at the cash-out time, times any boosts so far.
           const config = (await service.getSession()).config;
-          expect(t.multiplier).toBeCloseTo(growth(t.time, config) * config.setbackFactor, 6);
+          expect(t.multiplier).toBeCloseTo(growth(t.time, config) * config.setbackFactor * config.boostFactor ** boosts, 6);
           expect(played.after).toBe(played.before - BET + t.payoutMinor);
           return;
         }
@@ -199,6 +201,26 @@ export function roundServiceSuite(name: string, makeService: () => Promise<Round
       throw new Error('never saw an instant bust');
     }, 180_000);
 
+    it('raises the value on a boost and records it in history', async () => {
+      const service = await makeService();
+      const { config } = await service.getSession();
+      if (config.boostRate <= 0) return; // This config has no boosts.
+      for (let i = 0; i < tries; i++) {
+        const seen: { time: number; factor: number }[] = [];
+        const played = await play(service, (e) => {
+          if (e.type === 'BOOST') seen.push({ time: e.time, factor: e.factor });
+        });
+        if (!seen.length) continue;
+        expect(seen[0]!.factor).toBe(config.boostFactor);
+        const roundId = played.events[0]!.roundId;
+        const [summary] = await service.history(1);
+        expect(summary!.roundId).toBe(roundId);
+        expect(summary!.boosts).toEqual(seen.map((b) => b.time));
+        return;
+      }
+      throw new Error('never saw a boost');
+    }, 120_000);
+
     it('rejects bets above the balance with insufficient_funds', async () => {
       const service = await makeService();
       const session = await service.getSession();
@@ -214,7 +236,7 @@ export function roundServiceSuite(name: string, makeService: () => Promise<Round
 
 /**
  * Partial cash-out cases (Paper Route). `makeService` must create sessions for a 5-paper game; the stake
- * of 1.00 splits into papers of 0.20, the minimum paper value.
+ * of 1.00 splits into stakeParts of 0.20, the minimum paper value.
  */
 export function paperRouteSuite(name: string, makeService: () => Promise<RoundService>, tries = 120) {
   const halfUp = (exactMinor: number) => Math.floor(exactMinor + 0.5 + 1e-7);
@@ -223,25 +245,25 @@ export function paperRouteSuite(name: string, makeService: () => Promise<RoundSe
     it('throws one paper, keeps the round running and streams THROWN without the crash time', async () => {
       const service = await makeService();
       for (let i = 0; i < tries; i++) {
-        let thrown: Awaited<ReturnType<RoundService['throwPapers']>> | null = null;
+        let thrown: Awaited<ReturnType<RoundService['settleParts']>> | null = null;
         let pending: Promise<unknown> | null = null;
         const played = await play(service, (e, roundId) => {
           if (e.type === 'START') {
-            expect(e).toMatchObject({ papers: 5, paperMinor: BET / 5 });
+            expect(e).toMatchObject({ stakeParts: 5, partMinor: BET / 5 });
             pending = wait(250).then(async () => {
-              thrown = await service.throwPapers(roundId, { count: 1 }).catch(() => null);
+              thrown = await service.settleParts(roundId, { count: 1 }).catch(() => null);
             });
           }
         });
         await pending;
-        const t = thrown as Awaited<ReturnType<RoundService['throwPapers']>> | null;
+        const t = thrown as Awaited<ReturnType<RoundService['settleParts']>> | null;
         if (t?.result !== 'thrown') continue;
         expect(t.remaining).toBe(4);
         expect(JSON.stringify(t)).not.toContain('crashTime');
-        const event = played.events.find((e) => e.type === 'THROWN');
-        expect(event).toMatchObject({ throwId: t.throw!.throwId, remaining: 4 });
+        const event = played.events.find((e) => e.type === 'PART_SETTLED');
+        expect(event).toMatchObject({ partId: t.throw!.partId, remaining: 4 });
         expect(event).not.toHaveProperty('crashTime');
-        expect(played.terminal).toMatchObject({ papersThrown: expect.any(Number) });
+        expect(played.terminal).toMatchObject({ partsSettled: expect.any(Number) });
         return;
       }
       throw new Error('never threw a paper mid-round');
@@ -250,15 +272,15 @@ export function paperRouteSuite(name: string, makeService: () => Promise<RoundSe
     it('ends the round on throw-all with the round total rounded half-up once', async () => {
       const service = await makeService();
       for (let i = 0; i < tries; i++) {
-        const outs: Awaited<ReturnType<RoundService['throwPapers']>>[] = [];
+        const outs: Awaited<ReturnType<RoundService['settleParts']>>[] = [];
         let pending: Promise<unknown> | null = null;
         const played = await play(service, (e, roundId) => {
           if (e.type !== 'START') return;
           pending = wait(200)
-            .then(() => service.throwPapers(roundId, { count: 1 }))
+            .then(() => service.settleParts(roundId, { count: 1 }))
             .then((o) => outs.push(o))
             .then(() => wait(300))
-            .then(() => service.throwPapers(roundId, { count: 'all' }))
+            .then(() => service.settleParts(roundId, { count: 'all' }))
             .then((o) => outs.push(o))
             .catch(() => null);
         });
@@ -268,7 +290,7 @@ export function paperRouteSuite(name: string, makeService: () => Promise<RoundSe
         const exact = outs[0]!.throw!.exactMinor + last.throw!.exactMinor;
         expect(last.settlement!.payoutMinor).toBe(halfUp(exact));
         expect(played.after).toBe(played.before - BET + last.settlement!.payoutMinor);
-        expect(played.terminal).toMatchObject({ type: 'CASHED_OUT', papersThrown: 5, papersLost: 0 });
+        expect(played.terminal).toMatchObject({ type: 'CASHED_OUT', partsSettled: 5, partsLost: 0 });
         return;
       }
       throw new Error('never completed a throw-all');
@@ -277,14 +299,14 @@ export function paperRouteSuite(name: string, makeService: () => Promise<RoundSe
     it('settles nothing more when a throw id is retried', async () => {
       const service = await makeService();
       for (let i = 0; i < tries; i++) {
-        let results: Awaited<ReturnType<RoundService['throwPapers']>>[] = [];
+        let results: Awaited<ReturnType<RoundService['settleParts']>>[] = [];
         let pending: Promise<unknown> | null = null;
         await play(service, (e, roundId) => {
           if (e.type !== 'START') return;
           pending = wait(250)
             .then(async () => {
-              const first = await service.throwPapers(roundId, { count: 1, throwId: `retry-${i}` });
-              const again = await service.throwPapers(roundId, { count: 1, throwId: `retry-${i}` });
+              const first = await service.settleParts(roundId, { count: 1, partId: `retry-${i}` });
+              const again = await service.settleParts(roundId, { count: 1, partId: `retry-${i}` });
               results = [first, again];
             })
             .catch(() => null);
@@ -298,18 +320,18 @@ export function paperRouteSuite(name: string, makeService: () => Promise<RoundSe
       throw new Error('never threw a paper to retry');
     }, 180_000);
 
-    it('keeps banked papers at wipeout and loses the rest', async () => {
+    it('keeps banked stakeParts at wipeout and loses the rest', async () => {
       const service = await makeService();
       for (let i = 0; i < tries; i++) {
-        let out: Awaited<ReturnType<RoundService['throwPapers']>> | null = null;
+        let out: Awaited<ReturnType<RoundService['settleParts']>> | null = null;
         let pending: Promise<unknown> | null = null;
         const played = await play(service, (e, roundId) => {
-          if (e.type === 'START') pending = wait(200).then(async () => (out = await service.throwPapers(roundId, { count: 1 }).catch(() => null)));
+          if (e.type === 'START') pending = wait(200).then(async () => (out = await service.settleParts(roundId, { count: 1 }).catch(() => null)));
         });
         await pending;
-        const o = out as Awaited<ReturnType<RoundService['throwPapers']>> | null;
+        const o = out as Awaited<ReturnType<RoundService['settleParts']>> | null;
         if (o?.result !== 'thrown' || played.terminal?.type !== 'CRASH') continue;
-        expect(played.terminal).toMatchObject({ papersThrown: 1, papersLost: 4, returnMinor: halfUp(o.throw!.exactMinor) });
+        expect(played.terminal).toMatchObject({ partsSettled: 1, partsLost: 4, returnMinor: halfUp(o.throw!.exactMinor) });
         expect(played.after).toBe(played.before - BET + halfUp(o.throw!.exactMinor));
         return;
       }

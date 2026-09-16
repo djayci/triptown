@@ -22,12 +22,14 @@ export interface RulesExtras {
 export function describeRules(config: GameConfig, profile: JurisdictionProfile, currency: CurrencyRules, extras: RulesExtras = {}): RuleItem[] {
   const setbacksOn = profile.setbacksMode !== 'off' && config.lambda > 0;
   const maxMultiplier = Math.min(config.maxWinMultiplier, profile.maxMultiplier);
-  const papers = profile.partialCashout === 'papers' ? config.papers : 1;
+  const stakeParts = profile.partialCashout === 'parts' ? config.stakeParts : 1;
   const items: RuleItem[] = [];
   const add = (key: string, params: Record<string, RuleParam> = {}) => items.push({ key, params });
 
   add('growth', { r0: config.r0, rmax: config.rmax, tRamp: config.tRamp });
   if (setbacksOn) add('setbacks', { ratePerSecond: config.lambda, factor: config.setbackFactor, warning: false });
+  // Boosts (good-mole D10): only listed when the effective config actually plays it.
+  if (config.boostRate > 0) add('boosts', { ratePerSecond: config.boostRate, factor: config.boostFactor, warning: false });
   add('instantBust', { probability: 1 - config.rtp });
   add('rtp', {
     rtp: config.rtp,
@@ -41,18 +43,18 @@ export function describeRules(config: GameConfig, profile: JurisdictionProfile, 
   add('maxMultiplier', { multiplier: maxMultiplier });
   add('tMax', { seconds: config.tMax });
   add('minCashout', { multiplier: profile.minCashout });
-  if (papers > 1) {
+  if (stakeParts > 1) {
     // Partial cash-out (Paper Route). Left out entirely when the profile turns it off (Portugal).
-    add('papers', { count: papers });
-    add('throwTiming', { judgedAt: 'serverReceive', graceMs: 0, all: true });
-    add('minPaperValue', { minor: currency.minBetMinor, decimals: currency.decimals });
+    add('stakeParts', { count: stakeParts });
+    add('partTiming', { judgedAt: 'serverReceive', graceMs: 0, all: true });
+    add('minPartValue', { minor: currency.minBetMinor, decimals: currency.decimals });
     add('roundRounding', { mode: 'halfUpOncePerRound' });
     add('wipeout', { unthrownLost: true });
-    add('disconnectRemainingPapers', { policy: profile.disconnectPolicy });
+    add('disconnectRemainingParts', { policy: profile.disconnectPolicy });
     add('landingIsDecoration', {});
   }
-  add('autoCashout', { minimum: Math.max(1.01, profile.minCashout), maximum: maxMultiplier, settlesRemainingPapers: papers > 1 });
-  add('rounding', { mode: 'halfUpOncePerRound', minStakeMinor: currency.minBetMinor * papers, decimals: currency.decimals });
+  add('autoCashout', { minimum: Math.max(1.01, profile.minCashout), maximum: maxMultiplier, settlesRemainingParts: stakeParts > 1 });
+  add('rounding', { mode: 'halfUpOncePerRound', minStakeMinor: currency.minBetMinor * stakeParts, decimals: currency.decimals });
   if (setbacksOn) add('belowStakeReturns', { possible: true });
   if (profile.minCycleMs > 0) add('minCycle', { ms: profile.minCycleMs });
   add('latency', { judgedAt: 'serverReceive', graceMs: 0 });

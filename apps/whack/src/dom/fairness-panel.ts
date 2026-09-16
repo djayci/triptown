@@ -120,14 +120,17 @@ export class FairnessPanel {
             commit: r.commit,
             config: rotation.session.config,
           });
-          const ok = v.verified && v.crashTime === r.settlement!.crashTime;
-          return `<tr><td>${r.nonce}</td><td>${formatMultiplier(r.settlement!.multiplier)}</td><td>${v.setbacks.length}</td><td class="${ok ? 'ok' : 'bad'}">${ok ? '✓ verified' : '✗ mismatch'}</td></tr>`;
+          // Boost times are part of the derived outcome, so a mismatch there is a failed check too.
+          const boostsMatch = v.boosts.length === r.boosts.length && v.boosts.every((t, i) => t === r.boosts[i]);
+          const ok = v.verified && v.crashTime === r.settlement!.crashTime && boostsMatch;
+          const mods = `${v.setbacks.length} / ${v.boosts.length}`;
+          return `<tr><td>${r.nonce}</td><td>${formatMultiplier(r.settlement!.multiplier)}</td><td>${mods}</td><td class="${ok ? 'ok' : 'bad'}">${ok ? '✓ verified' : '✗ mismatch'}</td></tr>`;
         })
         .join('');
       const html = `
         <span class="k">Revealed server seed</span>
         <code data-testid="revealed">${rotation.previousServerSeed}</code>
-        <table><thead><tr><th>Nonce</th><th>Result</th><th>Bad moles</th><th>Check</th></tr></thead><tbody>${rows || '<tr><td colspan="4">No settled rounds used this seed.</td></tr>'}</tbody></table>`;
+        <table><thead><tr><th>Nonce</th><th>Result</th><th>Bad / good moles</th><th>Check</th></tr></thead><tbody>${rows || '<tr><td colspan="4">No settled rounds used this seed.</td></tr>'}</tbody></table>`;
       this.render({ html });
       this.message(`New seed committed. ${rounds.length} round(s) checked.`);
       await this.onSessionChanged();

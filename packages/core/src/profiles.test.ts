@@ -1,12 +1,23 @@
-import { DEFAULT_CONFIG, PAPER_ROUTE_CONFIG, resolveConfigId, validateConfig } from '@triptown/fairness';
+import { DEFAULT_CONFIG, resolveConfigId, validateConfig } from '@triptown/fairness';
 import { describe, expect, it } from 'vitest';
 import {
   PROFILE_TEMPLATES,
   effectiveConfig,
+  isRegisteredGame,
   profileFromTemplate,
+  engineOf,
+  registerGame,
+  registeredGames,
   validateProfile,
   type JurisdictionProfile,
 } from './profiles';
+
+// The split-stake code path still ships, but its only config belongs to a retired game. Tests register
+// that game explicitly to exercise the path; no shipped profile has it registered (design D1, D2).
+registerGame('paper-route');
+
+// Retired game config: resolvable for verification, no longer exported (design D2).
+const PAPER_ROUTE_CONFIG = resolveConfigId('paper-route/v1')!;
 
 const uk = () => profileFromTemplate('regulated-uk', ['https://casino.example']);
 
@@ -43,17 +54,20 @@ describe('profile validation (1.1)', () => {
 });
 
 describe('partial cash-out flag', () => {
-  it('is off for Portugal and papers elsewhere', () => {
+  it('is off for Portugal and stakeParts elsewhere', () => {
     expect(profileFromTemplate('pt-draft').partialCashout).toBe('off');
-    expect(profileFromTemplate('regulated-uk').partialCashout).toBe('papers');
+    expect(profileFromTemplate('regulated-uk').partialCashout).toBe('parts');
   });
 });
 
 describe('effective configs (1.2)', () => {
   it('maps setbacks modes to registered config ids for both games', () => {
-    expect(effectiveConfig('whack-crash', profileFromTemplate('light')).id).toBe('whack-crash/v1');
     expect(effectiveConfig('whack-crash', uk()).id).toBe('whack-crash/v1-rising');
-    expect(effectiveConfig('paper-route', profileFromTemplate('light')).id).toBe('paper-route/v1');
+    // Paper Route has no boosted config, so the boosted light profile is only valid for whack-crash.
+    expect(effectiveConfig('paper-route', { ...profileFromTemplate('light'), boostsMode: 'off' }).id).toBe('paper-route/v1');
+    expect(effectiveConfig('whack-crash', profileFromTemplate('light')).id).toBe('whack-crash/v2');
+    expect(effectiveConfig('whack-crash', { ...profileFromTemplate('light'), boostsMode: 'off' }).id).toBe('whack-crash/v1');
+    expect(effectiveConfig('whack-crash', { ...uk(), boostsMode: 'boost' }).id).toBe('whack-crash/v2-rising');
     expect(effectiveConfig('paper-route', uk()).id).toBe('paper-route/v1-rising');
   });
 
@@ -62,7 +76,7 @@ describe('effective configs (1.2)', () => {
     expect(rising.lambda).toBe(0);
     expect({ ...rising, id: DEFAULT_CONFIG.id, lambda: DEFAULT_CONFIG.lambda }).toEqual(DEFAULT_CONFIG);
     const paper = effectiveConfig('paper-route', uk());
-    expect(paper).toMatchObject({ lambda: 0, papers: PAPER_ROUTE_CONFIG.papers });
+    expect(paper).toMatchObject({ lambda: 0, stakeParts: PAPER_ROUTE_CONFIG.stakeParts });
     expect(validateConfig(rising)).toEqual({ ok: true });
     expect(validateConfig(paper)).toEqual({ ok: true });
   });
@@ -71,7 +85,7 @@ describe('effective configs (1.2)', () => {
     const pt = profileFromTemplate('pt-draft', ['https://pt.example']);
     const cfg = effectiveConfig('whack-crash', pt);
     expect(cfg).toMatchObject({ id: 'whack-crash/v1-rising+cap100', maxWinMultiplier: 100, lambda: 0 });
-    expect(resolveConfigId('paper-route/v1-rising+cap100')).toMatchObject({ papers: 5, maxWinMultiplier: 100 });
+    expect(resolveConfigId('paper-route/v1-rising+cap100')).toMatchObject({ stakeParts: 5, maxWinMultiplier: 100 });
     expect(resolveConfigId('whack-crash/v1+cap20000')).toBeNull();
     expect(resolveConfigId('nope/v1+cap100')).toBeNull();
   });
@@ -87,5 +101,46 @@ describe('report gating (1.4)', () => {
     if (!both.ok) expect(both.errors.join()).toMatch(/paper-route\/v1-rising has no passing RTP report/);
     const failing = validateProfile(uk(), { reportIndex: { 'whack-crash/v1-rising': { pass: false, rounds: 1, date: 'x' } }, games: ['whack-crash'] });
     expect(failing.ok).toBe(false);
+  });
+});
+
+// The registry is what makes a new game a skin on a certified engine rather than an edit to core.
+describe('game registry', () => {
+  it('ships whack-crash and nothing this repo deleted', () => {
+    expect(isRegisteredGame('whack-crash')).toBe(true);
+    expect(isRegisteredGame('not-a-game')).toBe(false);
+  });
+
+  // This is the whole point: a new game is a skin on a certified engine, so it plays that engine's
+  // config ids and its committed RTP reports. Nothing new to prove, nothing to recertify.
+  it('runs a new game on an existing engine, with that engine\'s certified config', () => {
+    registerGame('going-viral', 'whack-crash');
+    expect(engineOf('going-viral')).toBe('whack-crash');
+    const skin = effectiveConfig('going-viral', profileFromTemplate('light'));
+    const engine = effectiveConfig('whack-crash', profileFromTemplate('light'));
+    expect(skin).toEqual(engine);
+    expect(skin.id).toMatch(/^whack-crash\//);
+  });
+
+  it('is idempotent, and refuses to move a game to another engine', () => {
+    registerGame('going-viral', 'whack-crash');
+    expect(registeredGames().filter((g) => g === 'going-viral')).toHaveLength(1);
+    expect(() => registerGame('going-viral', 'paper-route')).toThrow(/already registered on engine/);
+  });
+
+  it('lets a game bring its own maths by defaulting the engine to itself', () => {
+    registerGame('own-maths');
+    expect(engineOf('own-maths')).toBe('own-maths');
+    expect(() => effectiveConfig('own-maths', profileFromTemplate('light'))).toThrow(/No config registered/);
+  });
+
+  it('refuses an unregistered game before a session can use it', () => {
+    expect(() => effectiveConfig('not-a-game', profileFromTemplate('light'))).toThrow(/Unregistered game/);
+  });
+
+  it('refuses a malformed game or engine id', () => {
+    expect(() => registerGame('')).toThrow(/Invalid game id/);
+    expect(() => registerGame('whack-crash/v1')).toThrow(/Invalid game id/);
+    expect(() => registerGame('ok', 'bad/id')).toThrow(/Invalid engine id/);
   });
 });

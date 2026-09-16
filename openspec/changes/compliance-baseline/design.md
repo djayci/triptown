@@ -224,7 +224,7 @@ Upstash cost goes up (about 3 more commands per round). This is acceptable at MV
 - **Decision (user, 2026-09-15):** settlement accrues exact values per cash-out, credits the round total rounded half-up once, and raises the minimum stake or paper value to 0.20. With one cash-out this reduces to "round half-up once", so both games use the same function.
 - The simulator gains a settlement-rounding mode at given stakes. The shared suite's payout assertions change from floor to half-up.
 - **Band, not ±0.1% (user decision, 2026-09-15):** no deterministic cent rounding can keep every cash-out value within ±0.1% at small stakes. At 0.20, x1.02 pays 0.20 (95.1%) and x1.025 pays 0.21 (99.4%). At 1.00 the band is about ±0.5%, and at 10.00 about ±0.05%. Reports publish the worst-case band per stake. Certification gates on the jurisdiction minimum RTP at every stake (GLI-19 §4.7.1a), and the rules disclose the rounding effect. Theoretical (unrounded) reports keep the ±0.1% gate for profile validation.
-- The light profile keeps `minCashout` x1.01 (user decision). Halving rounds can't cash out below x1.01; RTP was verified unchanged at 97.0%.
+- The light profile sets `minCashout` 0 (user decision, revised 2026-09-16): after a bad mole the value can fall under x1.00, and blocking the cash-out there left players stuck watching a round they wanted out of. Regulated profiles keep x1.01. A floor is still a stopping time either way, so RTP is unchanged at 97.0%.
 
 ## Risks / Trade-offs
 

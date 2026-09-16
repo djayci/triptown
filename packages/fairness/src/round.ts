@@ -1,12 +1,14 @@
 import { assertValidConfig, type GameConfig } from './config';
-import { crashTimeFromUniform, setbackTimesFromUniforms } from './model';
+import { boostTimesFromUniforms, crashTimeFromUniform, setbackTimesFromUniforms } from './model';
 import { commitServerSeed, pureCrypto, streamUniform, type CryptoProvider, type RoundSeeds } from './seeds';
 
 export interface RoundOutcome {
-  /** Seconds after start when the mole dives. 0 = instant bust. */
+  /** Seconds after start when the round crashes. 0 = instant bust. */
   crashTime: number;
-  /** Seconds after start of each bad mole setback, ascending, all before min(crashTime, tMax). */
+  /** Seconds after start of each setback, ascending, all before min(crashTime, tMax). */
   setbacks: number[];
+  /** Seconds after start of each boost, ascending, all before min(crashTime, tMax). */
+  boosts: number[];
 }
 
 export function deriveRound(seeds: RoundSeeds, config: GameConfig, crypto: CryptoProvider = pureCrypto): RoundOutcome {
@@ -18,7 +20,8 @@ export function deriveRound(seeds: RoundSeeds, config: GameConfig, crypto: Crypt
     config,
     horizon,
   );
-  return { crashTime, setbacks };
+  const boosts = boostTimesFromUniforms((i) => streamUniform(seeds, 'boosts', i, crypto), config, horizon);
+  return { crashTime, setbacks, boosts };
 }
 
 export interface VerifyInput extends RoundSeeds {
@@ -38,7 +41,7 @@ export function verifyRound(input: VerifyInput): VerifyResult {
   try {
     computedCommit = commitServerSeed(input.serverSeed);
   } catch {
-    return { verified: false, computedCommit, crashTime: Number.NaN, setbacks: [] };
+    return { verified: false, computedCommit, crashTime: Number.NaN, setbacks: [], boosts: [] };
   }
   const outcome = deriveRound(input, input.config);
   return {

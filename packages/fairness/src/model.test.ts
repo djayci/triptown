@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_CONFIG, PAPER_ROUTE_CONFIG, setbackDrag, validateConfig, type GameConfig } from './config';
+import {
+  DEFAULT_CONFIG,
+  GAME_CONFIGS,
+  modifierDrift,
+  resolveConfigId,
+  retiredConfigIds,
+  setbackDrag,
+  validateConfig,
+  type GameConfig,
+} from './config';
 import {
   crashTimeFromUniform,
   logExpectedMultiplier,
@@ -9,7 +18,7 @@ import {
 } from './model';
 import { createPrng } from './prng';
 import { deriveRound, verifyRound } from './round';
-import { commitServerSeed } from './seeds';
+import { commitServerSeed, streamUniform } from './seeds';
 
 const C = DEFAULT_CONFIG;
 
@@ -26,8 +35,8 @@ describe('validateConfig', () => {
     ['setback factor of 0', { setbackFactor: 0 }],
     ['max win of 1', { maxWinMultiplier: 1 }],
     ['tMax of 0', { tMax: 0 }],
-    ['0 papers', { papers: 0 }],
-    ['fractional papers', { papers: 2.5 }],
+    ['0 stake parts', { stakeParts: 0 }],
+    ['fractional stake parts', { stakeParts: 2.5 }],
     ['growth below drag at start', { r0: 0.05, lambda: 0.12, setbackFactor: 0.5 }],
     ['growth equal to drag', { r0: 0.06, lambda: 0.12, setbackFactor: 0.5 }],
     ['rmax below drag', { rmax: 0.05, r0: 0.5, lambda: 0.2, setbackFactor: 0.5 }],
@@ -36,20 +45,104 @@ describe('validateConfig', () => {
     expect(result.ok).toBe(false);
   });
 
-  it.each([1, 5, 10])('accepts %i papers', (papers) => {
-    expect(validateConfig({ ...C, papers })).toEqual({ ok: true });
+  it.each([1, 5, 10])('accepts %i stake parts', (stakeParts) => {
+    expect(validateConfig({ ...C, stakeParts })).toEqual({ ok: true });
   });
 
   it('keeps whack-crash/v1 a single cash-out and paper-route/v1 on the same path model', () => {
-    expect(C).toMatchObject({ id: 'whack-crash/v1', papers: 1 });
-    expect(validateConfig(PAPER_ROUTE_CONFIG)).toEqual({ ok: true });
-    expect({ ...PAPER_ROUTE_CONFIG, id: C.id, papers: 1 }).toEqual(C);
+    expect(C).toMatchObject({ id: 'whack-crash/v1', stakeParts: 1 });
+    const paper = resolveConfigId('paper-route/v1')!;
+    expect(validateConfig(paper)).toEqual({ ok: true });
+    expect({ ...paper, id: C.id, stakeParts: 1 }).toEqual(C);
   });
 
-  it('names the drag rule in the error', () => {
+  // A config id is a permanent public fact: archived reports name these, and the verifier has to be
+  // able to check a round settled under one long after the game is gone (design D4).
+  it('still resolves retired config ids, with the parameters their archived reports used', () => {
+    for (const id of retiredConfigIds()) {
+      const config = resolveConfigId(id);
+      expect(config, `${id} must stay resolvable`).not.toBeNull();
+      expect(config!.id).toBe(id);
+      expect(validateConfig(config!)).toEqual({ ok: true });
+    }
+    expect(resolveConfigId('paper-route/v1')).toMatchObject({ stakeParts: 5, lambda: 0.12 });
+    expect(resolveConfigId('paper-route/v1-rising')).toMatchObject({ stakeParts: 5, lambda: 0 });
+  });
+
+  it('resolves a capped id derived from a retired config', () => {
+    expect(resolveConfigId('paper-route/v1-rising+cap100')).toMatchObject({ maxWinMultiplier: 100, stakeParts: 5 });
+  });
+
+  it('does not offer retired configs for new rounds', () => {
+    for (const id of retiredConfigIds()) expect(GAME_CONFIGS[id]).toBeUndefined();
+  });
+
+  it('names the drift rule in the error', () => {
     const result = validateConfig({ ...C, r0: 0.05 });
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.errors.join()).toMatch(/setback drag/);
+    if (!result.ok) expect(result.errors.join()).toMatch(/modifier drift/);
+  });
+
+  it('rejects impossible boost settings', () => {
+    expect(validateConfig({ ...C, boostRate: -1 }).ok).toBe(false);
+    expect(validateConfig({ ...C, boostRate: 0.4, boostFactor: 1 }).ok).toBe(false);
+    // A boost-heavy config has negative drift, which is legal: the value climbs faster than growth.
+    const boostHeavy = { ...C, id: 'test/boost-heavy', lambda: 0, boostRate: 0.8, boostFactor: 1.25 };
+    expect(validateConfig(boostHeavy).ok).toBe(true);
+    expect(modifierDrift(boostHeavy)).toBeLessThan(0);
+  });
+});
+
+describe('boosts (good mole)', () => {
+  const boosted = GAME_CONFIGS['whack-crash/v2']!;
+
+  it('nets the boost lift against the setback drag', () => {
+    expect(modifierDrift(C)).toBeCloseTo(0.06, 12);
+    expect(modifierDrift(boosted)).toBeCloseTo(0.06 - 0.4 * 0.05, 12);
+    expect(setbackDrag(boosted)).toBeCloseTo(0.06, 12);
+  });
+
+  it('keeps survival and the crash-time inversion consistent for both configs', () => {
+    for (const c of [C, boosted]) {
+      for (const t of [0.4, 3, 11.9, 12, 25, 59]) {
+        const u = survival(t, c);
+        expect(crashTimeFromUniform(u, c)).toBeCloseTo(t, 9);
+      }
+    }
+  });
+
+  it('crashes sooner for the same uniform once boosts are on', () => {
+    for (const u of [0.9, 0.5, 0.1, 0.001]) {
+      expect(crashTimeFromUniform(u, boosted)).toBeLessThan(crashTimeFromUniform(u, C));
+    }
+  });
+
+  it('draws boost times from their own stream, inside the horizon', () => {
+    const seeds = { serverSeed: 'a'.repeat(64), clientSeed: 'player', nonce: 7 };
+    const plain = deriveRound(seeds, C);
+    const withBoosts = deriveRound(seeds, boosted);
+    expect(plain.boosts).toEqual([]);
+    // Same seeds, same crash stream: only the config's drift moves the crash time.
+    expect(withBoosts.boosts.every((t, i) => t > 0 && (i === 0 || t > withBoosts.boosts[i - 1]!))).toBe(true);
+    const horizon = Math.min(withBoosts.crashTime, boosted.tMax);
+    expect(withBoosts.boosts.every((t) => t < horizon)).toBe(true);
+    expect(deriveRound(seeds, boosted)).toEqual(withBoosts);
+  });
+
+  it('is unaffected by boost settings in the crash stream itself', () => {
+    const seeds = { serverSeed: 'b'.repeat(64), clientSeed: 'c', nonce: 1 };
+    const u = streamUniform(seeds, 'crash', 0);
+    expect(crashTimeFromUniform(u, boosted)).toBe(deriveRound(seeds, boosted).crashTime);
+  });
+
+  it('registers all four whack-crash variants', () => {
+    for (const id of ['whack-crash/v1', 'whack-crash/v1-rising', 'whack-crash/v2', 'whack-crash/v2-rising']) {
+      const c = resolveConfigId(id);
+      expect(c?.id).toBe(id);
+      expect(validateConfig(c!).ok).toBe(true);
+    }
+    const capped = resolveConfigId('whack-crash/v2+cap100');
+    expect(capped).toMatchObject({ maxWinMultiplier: 100, boostRate: 0.4 });
   });
 });
 

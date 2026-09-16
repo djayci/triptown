@@ -1,14 +1,19 @@
 import { deriveRound } from '@triptown/fairness';
 import { describe, expect, it } from 'vitest';
 import { HostError, RoundHost, type ProfileSettings } from './host';
-import { profileFromTemplate } from './profiles';
+import { profileFromTemplate, registerGame, type GameId } from './profiles';
 import { MemoryRoundStore } from './store';
+
+// The split-stake code path still ships, but its only config belongs to a retired game. Tests register
+// that game explicitly to exercise the path; no shipped profile has it registered (design D1, D2).
+registerGame('paper-route');
+
 
 const clock = { t: 1_700_000_000_000, now() { return this.t; } };
 const sleep = async () => {};
 const ORIGIN = ['https://casino.example'];
 
-function host(profiles: ProfileSettings, game: 'whack-crash' | 'paper-route' = 'whack-crash') {
+function host(profiles: ProfileSettings, game: GameId = 'whack-crash') {
   const store = new MemoryRoundStore();
   return { store, host: new RoundHost({ store, clock, sleep, profiles, game }) };
 }
@@ -69,7 +74,7 @@ describe('profile binding (1.5)', () => {
   it('works for paper-route configs too', async () => {
     const { host: h } = host({ defaultProfile: profileFromTemplate('regulated-uk', ORIGIN) }, 'paper-route');
     const info = await h.createSession(100_00);
-    expect(info.config).toMatchObject({ id: 'paper-route/v1-rising', papers: 5, lambda: 0 });
+    expect(info.config).toMatchObject({ id: 'paper-route/v1-rising', stakeParts: 5, lambda: 0 });
   });
 });
 
@@ -115,9 +120,9 @@ describe('kill switch (1.7)', () => {
     expect(['won', 'crashed']).toContain(result.result);
     await expect(h.startRound(info.sessionId, { betMinor: 1_00 })).rejects.toMatchObject({ code: 'game_disabled' });
     await h.setKillSwitch('game:whack-crash', false);
-    await h.setKillSwitch('config:whack-crash/v1', true);
+    await h.setKillSwitch('config:whack-crash/v2', true);
     await expect(h.startRound(info.sessionId, { betMinor: 1_00 })).rejects.toMatchObject({ code: 'game_disabled' });
-    await h.setKillSwitch('config:whack-crash/v1', false);
+    await h.setKillSwitch('config:whack-crash/v2', false);
     await h.setKillSwitch('profile:light', true);
     await expect(h.startRound(info.sessionId, { betMinor: 1_00 })).rejects.toMatchObject({ code: 'game_disabled' });
     await h.setKillSwitch('profile:light', false);

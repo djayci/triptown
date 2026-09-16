@@ -76,6 +76,28 @@ importers:
         specifier: ^4.23.13
         version: 4.23.13
 
+  apps/gallop:
+    dependencies:
+      '@triptown/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@triptown/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+      '@triptown/fairness':
+        specifier: workspace:*
+        version: link:../../packages/fairness
+      '@triptown/rgs-client':
+        specifier: workspace:*
+        version: link:../../packages/rgs-client
+      pixi.js:
+        specifier: ^8.20.1
+        version: 8.20.1
+    devDependencies:
+      vite:
+        specifier: ^8.3.0
+        version: 8.3.0(@types/node@22.20.2)(esbuild@0.28.2)(tsx@4.23.13)
+
   apps/sandbox:
     dependencies:
       '@triptown/fairness':

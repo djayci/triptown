@@ -1,6 +1,9 @@
 import { serve } from '@hono/node-server';
-import { MemoryRoundStore, profileFromTemplate, type RoundStore } from '@triptown/core';
-import { PAPER_ROUTE_CONFIG, deriveRound, type RoundOutcome } from '@triptown/fairness';
+import { MemoryRoundStore, profileFromTemplate, registerGame, type RoundStore } from '@triptown/core';
+import { deriveRound, resolveConfigId, type RoundOutcome } from '@triptown/fairness';
+
+// Retired game config: resolvable for verification, no longer exported (design D2).
+const PAPER_ROUTE_CONFIG = resolveConfigId('paper-route/v1')!;
 import { RemoteRoundService } from '@triptown/rgs-client/remote';
 import { paperRouteSuite } from '@triptown/rgs-client/testing';
 import type { AddressInfo } from 'node:net';
@@ -9,10 +12,16 @@ import { createApp } from './app';
 import { RedisRoundStore } from './redis-store';
 import { FakeTime, mockRedis, readSse } from './test-helpers';
 
+// The split-stake code path still ships, but its only config belongs to a retired game. Tests register
+// that game explicitly to exercise the path; no shipped profile has it registered (design D1, D2).
+registerGame('paper-route');
+
+
 // Paper Route partial cash-out through the API: paper-route-mvp tasks 6.2–6.4.
 
 const SECRET = 'test-secret';
-const UNPACED = { defaultProfile: { ...profileFromTemplate('light'), minCycleMs: 0 } };
+// Paper Route keeps the unboosted maths: the good mole is a Whack Crash config (good-mole D6).
+const UNPACED = { defaultProfile: { ...profileFromTemplate('light'), minCycleMs: 0, boostsMode: 'off' as const } };
 
 const stores: [string, () => RoundStore][] = [
   ['memory store', () => new MemoryRoundStore()],
@@ -39,7 +48,7 @@ for (const [name, makeStore] of stores) {
 
 // ---------- 6.2 / 6.3: throw endpoint and stream with a virtual clock ----------
 
-describe.each(stores)('throw API (%s)', (_name, makeStore) => {
+describe.each(stores)('part collect API (%s)', (_name, makeStore) => {
   let time: FakeTime;
   let store: RoundStore;
   let app: ReturnType<typeof createApp>;
@@ -61,8 +70,8 @@ describe.each(stores)('throw API (%s)', (_name, makeStore) => {
   async function paperSession(predicate: (o: RoundOutcome) => boolean) {
     const res = await call('POST', '/v1/sessions', undefined, { game: 'paper-route' });
     expect(res.status).toBe(201);
-    const { token, session } = (await res.json()) as { token: string; session: { sessionId: string; config: { id: string; papers: number } } };
-    expect(session.config).toMatchObject({ id: 'paper-route/v1', papers: 5 });
+    const { token, session } = (await res.json()) as { token: string; session: { sessionId: string; config: { id: string; stakeParts: number } } };
+    expect(session.config).toMatchObject({ id: 'paper-route/v1', stakeParts: 5 });
     const s = (await store.getSession(session.sessionId))!;
     for (let i = 0; i < 50_000; i++) {
       const clientSeed = `p-${i}`;
@@ -93,29 +102,29 @@ describe.each(stores)('throw API (%s)', (_name, makeStore) => {
 
   const noEarlySetback = (o: RoundOutcome, s: number) => o.setbacks.every((t) => t > s);
 
-  it('throws one paper, ignores a retried throw id, and ends on throw-all', async () => {
+  it('collects one part, ignores a retried part id, and ends on collect-all', async () => {
     const { token, outcome } = await paperSession((o) => o.crashTime > 5 && noEarlySetback(o, 3));
     const { roundId, events } = await start(token);
     await time.advance(1000);
-    const first = await throwReq(token, roundId, { throwId: 'a', count: 1 });
+    const first = await throwReq(token, roundId, { partId: 'a', count: 1 });
     expect(first).toMatchObject({ status: 200, body: { result: 'thrown', remaining: 4 } });
     expect(JSON.stringify(first.body)).not.toContain('crashTime');
-    const retry = await throwReq(token, roundId, { throwId: 'a', count: 1 });
+    const retry = await throwReq(token, roundId, { partId: 'a', count: 1 });
     expect(retry.body).toMatchObject({ result: 'duplicate', balanceMinor: first.body.balanceMinor });
     // No crash data while the round is running.
     const running = (await (await call('GET', `/v1/rounds/${roundId}`, token)).json()) as Record<string, unknown>;
     expect(running).toMatchObject({ status: 'running', settlement: null, crashMultiplier: null });
-    expect((running.throws as unknown[]).length).toBe(1);
+    expect((running.settledParts as unknown[]).length).toBe(1);
     await time.advance(2000);
-    const all = await throwReq(token, roundId, { throwId: 'b', count: 'all' });
+    const all = await throwReq(token, roundId, { partId: 'b', count: 'all' });
     expect(all.body).toMatchObject({ result: 'cashed_out', remaining: 0 });
-    const empty = await throwReq(token, roundId, { throwId: 'c', count: 1 });
+    const empty = await throwReq(token, roundId, { partId: 'c', count: 1 });
     expect(empty.body).toMatchObject({ result: 'already_settled' });
     // The stream polls the store once a second (virtual clock) and then sends the terminal event.
     await time.advance(1000);
     const seen = await events;
-    expect(seen.filter((e) => e.type === 'THROWN').map((e) => e.throwId)).toEqual(['a', 'b']);
-    expect(seen.at(-1)).toMatchObject({ type: 'CASHED_OUT', papersThrown: 5, papersLost: 0, crashTime: outcome.crashTime });
+    expect(seen.filter((e) => e.type === 'PART_SETTLED').map((e) => e.partId)).toEqual(['a', 'b']);
+    expect(seen.at(-1)).toMatchObject({ type: 'CASHED_OUT', partsSettled: 5, partsLost: 0, crashTime: outcome.crashTime });
   });
 
   it('refuses a throw below the minimum cash-out with 422', async () => {
@@ -123,42 +132,42 @@ describe.each(stores)('throw API (%s)', (_name, makeStore) => {
     const { token } = await paperSession((o) => o.crashTime > 3);
     const { roundId } = await start(token);
     await time.advance(100);
-    const low = await throwReq(token, roundId, { throwId: 'low', count: 1 });
+    const low = await throwReq(token, roundId, { partId: 'low', count: 1 });
     expect(low.status).toBe(422);
     expect(low.body).toMatchObject({ error: { code: 'below_min_cashout', minCashout: 1.2 } });
   });
 
-  it('lets only one of two concurrent throws take the last paper', async () => {
+  it('lets only one of two concurrent collects take the last part', async () => {
     const { token, sessionId } = await paperSession((o) => o.crashTime > 5 && noEarlySetback(o, 2));
     const { roundId, events } = await start(token);
     await time.advance(1000);
-    for (const id of ['a', 'b', 'c', 'd']) expect((await throwReq(token, roundId, { throwId: id, count: 1 })).body.result).toBe('thrown');
-    const [x, y] = await Promise.all([throwReq(token, roundId, { throwId: 'x', count: 1 }), throwReq(token, roundId, { throwId: 'y', count: 1 })]);
+    for (const id of ['a', 'b', 'c', 'd']) expect((await throwReq(token, roundId, { partId: id, count: 1 })).body.result).toBe('thrown');
+    const [x, y] = await Promise.all([throwReq(token, roundId, { partId: 'x', count: 1 }), throwReq(token, roundId, { partId: 'y', count: 1 })]);
     const results = [x.body.result, y.body.result];
     expect(results.filter((r) => r === 'cashed_out')).toHaveLength(1);
-    const snap = (await (await call('GET', `/v1/rounds/${roundId}`, token)).json()) as { returnMinor: number; throws: { papers: number }[] };
-    expect(snap.throws.reduce((n, t) => n + t.papers, 0)).toBe(5);
+    const snap = (await (await call('GET', `/v1/rounds/${roundId}`, token)).json()) as { returnMinor: number; settledParts: { parts: number }[] };
+    expect(snap.settledParts.reduce((n, t) => n + t.parts, 0)).toBe(5);
     expect(await store.getBalance(sessionId)).toBe(100_00 - 10_00 + snap.returnMinor);
     await time.advance(1000);
     await events;
   });
 
-  it('keeps a paper thrown before a disconnect when the round later crashes', async () => {
+  it('keeps a part settled before a disconnect when the round later crashes', async () => {
     const { token, sessionId, outcome } = await paperSession((o) => o.crashTime > 2 && o.crashTime < 30 && noEarlySetback(o, 1));
     const { roundId, events } = await start(token);
     await time.advance(1000);
-    const out = await throwReq(token, roundId, { throwId: 'kept', count: 1 });
+    const out = await throwReq(token, roundId, { partId: 'kept', count: 1 });
     expect(out.body.result).toBe('thrown');
     await time.advance(Math.ceil(outcome.crashTime * 1000));
     const snap = (await (await call('GET', `/v1/rounds/${roundId}`, token)).json()) as Record<string, unknown> & { returnMinor: number };
-    expect(snap).toMatchObject({ status: 'lost', throws: [{ throwId: 'kept', papers: 1 }] });
+    expect(snap).toMatchObject({ status: 'lost', settledParts: [{ partId: 'kept', parts: 1 }] });
     expect(snap.returnMinor).toBeGreaterThan(0);
     expect(await store.getBalance(sessionId)).toBe(100_00 - 10_00 + snap.returnMinor);
     const seen = await events;
-    expect(seen.at(-1)).toMatchObject({ type: 'CRASH', papersThrown: 1, papersLost: 4, returnMinor: snap.returnMinor });
+    expect(seen.at(-1)).toMatchObject({ type: 'CRASH', partsSettled: 1, partsLost: 4, returnMinor: snap.returnMinor });
   });
 
-  it('settles the remaining papers at detection time under cashout-at-disconnect', async () => {
+  it('settles the remaining stakeParts at detection time under cashout-at-disconnect', async () => {
     setup({ ...UNPACED.defaultProfile, disconnectPolicy: 'cashout-at-disconnect' });
     const { token, outcome } = await paperSession((o) => o.crashTime > 5 && noEarlySetback(o, 3));
     const res = await call('POST', '/v1/rounds', token, { betMinor: 10_00 });
@@ -166,31 +175,31 @@ describe.each(stores)('throw API (%s)', (_name, makeStore) => {
     const first = new TextDecoder().decode((await reader.read()).value);
     const roundId = /"roundId":"([^"]+)"/.exec(first)![1]!;
     await time.advance(1_000);
-    expect((await throwReq(token, roundId, { throwId: 'before', count: 1 })).body.result).toBe('thrown');
+    expect((await throwReq(token, roundId, { partId: 'before', count: 1 })).body.result).toBe('thrown');
     await time.advance(1_500);
-    await reader.cancel(); // connection lost with 4 papers unthrown
+    await reader.cancel(); // connection lost with 4 stakeParts unthrown
     await time.advance(10);
     const snap = (await (await call('GET', `/v1/rounds/${roundId}`, token)).json()) as {
       status: string;
       settlement: { reason: string; time: number; crashTime: number };
-      throws: { throwId: string; papers: number; reason: string }[];
+      settledParts: { partId: string; parts: number; reason: string }[];
     };
     expect(snap.status).toBe('won');
     expect(snap.settlement.reason).toBe('disconnect');
     expect(snap.settlement.time).toBeGreaterThanOrEqual(2.5);
     expect(snap.settlement.time).toBeLessThan(2.6);
     expect(snap.settlement.crashTime).toBe(outcome.crashTime);
-    expect(snap.throws.map((t) => [t.papers, t.reason])).toEqual([[1, 'manual'], [4, 'disconnect']]);
+    expect(snap.settledParts.map((t) => [t.parts, t.reason])).toEqual([[1, 'manual'], [4, 'disconnect']]);
   });
 
-  it('lists throws in history', async () => {
+  it('lists settled parts in history', async () => {
     const { token, outcome } = await paperSession((o) => o.crashTime > 2 && o.crashTime < 30 && noEarlySetback(o, 1));
     const { roundId, events } = await start(token);
     await time.advance(1000);
-    await throwReq(token, roundId, { throwId: 'h', count: 1 });
+    await throwReq(token, roundId, { partId: 'h', count: 1 });
     await time.advance(Math.ceil(outcome.crashTime * 1000));
     await events;
-    const history = (await (await call('GET', '/v1/rounds?limit=5', token)).json()) as { roundId: string; papers: number; throws: unknown[] }[];
-    expect(history[0]).toMatchObject({ roundId, papers: 5, throws: [{ throwId: 'h' }] });
+    const history = (await (await call('GET', '/v1/rounds?limit=5', token)).json()) as { roundId: string; stakeParts: number; settledParts: unknown[] }[];
+    expect(history[0]).toMatchObject({ roundId, stakeParts: 5, settledParts: [{ partId: 'h' }] });
   });
 });

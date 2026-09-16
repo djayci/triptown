@@ -3,6 +3,7 @@ import {
   MemoryRoundStore,
   RoundHost,
   profileFromTemplate,
+  registeredGames,
   type GameId,
   type HostErrorCode,
   type JurisdictionProfile,
@@ -72,7 +73,7 @@ const STATUS: Record<HostErrorCode, ContentfulStatusCode> = {
   cycle_too_soon: 429,
   integrity_blocked: 423,
   round_voided: 503,
-  no_papers_left: 409,
+  no_parts_left: 409,
 };
 
 export function createApp(opts: AppOptions) {
@@ -89,11 +90,19 @@ export function createApp(opts: AppOptions) {
       game,
     });
   // One host per game over the same store; a session is bound to the game it was created for.
-  const hosts: Record<GameId, RoundHost> = { 'whack-crash': makeHost('whack-crash'), 'paper-route': makeHost('paper-route') };
-  const host = hosts['whack-crash'];
+  // One host per registered game. A new game registers itself and gets a host here without a core edit.
+  const hosts: Record<GameId, RoundHost> = Object.fromEntries(registeredGames().map((g) => [g, makeHost(g)]));
+  // The registry is open, so a lookup can miss: refuse an unregistered game rather than silently
+  // falling back to another game's maths, which would settle a round under the wrong config id.
+  const gameHost = (game: GameId): RoundHost => {
+    const h = hosts[game];
+    if (!h) throw new Error(`Unregistered game: ${game}`);
+    return h;
+  };
+  const host = gameHost('whack-crash');
   const hostFor = async (sid: string) => {
     const session = await opts.store.getSession(sid);
-    return hosts[session?.game ?? 'whack-crash'] ?? host;
+    return session?.game ? gameHost(session.game) : host;
   };
   const keepAliveMs = opts.keepAliveMs ?? 10_000;
   const app = new Hono();
@@ -241,7 +250,7 @@ export function createApp(opts: AppOptions) {
     }
     const game = (body.game ?? 'whack-crash') as GameId;
     if (!(game in hosts)) return c.json({ error: { code: 'invalid_request', message: `Unknown game: ${String(body.game)}` } }, 400);
-    const session = await hosts[game].createSession(opts.initialBalanceMinor ?? 1_000_00, {
+    const session = await gameHost(game).createSession(opts.initialBalanceMinor ?? 1_000_00, {
       clientSeed: body.clientSeed,
       operatorId: body.operator,
       // Without a player id (fake wallet) the session id is the player.
@@ -307,10 +316,10 @@ export function createApp(opts: AppOptions) {
     // Receive time is captured before anything else, as for cash-outs.
     const receivedAt = host.now();
     const sid = await sessionId(c);
-    const body = (await c.req.json().catch(() => ({}))) as { throwId?: string; count?: number | 'all'; clientTapAt?: number; rttMs?: number };
+    const body = (await c.req.json().catch(() => ({}))) as { partId?: string; count?: number | 'all'; clientTapAt?: number; rttMs?: number };
     const count = body.count === 'all' ? 'all' : 1;
     return c.json(
-      await (await hostFor(sid)).throwPapers(sid, c.req.param('id'), { throwId: String(body.throwId ?? ''), count, clientTapAt: body.clientTapAt, rttMs: body.rttMs }, receivedAt),
+      await (await hostFor(sid)).settleParts(sid, c.req.param('id'), { partId: String(body.partId ?? ''), count, clientTapAt: body.clientTapAt, rttMs: body.rttMs }, receivedAt),
     );
   });
 

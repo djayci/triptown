@@ -1,44 +1,62 @@
 // Monte Carlo RTP simulator for the crash path model.
-// Usage: pnpm --filter @triptown/fairness simulate -- --rounds 10000000 --seed 1 [--config whack-crash/v1-rising+cap100 | --game paper-route] [--min-cashout 1.1] [--paper-minor 10] [--rounding cumulative]
+// Usage: pnpm --filter @triptown/fairness simulate -- --rounds 10000000 --seed 1 [--config whack-crash/v1-rising+cap100] [--min-cashout 1.1] [--part-minor 10] [--rounding cumulative]
+// --config takes any registered id, including retired ones, so an archived report can be reproduced.
 // Writes reports/rtp-<id>.{md,json} and updates reports/index.json (theoretical runs only).
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   DEFAULT_CONFIG,
-  PAPER_ROUTE_CONFIG,
   assertValidConfig,
   createPrng,
   crashTimeFromUniform,
+  boostTimesFromUniforms,
   resolveConfigId,
   setbackTimesFromUniforms,
   survival,
 } from '../src/index';
-import { paperStops, roundedMultiple, strategyLabel, withMinCashout, type PaperStrategy, type Strategy } from '../src/strategies';
+import {
+  modifiersOf,
+  partStops,
+  roundedMultiple,
+  strategyLabel,
+  withMinCashout,
+  type PartStrategy,
+  type Strategy,
+} from '../src/strategies';
 
 const args = new Map<string, string>();
-for (let i = 2; i < process.argv.length; i += 2) {
-  args.set(process.argv[i]!.replace(/^--/, ''), process.argv[i + 1] ?? '');
+// Reports are certification evidence and a run overwrites the committed one for its config id, so a
+// misparsed argument must stop the run rather than silently produce a default report under the wrong
+// name. Some shells and package managers forward a bare `--`, which used to shift every key onto the
+// previous value and hand back a 1,000,000-round DEFAULT_CONFIG run whatever was asked for.
+const argv = process.argv.slice(2).filter((a) => a !== '--');
+for (let i = 0; i < argv.length; i += 2) {
+  const flag = argv[i]!;
+  if (!flag.startsWith('--')) {
+    throw new Error(`Expected a --flag but got "${flag}". Arguments must be --name value pairs.`);
+  }
+  if (i + 1 >= argv.length) throw new Error(`Flag "${flag}" has no value.`);
+  args.set(flag.replace(/^--/, ''), argv[i + 1]!);
 }
 const rounds = Number(args.get('rounds') ?? 1_000_000);
 const seed = Number(args.get('seed') ?? 1);
-const game = args.get('game') ?? 'whack-crash';
 const configArg = args.get('config');
-const resolved = configArg ? resolveConfigId(configArg) : game === 'paper-route' ? PAPER_ROUTE_CONFIG : DEFAULT_CONFIG;
+const resolved = configArg ? resolveConfigId(configArg) : DEFAULT_CONFIG;
 if (!resolved) throw new Error(`Unknown config id: ${configArg}`);
 const config = assertValidConfig(resolved);
 // Profile minimum cash-out; stops below it continue until the value reaches it.
 const minCashout = Number(args.get('min-cashout') ?? 0);
-// Paper value in minor units used for rounding; 0 = exact (theoretical) payouts. --stake-minor sets it as stake / papers.
+// Stake-part value in minor units used for rounding; 0 = exact (theoretical) payouts. --stake-minor sets it as stake / stakeParts.
 const stakeMinorArg = Number(args.get('stake-minor') ?? 0);
-const paperMinor = stakeMinorArg ? stakeMinorArg / config.papers : Number(args.get('paper-minor') ?? 0);
-// perPaper: each paper rounds down on its own. cumulative: the round total rounds down once.
+const partMinor = stakeMinorArg ? stakeMinorArg / config.stakeParts : Number(args.get('part-minor') ?? 0);
+// perPart: each stake part rounds down on its own. cumulative: the round total rounds down once.
 // halfup: exact accrual, round total rounded half-up once at settlement (production settlement, design D23).
-const rounding = args.get('rounding') ?? 'perPaper';
+const rounding = args.get('rounding') ?? 'perPart';
 // Real cash-out times are continuous (tap timing, network): fixed-time strategies land within ±jitter ms.
 // Without it, "cash out at exactly 2.000 s" hits one deterministic multiplier and measures rounding luck, not RTP.
 const jitterMs = Number(args.get('time-jitter-ms') ?? 0);
-const jittered = (ps: PaperStrategy, u: () => number): PaperStrategy =>
+const jittered = (ps: PartStrategy, u: () => number): PartStrategy =>
   jitterMs > 0
     ? { ...ps, legs: ps.legs.map((leg) => (leg.rule.kind === 'time' ? { ...leg, rule: { kind: 'time', seconds: Math.max(0, leg.rule.seconds + ((u() - 0.5) * 2 * jitterMs) / 1000) } } : leg)) }
     : ps;
@@ -53,17 +71,17 @@ function halfUpConditional(stops: { share: number; multiplier: number; time: num
   let exact = 0;
   let expected = 0;
   for (let k = 0; k < sorted.length; k++) {
-    exact += sorted[k]!.share * N * paperMinor * sorted[k]!.multiplier;
+    exact += sorted[k]!.share * N * partMinor * sorted[k]!.multiplier;
     const pAfterThis = survival(sorted[k]!.time, config);
     const pAfterNext = k + 1 < sorted.length ? survival(sorted[k + 1]!.time, config) : 0;
     expected += (pAfterThis - pAfterNext) * halfUp(exact);
   }
-  return expected / (paperMinor * N);
+  return expected / (partMinor * N);
 }
 
-const single = (rule: Strategy): PaperStrategy => ({ label: strategyLabel(rule), legs: [{ papers: 1, rule }] });
-const N = config.papers;
-const strategies: PaperStrategy[] =
+const single = (rule: Strategy): PartStrategy => ({ label: strategyLabel(rule), legs: [{ parts: 1, rule }] });
+const N = config.stakeParts;
+const strategies: PartStrategy[] =
   N === 1
     ? [
         { kind: 'target', target: 1.5 },
@@ -74,37 +92,38 @@ const strategies: PaperStrategy[] =
         { kind: 'time', seconds: 5 },
         { kind: 'time', seconds: 10 },
         { kind: 'afterSetback' },
+        ...(config.boostRate > 0 ? [{ kind: 'afterBoost' } as Strategy] : []),
         { kind: 'never' },
       ].map((r) => single(r as Strategy))
     : [
-        { label: `all ${N} at x2`, legs: [{ papers: N, rule: { kind: 'target', target: 2 } }] },
-        { label: `1 at x1.5, ${N - 1} at x5`, legs: [{ papers: 1, rule: { kind: 'target', target: 1.5 } }, { papers: N - 1, rule: { kind: 'target', target: 5 } }] },
-        { label: '1 per second', legs: Array.from({ length: N }, (_, i) => ({ papers: 1, rule: { kind: 'time', seconds: i + 1 } as Strategy })) },
-        { label: '1 per 0.7 s', legs: Array.from({ length: N }, (_, i) => ({ papers: 1, rule: { kind: 'time', seconds: 0.7 * (i + 1) } as Strategy })) },
-        { label: `all ${N} at 1.3 s`, legs: [{ papers: N, rule: { kind: 'time', seconds: 1.3 } }] },
-        // Setback-timed throws only mean something when the config has setbacks.
+        { label: `all ${N} at x2`, legs: [{ parts: N, rule: { kind: 'target', target: 2 } }] },
+        { label: `1 at x1.5, ${N - 1} at x5`, legs: [{ parts: 1, rule: { kind: 'target', target: 1.5 } }, { parts: N - 1, rule: { kind: 'target', target: 5 } }] },
+        { label: '1 per second', legs: Array.from({ length: N }, (_, i) => ({ parts: 1, rule: { kind: 'time', seconds: i + 1 } as Strategy })) },
+        { label: '1 per 0.7 s', legs: Array.from({ length: N }, (_, i) => ({ parts: 1, rule: { kind: 'time', seconds: 0.7 * (i + 1) } as Strategy })) },
+        { label: `all ${N} at 1.3 s`, legs: [{ parts: N, rule: { kind: 'time', seconds: 1.3 } }] },
+        // Setback-timed collects only mean something when the config has setbacks.
         ...(config.lambda > 0
-          ? [{ label: '1 right after each setback', legs: Array.from({ length: N }, (_, i) => ({ papers: 1, rule: { kind: 'afterSetback', index: i } as Strategy })) }]
+          ? [{ label: '1 right after each setback', legs: Array.from({ length: N }, (_, i) => ({ parts: 1, rule: { kind: 'afterSetback', index: i } as Strategy })) }]
           : []),
-        { label: `1 at x3, ${N - 1} never`, legs: [{ papers: 1, rule: { kind: 'target', target: 3 } }, { papers: N - 1, rule: { kind: 'never' } }] },
-        { label: `all ${N} at x10`, legs: [{ papers: N, rule: { kind: 'target', target: 10 } }] },
-        { label: 'never throw (caps only)', legs: [{ papers: N, rule: { kind: 'never' } }] },
+        { label: `1 at x3, ${N - 1} never`, legs: [{ parts: 1, rule: { kind: 'target', target: 3 } }, { parts: N - 1, rule: { kind: 'never' } }] },
+        { label: `all ${N} at x10`, legs: [{ parts: N, rule: { kind: 'target', target: 10 } }] },
+        { label: 'never collect (caps only)', legs: [{ parts: N, rule: { kind: 'never' } }] },
       ];
 
 /** Paid multiple of the bet for a set of stops, given which stops beat the crash. */
 function paid(stops: { share: number; multiplier: number }[], weights: number[]): number {
-  if (!paperMinor) return stops.reduce((sum, st, i) => sum + st.share * st.multiplier * weights[i]!, 0);
-  const papers = stops.map((st) => st.share * N);
+  if (!partMinor) return stops.reduce((sum, st, i) => sum + st.share * st.multiplier * weights[i]!, 0);
+  const partCounts = stops.map((st) => st.share * N);
   if (rounding === 'halfup') {
-    const exact = stops.reduce((sum, st, i) => sum + papers[i]! * paperMinor * st.multiplier * weights[i]!, 0);
-    return halfUp(exact) / (paperMinor * N);
+    const exact = stops.reduce((sum, st, i) => sum + partCounts[i]! * partMinor * st.multiplier * weights[i]!, 0);
+    return halfUp(exact) / (partMinor * N);
   }
   if (rounding === 'cumulative') {
     // Expected floor of the round total: exact sum minus the rounding of the combined payout.
-    const exact = stops.reduce((sum, st, i) => sum + papers[i]! * paperMinor * st.multiplier * weights[i]!, 0);
-    return Math.floor(exact + 1e-7) / (paperMinor * N);
+    const exact = stops.reduce((sum, st, i) => sum + partCounts[i]! * partMinor * st.multiplier * weights[i]!, 0);
+    return Math.floor(exact + 1e-7) / (partMinor * N);
   }
-  return stops.reduce((sum, st, i) => sum + st.share * roundedMultiple(st.multiplier, paperMinor) * weights[i]!, 0);
+  return stops.reduce((sum, st, i) => sum + st.share * roundedMultiple(st.multiplier, partMinor) * weights[i]!, 0);
 }
 
 interface Acc {
@@ -118,6 +137,10 @@ const acc: Acc[] = strategies.map(() => ({ direct: 0, directSq: 0, rb: 0, rbSq: 
 
 const rng = createPrng(seed);
 let instantBusts = 0;
+// Round length: boosts are paid for by a higher crash hazard, so the mean and median move (design D11).
+let lengthSum = 0;
+const LENGTH_SAMPLE = 200_000;
+const lengths: number[] = [];
 const started = Date.now();
 
 for (let i = 0; i < rounds; i++) {
@@ -127,9 +150,13 @@ for (let i = 0; i < rounds; i++) {
   // so the same path serves the direct estimate (win iff stop < crash) and the
   // conditional estimate E[payout | path] = m(stop) * P(T > stop).
   const setbacks = setbackTimesFromUniforms(rng, config, config.tMax);
+  const boosts = boostTimesFromUniforms(rng, config, config.tMax);
+  const mods = modifiersOf(setbacks, boosts, config);
+  lengthSum += Math.min(crashTime, config.tMax);
+  if (lengths.length < LENGTH_SAMPLE) lengths.push(Math.min(crashTime, config.tMax));
   for (let s = 0; s < strategies.length; s++) {
-    const stops = paperStops(jittered(strategies[s]!, rng), setbacks, config).map((st) =>
-      minCashout > 1 ? { ...withMinCashout(st, minCashout, setbacks, config), share: st.share } : st,
+    const stops = partStops(jittered(strategies[s]!, rng), mods, config).map((st) =>
+      minCashout > 1 ? { ...withMinCashout(st, minCashout, mods, config), share: st.share } : st,
     );
     const a = acc[s]!;
     const direct = paid(stops, stops.map((st) => (st.time < crashTime ? 1 : 0)));
@@ -137,9 +164,9 @@ for (let i = 0; i < rounds; i++) {
     a.direct += direct;
     a.directSq += direct * direct;
     // Rounding is not linear, so the conditional estimate rounds each stop's value and weights by survival.
-    const rb = paperMinor && rounding === 'halfup'
+    const rb = partMinor && rounding === 'halfup'
       ? halfUpConditional(stops)
-      : paperMinor && rounding === 'cumulative'
+      : partMinor && rounding === 'cumulative'
       ? stops.reduce((sum, st) => sum + st.share * st.multiplier * survival(st.time, config), 0) - roundingLoss(stops)
       : paid(stops, stops.map((st) => survival(st.time, config)));
     a.rb += rb;
@@ -153,7 +180,7 @@ for (let i = 0; i < rounds; i++) {
 /** Mean loss from rounding the round total down once (uniform fractional part ≈ 0.5 minor units per paying round). */
 function roundingLoss(stops: { share: number; time: number }[]): number {
   const pWin = Math.max(...stops.map((st) => survival(st.time, config)));
-  return (0.5 / (paperMinor * N)) * pWin;
+  return (0.5 / (partMinor * N)) * pWin;
 }
 
 const se = (sum: number, sq: number) => Math.sqrt(Math.max(0, sq / rounds - (sum / rounds) ** 2) / rounds);
@@ -176,7 +203,7 @@ function roundingBand(minorPerCashout: number, minMultiplier = 1.01): { lo: numb
   }
   return { lo, hi };
 }
-const band = paperMinor && rounding === 'halfup' ? roundingBand(paperMinor, Math.max(1.01, minCashout)) : null;
+const band = partMinor && rounding === 'halfup' ? roundingBand(partMinor, Math.max(1.01, minCashout)) : null;
 
 const rows = strategies.map((s, k) => {
   const a = acc[k]!;
@@ -198,6 +225,9 @@ const rows = strategies.map((s, k) => {
 });
 
 const bustPass = Math.abs(bustShare - (1 - config.rtp)) <= 0.0005;
+const meanLength = lengthSum / rounds;
+const sortedLengths = [...lengths].sort((a, b) => a - b);
+const medianLength = sortedLengths.length ? sortedLengths[Math.floor(sortedLengths.length / 2)]! : 0;
 const pct = (x: number) => `${(x * 100).toFixed(3)}%`;
 const report = [
   `# RTP simulation: ${config.id}`,
@@ -206,10 +236,12 @@ const report = [
   `- Config: \`${JSON.stringify(config)}\``,
   `- Minimum cash-out: ${minCashout > 1 ? `x${minCashout}` : 'none'}`,
   `- Time strategy jitter: ${jitterMs ? `±${jitterMs} ms` : 'none'}`,
-  `- Rounding: ${paperMinor ? `${rounding} at ${paperMinor} minor units per paper` : 'none (theoretical)'}`,
+  `- Rounding: ${partMinor ? `${rounding} at ${partMinor} minor units per paper` : 'none (theoretical)'}`,
   band
-    ? `- Target RTP ${pct(config.rtp)}; rounding band at ${paperMinor} minor units per cash-out: ${pct(config.rtp * band.lo)} .. ${pct(config.rtp * band.hi)}; jurisdiction minimum ${pct(JURISDICTION_MIN_RTP)}`
+    ? `- Target RTP ${pct(config.rtp)}; rounding band at ${partMinor} minor units per cash-out: ${pct(config.rtp * band.lo)} .. ${pct(config.rtp * band.hi)}; jurisdiction minimum ${pct(JURISDICTION_MIN_RTP)}`
     : `- Target RTP ${pct(config.rtp)}, tolerance ±${pct(TOL)}`,
+  `- Round length: mean ${meanLength.toFixed(3)} s, median ${medianLength.toFixed(3)} s (first ${Math.min(rounds, LENGTH_SAMPLE).toLocaleString('en-US')} rounds)`,
+  `- Modifiers: setbacks x${config.setbackFactor} at ${config.lambda}/s; boosts ${config.boostRate > 0 ? `x${config.boostFactor} at ${config.boostRate}/s` : 'off'}`,
   `- Instant bust share: ${pct(bustShare)} (±${pct(bustSe)} SE), target ${pct(1 - config.rtp)} ±0.05% → ${bustPass ? 'PASS' : 'FAIL'}`,
   '',
   '"Direct" counts a payout only when the stop beats the sampled crash time.',
@@ -227,10 +259,10 @@ const report = [
 
 const outDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'reports');
 mkdirSync(outDir, { recursive: true });
-const suffix = (paperMinor ? `-${rounding}-${paperMinor}` : '') + (minCashout > 1 ? `-min${minCashout}` : '') + (jitterMs ? `-jitter${jitterMs}` : '');
+const suffix = (partMinor ? `-${rounding}-${partMinor}` : '') + (minCashout > 1 ? `-min${minCashout}` : '') + (jitterMs ? `-jitter${jitterMs}` : '');
 const base = join(outDir, `rtp-${config.id.replace(/[^a-z0-9]+/gi, '-')}${suffix}`);
 writeFileSync(`${base}.md`, report);
-writeFileSync(`${base}.json`, JSON.stringify({ rounds, seed, config, bustShare, bustSe, rows }, null, 2));
+writeFileSync(`${base}.json`, JSON.stringify({ rounds, seed, config, bustShare, bustSe, meanLength, medianLength, rows }, null, 2));
 const allPass = rows.every((r) => r.pass) && bustPass;
 // The index gates jurisdiction profiles, so only theoretical runs (no rounding or min cash-out variants) update it.
 if (!suffix) {

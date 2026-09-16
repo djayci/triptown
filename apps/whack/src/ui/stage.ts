@@ -6,11 +6,22 @@ import { drawSticker, labelStyle, text } from './primitives';
 export type Frames = (name: string) => Texture;
 
 /** Hole height the mole is clipped to (hole centerline + lip depth), in hole units. */
-const CLIP_BOTTOM = 266;
+// The hole's front rim, in hole space: the lip sprite's ellipse (centre, radii).
+const RIM_CX = 140;
+const RIM_Y = 250;
+const RIM_RX = 134;
+const RIM_RY = 42;
+/** Ray rotation in radians per second: idle drift, round floor, and how much pace adds on top. */
+const IDLE_SPIN = 0.09;
+const RUN_SPIN_BASE = 0.45;
+const RUN_SPIN_RAMP = 2.2;
+
 export const RISE_FULL = 10;
-export const RISE_HIDDEN = 266;
+export const RISE_HIDDEN = 300;
 
 export type MoleFrame =
+  | 'mole-good-happy'
+  | 'mole-gold-smug'
   | 'mole-gold-happy'
   | 'mole-gold-shock'
   | 'mole-gold-dizzy'
@@ -38,7 +49,12 @@ export class Hole extends Container {
     this.mole = new Sprite(frames(frame ?? 'mole-decoy-happy'));
     this.mole.visible = frame !== null;
     this.mole.x = 40;
-    const mask = new Graphics().rect(20, -60, 240, CLIP_BOTTOM + 60).fill(0xffffff);
+    // The mole is clipped by the hole's own shape: everything above the rim line, plus the rim ellipse
+    // itself, so the body disappears behind the front lip instead of ending on a straight cut.
+    const mask = new Graphics()
+      .rect(20, -60, 240, RIM_Y + 60)
+      .ellipse(RIM_CX, RIM_Y, RIM_RX, RIM_RY)
+      .fill(0xffffff);
     this.moleLayer.addChild(this.mole);
     this.moleLayer.mask = mask;
     this.addChild(back, this.moleLayer, mask, lip);
@@ -80,39 +96,43 @@ export class Stage extends Container {
   private readonly base = new Graphics();
   private readonly rays = new Graphics();
   private readonly hazard = new Graphics();
+  /** Good mole wash: lime stripes leaning the other way, so the two modifiers never look alike. */
+  private readonly boon = new Graphics();
   private readonly clip = new Graphics();
   private readonly inner = new Container();
   private w = 358;
   private h = 542;
   private mood: StageMood = 'sun';
   private readonly spin = (t: Ticker) => {
-    // Eased towards the target so the ramp reads as building speed, not as steps.
-    // Winds up over ~150 ms, but drops back in ~80 ms so a finished round settles before the next one.
-    this.spinNow += (this.speed - this.spinNow) * Math.min(1, t.deltaMS / (this.speed > this.spinNow ? 150 : 80));
-    // A wound-down round comes to a full stop instead of drifting forever.
-    if (this.speed === 0 && this.spinNow < 0.005) this.spinNow = 0;
-    // Front-loaded curve (pace^0.5): most rounds bust in the first seconds, so the rays are already
-    // racing by then — about 50°/s half a second in, 90°/s at three seconds, 150°/s at full pace. The
-    // last stretch to zero is eased by `gate` while winding down, so the rays glide to a standstill.
-    // A running round never uses the gate: it opens at the curve's floor (~26°/s), never from still.
-    const gate = this.speed === 0 ? Math.min(1, this.spinNow / 0.1) : 1;
-    if (!prefersReducedMotion() && this.spinNow > 0) {
-      this.rays.rotation += (t.deltaMS * (0.45 + 2.2 * this.spinNow ** 0.5) * gate) / 1000;
-    }
+    // Winds up over ~150 ms and drops back in ~250 ms, so a finished round settles without snapping.
+    const up = this.rateTarget > this.rateNow;
+    this.rateNow += (this.rateTarget - this.rateNow) * Math.min(1, t.deltaMS / (up ? 150 : 250));
+    if (!prefersReducedMotion()) this.rays.rotation += (t.deltaMS * this.rateNow) / 1000;
   };
-  /** Target pace, 0..1. */
-  speed = 0;
-  private spinNow = 0;
+  private rateNow = IDLE_SPIN;
+  private rateTarget = IDLE_SPIN;
+
+  /** Round pace, 0..1: about 26°/s at the start of a round and 150°/s at full ramp. */
+  set speed(pace: number) {
+    this.rateTarget = RUN_SPIN_BASE + RUN_SPIN_RAMP * Math.max(0, pace) ** 0.5;
+  }
 
   /** Starts the rays at `pace` with no wind-up, so a round opens already moving. */
   spinFrom(pace: number) {
-    this.speed = this.spinNow = pace;
+    this.speed = pace;
+    this.rateNow = this.rateTarget;
+  }
+
+  /** Slow drift for the betting and result screens: alive, but calm. */
+  idleSpin() {
+    this.rateTarget = IDLE_SPIN;
   }
 
   constructor(private readonly ticker: Ticker) {
     super();
     this.hazard.alpha = 0;
-    this.inner.addChild(this.base, this.rays, this.hazard, this.content);
+    this.boon.alpha = 0;
+    this.inner.addChild(this.base, this.rays, this.hazard, this.boon, this.content);
     this.inner.mask = this.clip;
     this.addChild(this.frame, this.inner, this.clip);
     ticker.add(this.spin);
@@ -135,6 +155,13 @@ export class Stage extends Container {
     this.redrawRays();
   }
 
+  /** Short lime wash for a good mole boost: brighter and quicker than the hazard flash. */
+  flashBoon(duration = 0.75) {
+    gsap.killTweensOf(this.boon);
+    this.boon.alpha = 1;
+    gsap.to(this.boon, { alpha: 0, duration, ease: 'power2.in', delay: 0.22 });
+  }
+
   flashHazard(duration = 1.1) {
     gsap.killTweensOf(this.hazard);
     this.hazard.alpha = 1;
@@ -153,6 +180,12 @@ export class Stage extends Container {
     this.hazard.clear();
     for (let x = -h; x < w + h; x += 32) {
       this.hazard.poly([x, 0, x + 16, 0, x + 16 + h, h, x + h, h]).fill({ color: COLORS.violet, alpha: 0.28 });
+    }
+    this.boon.clear();
+    // A lime wash over the whole stage, then broad stripes leaning the other way to the hazard.
+    this.boon.rect(0, 0, w, h).fill({ color: COLORS.lime2, alpha: 0.3 });
+    for (let x = -h; x < w + h; x += 44) {
+      this.boon.poly([x, 0, x + 26, 0, x + 26 - h, h, x - h, h]).fill({ color: COLORS.lime, alpha: 0.55 });
     }
     this.redrawRays();
   }
