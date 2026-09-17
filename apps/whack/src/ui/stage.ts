@@ -216,7 +216,7 @@ export class Stage extends Container {
 export class Meter extends Container {
   private readonly bg = new Graphics();
   private readonly segs = new Graphics();
-  private readonly left = text(t('meter.slow'), labelStyle(10));
+  private readonly left = text(t('meter.caption'), labelStyle(10));
   private readonly right = text(t('meter.fast'), labelStyle(10, COLORS.pink));
   private level = -1;
 
@@ -238,6 +238,7 @@ export class Meter extends Container {
     if (level10 === this.level && this.right.text === name) return;
     this.level = level10;
     this.right.text = name;
+    this.right.position.set(this.w - 12, 20);
     this.drawSegments();
   }
 
@@ -249,8 +250,10 @@ export class Meter extends Container {
   }
 
   private drawSegments() {
-    const x0 = 56;
-    const x1 = this.w - 64;
+    // Measured, not hard-coded: the captions change with the market's language and with the live value,
+    // and fixed margins sized for "SLOW" would let a longer word sit on top of the segments.
+    const x0 = 12 + this.left.width + 10;
+    const x1 = this.w - 12 - this.right.width - 10;
     const gap = 3;
     const segW = (x1 - x0 - gap * 9) / 10;
     this.segs.clear();

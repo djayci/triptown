@@ -46,6 +46,9 @@ export const EN = {
   'bet.lossLimit': 'LOSS LIMIT',
   'bet.insufficient': 'INSUFFICIENT BALANCE',
   'result.bonk': 'BONK!',
+  // The meter's fixed caption. The right-hand label is the live value (SLOW / MEDIUM / FAST), so a
+  // fixed "SLOW" on the left read as "SLOW ... SLOW" and said nothing about what the bar measured.
+  'meter.caption': 'CLIMB SPEED',
   'meter.slow': 'SLOW',
   'meter.fast': 'FAST',
 

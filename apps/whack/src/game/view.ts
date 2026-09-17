@@ -674,7 +674,12 @@ export class GameView extends CrashViewBase implements CrashView {
     if (this.intensityEffects) shake(this.root, 6, 0.25);
     this.bigButton.setFill(COLORS.pink);
     this.bigButton.setIcon(this.frames('icon-replay-cream'));
-    this.bigButton.setLabel(t('button.betAgain'), t('button.playAgainSub'));
+    // No sub-label: "SAME BET" repeated what the stake box beside it already says, and dropping it
+    // lets the label sit centred rather than pushed up to make room.
+    this.bigButton.setLabel(t('button.betAgain'), '');
+    // Record it too, or the minimum-gap countdown borrows the control and restores whatever label was
+    // set before the round — the sub would come back the moment the wait finished.
+    this.setActionLabel({ label: t('button.betAgain'), sub: '', enabled: true });
     this.bigButton.setEnabled(true);
     this.relayout(true);
   }
