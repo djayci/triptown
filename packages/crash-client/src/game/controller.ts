@@ -419,6 +419,17 @@ export class GameController {
       multiplier: r?.lastDisplayed ?? 0,
       setbacks: r?.setbackTimes.size ?? 0,
       boosts: r?.boostTimes.size ?? 0,
+      // Enough for a check to work out which outcomes this profile can actually produce, instead of
+      // forcing a scenario that cannot happen and reading the timeout as a failure.
+      profile: this.session
+        ? {
+            name: this.session.profile.name,
+            setbacks: this.session.profile.setbacksMode !== 'off',
+            minCashout: this.session.profile.minCashout,
+            minCycleMs: this.session.profile.minCycleMs,
+            skin: this.session.profile.skin,
+          }
+        : null,
     };
   }
 

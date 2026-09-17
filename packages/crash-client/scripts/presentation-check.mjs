@@ -92,13 +92,49 @@ async function play(force, when, ms = 0) {
   return state;
 }
 
+/**
+ * Which at-or-below-stake outcomes a profile can actually produce.
+ *
+ * On a rising-only config the multiplier never falls below 1.00, and a minimum cash-out above 1.00
+ * means every COLLECTED return is strictly greater than the stake. On such a profile a below-stake
+ * return and an even return are impossible by construction, and the crash is the whole of the
+ * at-or-below-stake coverage. Forcing a setback there would hang and read as a failure, which is why
+ * this is computed rather than assumed — but an unreachable case is reported as unreachable, never
+ * quietly dropped, so coverage can never shrink without saying so.
+ */
+function reachable(profile) {
+  if (!profile) return { belowStake: true, even: true, why: 'profile unknown; assuming everything is reachable' };
+  const belowStake = profile.setbacks;
+  const even = profile.minCashout === 0 || profile.minCashout <= 1;
+  return {
+    belowStake,
+    even,
+    why:
+      `profile ${profile.name}: setbacks ${profile.setbacks ? 'on' : 'off'}, ` +
+      `minimum cash-out ${profile.minCashout === 0 ? 'none' : `x${profile.minCashout}`}`,
+  };
+}
+
 const cases = [
-  { name: 'win above stake', force: 'bigWin', when: 'time', ms: 2500, expect: 'win' },
-  { name: 'return below stake after a setback', force: 'setback', when: 'belowStake', expect: 'not-win' },
-  { name: 'crash', force: 'quickCrash', when: 'never', expect: 'not-win' },
+  { name: 'win above stake', force: 'bigWin', when: 'time', ms: 2500, expect: 'win', needs: null },
+  { name: 'return below stake after a setback', force: 'setback', when: 'belowStake', expect: 'not-win', needs: 'belowStake' },
+  { name: 'even return at x1.00', force: 'longRound', when: 'time', ms: 150, expect: 'not-win', needs: 'even' },
+  { name: 'crash', force: 'quickCrash', when: 'never', expect: 'not-win', needs: null },
 ];
 
+// One probe round tells us what this profile can produce before we try to force anything.
+const probe = await play('quickCrash', 'never');
+assertObservable(probe, 'probe');
+const can = reachable(probe.view?.profile);
+console.info(`presentation-check: ${can.why}`);
+
 for (const c of cases) {
+  if (c.needs && !can[c.needs]) {
+    const note = `${c.name}: UNREACHABLE on this profile (${can.why}) — not tested, and not a pass`;
+    console.info(note);
+    results.push({ name: c.name, status: 'unreachable', why: can.why });
+    continue;
+  }
   const state = await play(c.force, c.when, c.ms);
   assertObservable(state, c.name);
   const celebrated = state.audio.some(isWinCue) || !!state.view?.confetti;
@@ -111,8 +147,18 @@ for (const c of cases) {
 }
 
 await browser.close();
-if (out) writeFileSync(out, JSON.stringify({ url, date: new Date().toISOString(), results }, null, 2));
-if (results.some((r) => !r.pass)) {
+if (out) writeFileSync(out, JSON.stringify({ url, date: new Date().toISOString(), profile: can, results }, null, 2));
+
+// The whole point of this check is the at-or-below-stake rule (UK RTS 14F, AGCO 2.20). If every
+// such case turned out to be unreachable, the run proved nothing about it and must not report green.
+const belowStakeTested = results.some((r) => r.pass && ['return below stake after a setback', 'even return at x1.00', 'crash'].includes(r.case));
+if (!belowStakeTested) {
+  console.error('presentation-check FAILED: no at-or-below-stake outcome was actually tested');
+  process.exit(1);
+}
+
+if (results.some((r) => r.status !== 'unreachable' && !r.pass)) {
   console.error('presentation-check FAILED');
   process.exit(1);
 }
+console.info('presentation-check PASS');

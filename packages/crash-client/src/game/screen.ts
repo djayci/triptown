@@ -70,6 +70,10 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
   private readonly payout = text('', displayStyle(34, COLORS.lime, 4, 4), [0.5, 0]);
   private readonly payoutLabel = text('', labelStyle(11), [0.5, 0]);
 
+  /** Hard rule 7: a demo build must say so on screen, in every game, always. */
+  private readonly demoBadge = new Container();
+  private readonly demoBg = new Graphics();
+
   private readonly counter = new Container();
   private readonly counterBg = new Graphics();
   private readonly counterValue = text('0', bodyStyle(15), [0, 0]);
@@ -112,6 +116,9 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
       a11y: t('button.bet', { amount: '' }),
     });
 
+    this.demoBadge.addChild(this.demoBg, text('DEMO', labelStyle(11, COLORS.cream), [0.5, 0.5]));
+    this.demoBadge.visible = false;
+
     if (words.counterLabel) {
       this.counter.addChild(this.counterBg, text(words.counterLabel, labelStyle(10), [0, 0]), this.counterValue);
     }
@@ -128,6 +135,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
       this.payout,
       this.payoutLabel,
       this.counter,
+      this.demoBadge,
       this.resultCard,
       this.statBet,
       this.statAuto,
@@ -161,6 +169,12 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     this.payout.position.set(W / 2, 246);
     this.payoutLabel.position.set(W / 2, 286);
 
+    // Beside the wordmark, so it is present on every screen of the game rather than one of them.
+    this.demoBg.clear();
+    drawSticker(this.demoBg, 62, 24, { fill: COLORS.pink, radius: 8, border: 3, shadow: 3 });
+    this.demoBg.position.set(-31, -12);
+    this.demoBadge.position.set(PAD + 128, 26);
+
     this.counter.position.set(W / 2 - 46, 312);
     this.counterBg.clear();
     drawSticker(this.counterBg, 92, 28, { fill: COLORS.cream, radius: 8, border: 3, shadow: 3 });
@@ -186,7 +200,9 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
 
   // ---------- CrashView ----------
 
-  setDemo(): void {}
+  setDemo(on: boolean): void {
+    this.demoBadge.visible = on;
+  }
 
   setMuted(): void {}
 

@@ -36,28 +36,6 @@ async function loadAudio(): Promise<AudioManager | null> {
   }
 }
 
-/**
- * `?audiodebug` in a demo build prints the audio stack's own view of itself on screen. A phone has no
- * console worth reaching, and iOS silences Web Audio for reasons a page cannot detect, so the only way
- * to tell "never unlocked" from "unlocked and silenced by the device" is to show what the page knows.
- */
-function showAudioDebug(audio: AudioManager) {
-  const box = document.createElement('pre');
-  box.style.cssText =
-    'position:fixed;left:0;right:0;bottom:0;z-index:99999;margin:0;padding:8px;max-height:45vh;overflow:auto;' +
-    'background:rgba(0,0,0,.85);color:#7CFF7C;font:11px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap';
-  document.body.appendChild(box);
-  const render = () => {
-    const d = audio.diagnostics;
-    box.textContent =
-      Object.entries(d)
-        .map(([k, v]) => `${k}: ${v}`)
-        .join('\n') + `\n\nlast: ${audio.log.slice(-8).join(' ') || '(nothing played yet)'}`;
-  };
-  render();
-  setInterval(render, 500);
-}
-
 async function boot() {
   const parent = document.getElementById('game');
   if (!parent) throw new Error('#game missing');
@@ -107,7 +85,6 @@ async function boot() {
     const w = window as unknown as Record<string, unknown>;
     if (audio) w.__triptownAudioLog = audio.log;
     w.__triptownView = () => controller.debugState();
-    if (audio && new URL(location.href).searchParams.has('audiodebug')) showAudioDebug(audio);
   }
   await controller.init();
   // Effects load after the first frame so audio never delays startup.

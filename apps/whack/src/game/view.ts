@@ -1,4 +1,4 @@
-import { BitmapFont, BitmapText, Container, Graphics, Rectangle, Sprite, TilingSprite, type Ticker } from 'pixi.js';
+import { BitmapFont, BitmapText, Container, Graphics, Rectangle, Sprite, Text, TilingSprite, type Ticker } from 'pixi.js';
 import { Confetti, gsap, pop, prefersReducedMotion, shake, tilt, type GameApp } from '@triptown/engine';
 import type { ResultKind } from '@triptown/core';
 import { t } from '../i18n/en';
@@ -711,7 +711,24 @@ export class GameView extends CrashViewBase implements CrashView {
     this.designH = desktop ? design.h : Math.min(1000, Math.max(680, Math.round(height / scale)));
     this.root.scale.set(scale);
     this.root.position.set((width - design.w * scale) / 2, (height - this.designH * scale) / 2);
+    this.sharpenText(scale);
     this.relayout(false);
+  }
+
+  /**
+   * Pixi rasterises a `Text` once at the renderer resolution, and the root container then scales it.
+   * Desktop lays out a 1440-wide design into a wider window, so every label was being stretched from a
+   * 1x bitmap and read soft next to the multiplier, which is a `BitmapText` baked at a large size. Re-
+   * rasterise text at the size it is actually displayed at. Capped so a very large window cannot ask
+   * for enormous glyph textures.
+   */
+  private sharpenText(scale: number) {
+    const target = Math.min(4, Math.max(1, this.game.app.renderer.resolution * scale));
+    const walk = (node: Container) => {
+      if (node instanceof Text && node.resolution !== target) node.resolution = target;
+      for (const child of node.children) walk(child as Container);
+    };
+    walk(this.root);
   }
 
   /** Positions everything for the current layout and phase. */
