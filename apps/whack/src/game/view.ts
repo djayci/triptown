@@ -1089,12 +1089,12 @@ export class GameView extends CrashViewBase implements CrashView {
    */
   private swingHammer(impact = false, onContact?: () => void) {
     const hole = this.holeRect();
-    // Swung from off the top-right of the stage, not conjured beside the mole. The old version pivoted
-    // about a point in mid-air with nothing holding it, appeared already in frame and vanished in place,
-    // so it read as a floating mallet. The grip now sits outside the stage, the handle reaches in, and
-    // the swing both enters and leaves through the same arc.
-    const grip = { x: hole.x + hole.w * 1.18, y: hole.y - hole.h * 0.55 };
-    const contact = { x: hole.x + hole.w * 0.5, y: hole.y + hole.h * 0.28 };
+    // Swung from the player's own side: the grip sits off the bottom-right of the stage, where the hand
+    // holding it would be, and the handle reaches up into the scene. Coming from above read as someone
+    // else swinging at the mole. The grip stays outside the stage so the swing enters and leaves through
+    // the same arc rather than being conjured beside the hole.
+    const grip = { x: hole.x + hole.w * 1.15, y: hole.y + hole.h * 1.45 };
+    const contact = { x: hole.x + hole.w * 0.52, y: hole.y + hole.h * 0.3 };
     const dx = contact.x - grip.x;
     const dy = contact.y - grip.y;
     const reach = Math.hypot(dx, dy);
@@ -1109,8 +1109,8 @@ export class GameView extends CrashViewBase implements CrashView {
       .roundRect(-headW / 2, reach - headH * 0.5, headW, headH, headH * 0.28).fill(COLORS.pink).stroke({ width: 5, color: COLORS.ink })
       .roundRect(-headW / 2, reach - headH * 0.5, headW * 0.22, headH, headH * 0.2).fill(COLORS.cream).stroke({ width: 4, color: COLORS.ink });
     hammer.position.set(grip.x, grip.y);
-    // Raised back over the shoulder, off the edge of the stage.
-    const raised = down - 1.25;
+    // Cocked back from the player's side, off the edge of the stage.
+    const raised = down - 1.0;
     // A miss stops short of the mole: contact belongs to the settled result, not the optimistic swing.
     const lands = impact ? down : down - 0.16;
     hammer.rotation = raised;
@@ -1127,7 +1127,7 @@ export class GameView extends CrashViewBase implements CrashView {
     };
     this.trackFx(gsap.timeline({ onComplete: () => hammer.destroy() }))
       .to(hammer, { rotation: lands, duration: 0.11, ease: 'power3.in', onComplete: strike })
-      .to(hammer, { rotation: lands - 0.18, duration: 0.1, ease: 'power2.out' })
+      .to(hammer, { rotation: lands - 0.07, duration: 0.1, ease: 'power2.out' })
       .to(hammer, { rotation: raised, duration: 0.24, delay: 0.12, ease: 'power2.inOut' });
   }
 
