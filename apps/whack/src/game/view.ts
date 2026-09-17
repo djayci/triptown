@@ -568,8 +568,12 @@ export class GameView extends CrashViewBase implements CrashView {
     const celebrate = kind === 'win';
     this.stage.setMood(celebrate ? 'lime' : 'sun');
     this.mult.visible = this.winNow.visible = this.meter.visible = false;
-    this.mainHole.setFrame(this.frames, 'mole-gold-dizzy');
-    this.mainHole.riseTo(50, 0.3, 'power2.out');
+    // On a win the mole keeps its running face until the hammer actually lands; see the contact
+    // callback below. Every other result has no swing, so it changes straight away.
+    if (!celebrate) {
+      this.mainHole.setFrame(this.frames, 'mole-gold-dizzy');
+      this.mainHole.riseTo(50, 0.3, 'power2.out');
+    }
     this.resultTitle.text = t('result.cashedOut');
     this.resultMult.text = multiplier;
     // Net, not the gross return: "+4.20" only when the player is actually up.
@@ -583,21 +587,27 @@ export class GameView extends CrashViewBase implements CrashView {
     this.resultCard.visible = true;
     this.resultCard.scale.set(0.3);
     gsap.to(this.resultCard.scale, { x: 1, y: 1, duration: 0.4, delay: celebrate ? 0.22 : 0, ease: 'back.out(2.2)' });
-    // Confetti and the BONK sticker are part of the arcade look; the adult skin has neither.
-    if (celebrate) this.swingHammer(true);
-    if (celebrate && SKIN !== 'adult') {
-      this.stars();
-      const hole = this.holeRect();
-      // Sits across the mole's shoulder like a ribbon, overlapping it, rather than floating in the
-      // space beside the hole where it read as unrelated to the hit it is marking.
-      const bonk = new Burst(this.frames('burst-sky'), Math.max(78, hole.w * 0.34), t('result.bonk'), 20);
-      bonk.position.set(hole.x + hole.w * 0.28, hole.y + hole.h * 0.32);
-      bonk.rotation = 0.34;
-      this.fx.addChild(bonk);
-      this.trackFx(pop(bonk, 1.3, 0.3));
-      if (this.intensityEffects) {
-        this.confetti.burst({ x: this.stage.size.width / 2, y: this.stage.size.height * 0.75, count: big ? 120 : 60, speed: big ? 1300 : 950 });
-      }
+    // Everything the blow causes waits for the blow. The mole used to be dizzy, and the confetti already
+    // flying, before the hammer had finished its downstroke — the effect arriving ahead of its cause.
+    if (celebrate) {
+      this.swingHammer(true, () => {
+        this.mainHole.setFrame(this.frames, 'mole-gold-dizzy');
+        this.mainHole.riseTo(50, 0.3, 'power2.out');
+        // Confetti and the BONK sticker are part of the arcade look; the adult skin has neither.
+        if (SKIN === 'adult') return;
+        this.stars();
+        const hole = this.holeRect();
+        // Sits across the mole's shoulder like a ribbon, overlapping it, rather than floating in the
+        // space beside the hole where it read as unrelated to the hit it is marking.
+        const bonk = new Burst(this.frames('burst-sky'), Math.max(78, hole.w * 0.34), t('result.bonk'), 20);
+        bonk.position.set(hole.x + hole.w * 0.28, hole.y + hole.h * 0.32);
+        bonk.rotation = 0.34;
+        this.fx.addChild(bonk);
+        this.trackFx(pop(bonk, 1.3, 0.3));
+        if (this.intensityEffects) {
+          this.confetti.burst({ x: this.stage.size.width / 2, y: this.stage.size.height * 0.75, count: big ? 120 : 60, speed: big ? 1300 : 950 });
+        }
+      });
     }
     this.bigButton.setFill(celebrate ? COLORS.lime : COLORS.sky);
     this.bigButton.setIcon(this.frames('icon-replay-cream'));
@@ -1045,7 +1055,7 @@ export class GameView extends CrashViewBase implements CrashView {
    * AGCO 2.20). A swing that connects before the result is known would also land on a cash-out the
    * server goes on to refuse.
    */
-  private swingHammer(impact = false) {
+  private swingHammer(impact = false, onContact?: () => void) {
     const hole = this.holeRect();
     // Swung from off the top-right of the stage, not conjured beside the mole. The old version pivoted
     // about a point in mid-air with nothing holding it, appeared already in frame and vanished in place,
@@ -1073,18 +1083,20 @@ export class GameView extends CrashViewBase implements CrashView {
     const lands = impact ? down : down - 0.16;
     hammer.rotation = raised;
     this.fx.addChild(hammer);
-    this.trackFx(gsap.timeline({ onComplete: () => hammer.destroy() }))
-      .to(hammer, { rotation: lands, duration: 0.11, ease: 'power3.in' })
-      .to(hammer, { rotation: lands - 0.18, duration: 0.1, ease: 'power2.out' })
-      .to(hammer, { rotation: raised, duration: 0.24, delay: 0.12, ease: 'power2.inOut' });
-    if (impact) {
-      // The mole takes the hit: a short squash on contact, in time with the swing's downstroke.
+    const strike = () => {
+      if (!impact) return;
+      // The mole takes the hit: a short squash, and the shake, exactly when the head arrives.
       this.trackFx(pop(this.mainHole, 0.88, 0.16));
       if (this.intensityEffects) {
         this.shakesShown++;
         shake(this.root, 5, 0.18);
       }
-    }
+      onContact?.();
+    };
+    this.trackFx(gsap.timeline({ onComplete: () => hammer.destroy() }))
+      .to(hammer, { rotation: lands, duration: 0.11, ease: 'power3.in', onComplete: strike })
+      .to(hammer, { rotation: lands - 0.18, duration: 0.1, ease: 'power2.out' })
+      .to(hammer, { rotation: raised, duration: 0.24, delay: 0.12, ease: 'power2.inOut' });
   }
 
   private stars() {
