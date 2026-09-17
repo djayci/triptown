@@ -1,4 +1,4 @@
-import { resultKind, type Settlement, type TerminalEvent } from '@triptown/core';
+import { practiceAllowed, resultKind, type Settlement, type TerminalEvent } from '@triptown/core';
 import { t } from '../i18n';
 import { OperatorBridge, type AudioManager, type GameApp } from '@triptown/engine';
 import type { GameConfig } from '@triptown/fairness';
@@ -155,8 +155,9 @@ export class GameController {
       onCountdownDone: () => this.renderBetUi(),
       onStepBet: (dir) => this.editBet(() => stepBet(this.betMinor, dir, this.currency())),
       onChip: (minor) => this.editBet(() => minor),
-      onToggleAuto: () => this.editBet(() => ((this.autoOn = !this.autoOn), this.betMinor)),
-      onCycleAuto: () => this.editBet(() => ((this.autoTarget = nextAutoPreset(this.autoTarget)), (this.autoOn = true), this.betMinor)),
+      onToggleAuto: () => this.autoOffered() && this.editBet(() => ((this.autoOn = !this.autoOn), this.betMinor)),
+      onCycleAuto: () =>
+        this.autoOffered() && this.editBet(() => ((this.autoTarget = nextAutoPreset(this.autoTarget)), (this.autoOn = true), this.betMinor)),
       onSound: () => {
         if (!this.audio) return;
         this.audio.unlock();
@@ -341,6 +342,11 @@ export class GameController {
 
   // ---------- actions ----------
 
+  /** A game without an auto control never sends a target, whatever state the toggle was left in. */
+  private autoOffered(): boolean {
+    return this.view.offersAutoCashout !== false;
+  }
+
   /** The secondary result-screen action: start a round with no stake. */
   private onPractice() {
     if (performance.now() < this.inputGuardUntil) return;
@@ -420,7 +426,7 @@ export class GameController {
       const handle = await this.service.startRound(
         {
           betMinor,
-          autoCashout: practice ? null : this.autoOn ? this.autoTarget : null,
+          autoCashout: practice || !this.autoOffered() ? null : this.autoOn ? this.autoTarget : null,
           ...(practice && { practice: true as const }),
         },
         (e) => this.onEvent(e),
@@ -506,11 +512,14 @@ export class GameController {
       profile: this.session
         ? {
             name: this.session.profile.name,
-            setbacks: this.session.profile.setbacksMode !== 'off',
+            // The config this game plays, not the market flag: a rising engine has no setbacks whatever the profile says.
+            setbacks: this.config.lambda > 0,
             minCashout: this.session.profile.minCashout,
             minCycleMs: this.session.profile.minCycleMs,
             skin: this.session.profile.skin,
             crashReveal: this.session.profile.crashReveal ?? 'live',
+            // What the market permits, from the same predicate the server refuses a practice round by.
+            practiceRounds: practiceAllowed(this.session.profile),
           }
         : null,
     };

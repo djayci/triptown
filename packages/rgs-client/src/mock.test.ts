@@ -1,7 +1,7 @@
 import { MemoryRoundStore, profileFromTemplate, registerGame, type RoundRecord } from '@triptown/core';
 import { describe, expect, it } from 'vitest';
 import { MockRoundService } from './mock';
-import { paperRouteSuite, roundServiceSuite } from './testing/round-service-suite';
+import { deferredRevealSuite, paperRouteSuite, roundServiceSuite } from './testing/round-service-suite';
 import type { RoundEvent } from './types';
 
 // The split-stake code path still ships, but its only config belongs to a retired game. Tests register
@@ -18,6 +18,13 @@ roundServiceSuite('MockRoundService', async () => new MockRoundService({ initial
 // Paper Route keeps the unboosted maths: the good mole is a Whack Crash config.
 const unpacedUnboosted = { defaultProfile: { ...unpaced.defaultProfile, boostsMode: 'off' as const } };
 paperRouteSuite('MockRoundService (paper-route)', async () => new MockRoundService({ initialBalanceMinor: 500_00, profiles: unpacedUnboosted, game: 'paper-route' }));
+
+// Deferred reveal (gate-odds-mvp): a test game that opts in, on a rising profile that enables it.
+registerGame('deferred-probe', 'whack-crash', { reveal: ['onCollect'] });
+const deferred = {
+  defaultProfile: { ...profileFromTemplate('regulated-uk', ['https://op.example']), name: 'deferred-test', minCycleMs: 0, crashReveal: 'onCollect' as const },
+};
+deferredRevealSuite('MockRoundService', async () => new MockRoundService({ initialBalanceMinor: 500_00, profiles: deferred, game: 'deferred-probe' }));
 
 describe('MockRoundService extras', () => {
   it('forces a setback scenario for dev tooling', async () => {

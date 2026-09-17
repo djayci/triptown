@@ -1,8 +1,8 @@
 import { serve } from '@hono/node-server';
-import { MemoryRoundStore, effectiveConfig, profileFromTemplate, type RoundStore } from '@triptown/core';
+import { MemoryRoundStore, effectiveConfig, profileFromTemplate, registerGame, type RoundStore } from '@triptown/core';
 import { DEFAULT_CONFIG, commitServerSeed, deriveRound, resolveConfigId, verifyRound, type RoundOutcome } from '@triptown/fairness';
 import { RemoteRoundService } from '@triptown/rgs-client/remote';
-import { roundServiceSuite } from '@triptown/rgs-client/testing';
+import { deferredRevealSuite, roundServiceSuite } from '@triptown/rgs-client/testing';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp, redisPing } from './app';
@@ -37,6 +37,28 @@ for (const [name, makeStore] of stores) {
   roundServiceSuite(`RemoteRoundService over HTTP (${name})`, () => liveService(makeStore()), 120, {
     makePacedService: () => liveService(makeStore(), 500_00, { defaultProfile: profileFromTemplate('light') }),
   });
+}
+
+// ---------- gate-odds-mvp 4.2: deferred reveal over HTTP ----------
+
+// A test game that opts into deferred reveal, on a rising profile that enables it. Registered before
+// createApp so the app builds a host for it.
+registerGame('deferred-probe', 'whack-crash', { reveal: ['onCollect'] });
+const DEFERRED = {
+  defaultProfile: { ...profileFromTemplate('regulated-uk', ['https://op.example']), name: 'deferred-test', minCycleMs: 0, crashReveal: 'onCollect' as const },
+};
+
+async function deferredService(store: RoundStore) {
+  const app = createApp({ store, sessionSecret: SECRET, initialBalanceMinor: 500_00, profiles: DEFERRED });
+  const server = serve({ fetch: app.fetch, port: 0 });
+  servers.push(server);
+  await new Promise((r) => server.once('listening', r));
+  const { port } = server.address() as AddressInfo;
+  return new RemoteRoundService({ baseUrl: `http://127.0.0.1:${port}`, game: 'deferred-probe' });
+}
+
+for (const [name, makeStore] of stores) {
+  deferredRevealSuite(`RemoteRoundService over HTTP (${name})`, () => deferredService(makeStore()));
 }
 
 // ---------- 7.2 - 7.6: API scenarios with a virtual clock ----------

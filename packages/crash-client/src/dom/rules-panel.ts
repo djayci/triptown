@@ -87,6 +87,8 @@ export interface RulesPanelOptions {
   build: string;
   reduceEffects: boolean;
   onReduceEffects(on: boolean): void;
+  /** False for a game with no auto cash-out control, so the rules never describe one. Default true. */
+  autoCashout?: boolean;
 }
 
 export class RulesPanel {
@@ -138,7 +140,9 @@ export class RulesPanel {
     // bet less than NGN 100.00 must not be shown a figure measured at 0.20 (GLI-19 4.7.1(a)).
     const roundingBand = bandForStake(this.opts.bands, session.config.id, session.currency.minBetMinor);
     const items = describeRules(session.config, session.profile, session.currency, { roundingBand });
-    const lines = items.map((i) => line(i, session.currency.code)).filter((l): l is string => !!l);
+    const lines = items
+      .filter((i) => i.key !== 'autoCashout' || this.opts.autoCashout !== false)
+      .map((i) => line(i, session.currency.code)).filter((l): l is string => !!l);
     this.body.innerHTML = `
       <button class="close" type="button">${t('rules.close')}</button>
       <h2>${t('rules.title')}</h2>

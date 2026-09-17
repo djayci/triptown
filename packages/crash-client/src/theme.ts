@@ -68,6 +68,8 @@ export let COLORS: Palette = PALETTES.candy;
 export let SKIN: SkinName = 'candy';
 
 let displayOverride: string | undefined;
+/** The stage colour a game declared in useSkin, if any. */
+let stageGround: number | undefined;
 
 /** Relative luminance of a packed RGB colour, per WCAG 2.1. */
 function luminance(rgb: number): number {
@@ -100,6 +102,15 @@ function best(a: number, b: number, against: number): number {
 
 export function readableOn(fill: number): number {
   return best(COLORS.ink, COLORS.cream, fill);
+}
+
+/**
+ * Colour for small unstroked text drawn straight on the stage (captions, the live odds line). Stroked
+ * values keep cream: their ink outline carries them, and ink on an ink outline fills in. Cream suits Whack's own stage and any dark one; on a light stage such as a yellow sunburst it
+ * sinks, so a game that declared its ground gets ink or cream, whichever reads on it.
+ */
+export function onStage(): number {
+  return stageGround === undefined ? COLORS.cream : readableOn(stageGround);
 }
 
 /** The multiplier and the money must stay legible against the stage they sit on. */
@@ -176,6 +187,7 @@ export function useSkin(skin: SkinName, options: SkinOptions = {}) {
   SKIN = skin;
   COLORS = next;
   displayOverride = display;
+  stageGround = ground;
 }
 
 export const FONT_DISPLAY = 'Lilita One, Arial Black, Impact, sans-serif';

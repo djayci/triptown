@@ -129,15 +129,21 @@ async function play(force, when, ms = 0, betMinor) {
  * quietly dropped, so coverage can never shrink without saying so.
  */
 function reachable(profile) {
-  if (!profile) return { belowStake: true, even: true, why: 'profile unknown; assuming everything is reachable' };
+  if (!profile) return { belowStake: true, even: true, practice: true, why: 'profile unknown; assuming everything is reachable' };
   const belowStake = profile.setbacks;
   const even = profile.minCashout === 0 || profile.minCashout <= 1;
+  // A market that forbids practice rounds has the server refuse one, so the case cannot be observed
+  // there. Unreachable is not the same as a missing hook: where the profile DOES allow it, a game
+  // without the hook still fails.
+  const practice = profile.practiceRounds === true;
   return {
     belowStake,
     even,
+    practice,
     why:
       `profile ${profile.name}: setbacks ${profile.setbacks ? 'on' : 'off'}, ` +
-      `minimum cash-out ${profile.minCashout === 0 ? 'none' : `x${profile.minCashout}`}`,
+      `minimum cash-out ${profile.minCashout === 0 ? 'none' : `x${profile.minCashout}`}, ` +
+      `practice rounds ${practice ? 'allowed' : 'not allowed'}`,
   };
 }
 
@@ -292,7 +298,10 @@ if (deferredProfile) {
 // A stake-free round must show no money and celebrate nothing, because nothing was staked and nothing
 // was won. Driven through a named demo hook rather than a click point: coordinates stop hitting
 // anything when a layout moves, and the check would then prove nothing while still reporting green.
-{
+if (!can.practice) {
+  console.info(`practice round: UNREACHABLE on this profile (${can.why}) — not tested, and not a pass`);
+  results.push({ name: 'practice round', status: 'unreachable', why: can.why });
+} else {
   const u = new URL(pageUrl('bigWin'));
   u.searchParams.set('practice', 'on');
   await page.goto(u.toString(), { waitUntil: 'networkidle' });

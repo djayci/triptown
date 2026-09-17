@@ -107,6 +107,11 @@ export interface CrashView {
    * and a check that only counts the obvious cues would pass a game that shakes on a loss.
    */
   readonly shakesShown?: number;
+  /**
+   * Optional: false when this game offers no auto cash-out. The controller then never sends a target,
+   * so no round can settle on a control the player was never shown. Absent means offered.
+   */
+  readonly offersAutoCashout?: boolean;
   readonly history: Pick<HistoryStrip, 'setAll' | 'push'>;
 }
 

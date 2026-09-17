@@ -8,6 +8,22 @@ export function displayMultiplier(t: number, setbacksReceived: number, config: G
   return growth(Math.max(0, t), config) * config.setbackFactor ** setbacksReceived * config.boostFactor ** boostsReceived;
 }
 
+/**
+ * Deferred reveal (gate-odds-mvp D5): the chance the result is a win if the player goes in at this
+ * value, RTP ÷ value, rounded DOWN to one decimal so it can never overstate the chance.
+ */
+export function formatRevealChance(rtp: number, multiplier: number): string {
+  const tenths = Math.floor((1000 * rtp) / Math.max(multiplier, 1e-9) + 1e-9) / 10;
+  return tenths < 0.1 ? '<0.1%' : `${tenths.toFixed(1)}%`;
+}
+
+/**
+ * Deferred reveal (gate-odds-mvp D6): the heading-home state lasts at least this long from the press,
+ * for every outcome. It starts on the press, never on the settlement, so its length can't depend on
+ * the hidden crash.
+ */
+export const HEADING_HOME_MS = 1200;
+
 export function formatMultiplier(m: number): string {
   if (m >= 1000) return `x${Math.floor(m).toLocaleString('en-US')}`;
   return `x${(Math.floor(m * 100 + 1e-7) / 100).toFixed(2)}`;
@@ -89,8 +105,25 @@ export const BET_LADDER = [10, 20, 50, 1_00, 2_00, 5_00, 10_00, 20_00, 50_00, 10
 export const BET_CHIPS = [1_00, 5_00, 10_00, 50_00, 100_00];
 export const AUTO_PRESETS = [1.5, 2, 3, 5, 10, 25, 100];
 
+/**
+ * The stakes a player can step through: 1-2-5 values from the currency's minimum to its maximum. A fixed
+ * ladder topping out at 100.00 left a naira session (minimum ₦100.00) with exactly one stake, so + did
+ * nothing. For a dollar-sized currency this is the same set as BET_LADDER.
+ */
+export function betLadder(currency: CurrencyRules): number[] {
+  const values: number[] = [];
+  for (let unit = 10; unit <= currency.maxBetMinor; unit *= 10) {
+    for (const m of [1, 2, 5]) {
+      const v = m * unit;
+      if (v >= currency.minBetMinor && v <= currency.maxBetMinor) values.push(v);
+    }
+  }
+  return values;
+}
+
 export function stepBet(current: number, dir: 1 | -1, currency: CurrencyRules): number {
-  const ladder = BET_LADDER.filter((v) => v >= currency.minBetMinor && v <= currency.maxBetMinor);
+  const ladder = betLadder(currency);
+  if (ladder.length === 0) return currency.minBetMinor;
   if (dir > 0) return ladder.find((v) => v > current) ?? ladder[ladder.length - 1]!;
   return [...ladder].reverse().find((v) => v < current) ?? ladder[0]!;
 }
@@ -102,7 +135,7 @@ export function stepBet(current: number, dir: 1 | -1, currency: CurrencyRules): 
  * cannot start a round at all until they tap +.
  */
 export function clampBet(current: number, currency: CurrencyRules): number {
-  const ladder = BET_LADDER.filter((v) => v >= currency.minBetMinor && v <= currency.maxBetMinor);
+  const ladder = betLadder(currency);
   if (ladder.length === 0) return currency.minBetMinor;
   if (current >= currency.minBetMinor && current <= currency.maxBetMinor) {
     // Already valid: keep the player's choice, snapped down to a ladder value they could have picked.

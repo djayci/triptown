@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MemoryRoundStore } from './store';
 import { HostError, RoundHost } from './host';
 import { GHS_CURRENCY, NGN_CURRENCY, formatMoney, validateBet } from './money';
-import { checkSessionRegion, profileFromTemplate, validateProfile, type JurisdictionProfile } from './profiles';
+import { PROFILE_TEMPLATES, checkSessionRegion, profileFromTemplate, validateProfile, type JurisdictionProfile } from './profiles';
 
 const origins = ['https://op.example'];
 
@@ -27,6 +27,12 @@ describe('market profile flags', () => {
       expect(p.hostingRegions).toBeUndefined();
       expect(checkSessionRegion(p, undefined, undefined)).toEqual({ ok: true });
     }
+  });
+
+  it('enables deferred reveal only in the Nigeria and Ghana drafts', () => {
+    const deferred = Object.keys(PROFILE_TEMPLATES).filter((name) => profileFromTemplate(name, origins).crashReveal === 'onCollect');
+    expect(deferred.sort()).toEqual(['gh-draft', 'ng-draft']);
+    for (const name of deferred) expect(validateProfile(profileFromTemplate(name, origins)).ok).toBe(true);
   });
 
   it('validates flag values', () => {

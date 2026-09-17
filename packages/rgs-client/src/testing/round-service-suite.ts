@@ -339,3 +339,76 @@ export function paperRouteSuite(name: string, makeService: () => Promise<RoundSe
     }, 240_000);
   });
 }
+
+/**
+ * Deferred-reveal cases (gate-odds-mvp). `makeService` must create sessions for a game that supports
+ * deferred reveal under a profile with `crashReveal: 'onCollect'` and no minimum cycle. A hidden crash
+ * sends nothing: the terminal event arrives only at the reveal, and its time is the reveal time.
+ */
+export function deferredRevealSuite(name: string, makeService: () => Promise<RoundService>, tries = 40) {
+  describe(`RoundService deferred reveal: ${name}`, () => {
+    it('marks the round deferred and sends nothing between START and the reveal', async () => {
+      const service = await makeService();
+      for (let i = 0; i < tries; i++) {
+        let cashedAt = 0;
+        let cash: Promise<unknown> | null = null;
+        const played = await play(service, (e, roundId) => {
+          if (e.type === 'START') {
+            expect(e.reveal).toBe('onCollect');
+            cash = wait(2500).then(async () => {
+              // Before the reveal the round is still running in history, whether or not it has crashed.
+              const row = (await service.history()).find((h) => h.roundId === roundId);
+              expect(row?.status ?? 'running').toBe('running');
+              cashedAt = Date.now();
+              return service.cashout(roundId).catch((err: unknown) => err);
+            });
+          }
+        });
+        await cash;
+        const types = played.events.map((e) => e.type);
+        expect(types.slice(0, -1)).toEqual(['START']);
+        // A loss revealed at the cash-out, not at the crash: the reveal is after the crash time.
+        if (played.terminal?.type === 'CRASH' && played.terminal.crashTime > 0) {
+          expect(played.terminal.time).toBeGreaterThan(played.terminal.crashTime);
+          expect(played.after).toBe(played.before - BET);
+          expect(cashedAt).toBeGreaterThan(0);
+          return;
+        }
+      }
+      throw new Error('never revealed a hidden crash');
+    }, 180_000);
+
+    it('pays a cash-out made before the hidden crash', async () => {
+      const service = await makeService();
+      for (let i = 0; i < tries; i++) {
+        let cash: Promise<unknown> | null = null;
+        const played = await play(service, (e, roundId) => {
+          if (e.type === 'START') cash = wait(400).then(() => service.cashout(roundId).catch((err: unknown) => err));
+        });
+        await cash;
+        if (played.terminal?.type === 'CASHED_OUT') {
+          expect(played.terminal.time).toBeLessThan(played.terminal.crashTime);
+          expect(played.after).toBe(played.before - BET + played.terminal.payoutMinor);
+          return;
+        }
+      }
+      throw new Error('never cashed out before the crash');
+    }, 180_000);
+
+    it('reveals at the auto target when the hidden crash came first', async () => {
+      const service = await makeService();
+      for (let i = 0; i < tries; i++) {
+        const before = (await service.getSession()).balanceMinor;
+        const handle = await service.startRound({ betMinor: BET, autoCashout: 1.5 }, () => {});
+        const terminal = await handle.ended;
+        if (terminal?.type === 'CRASH' && terminal.crashTime > 0) {
+          expect(terminal.multiplier).toBeGreaterThanOrEqual(1.5 - 1e-9);
+          expect(terminal.time).toBeGreaterThan(terminal.crashTime);
+          expect((await service.getSession()).balanceMinor).toBe(before - BET);
+          return;
+        }
+      }
+      throw new Error('never revealed a hidden crash at the auto target');
+    }, 180_000);
+  });
+}
