@@ -2,94 +2,153 @@
 
 See proposal.md for why. What exists today:
 
-- Each game is its own Vite app with `base: './'` and a `build:demo` script (`--mode demo --outDir dist-demo`). `apps/whack` and `apps/gate` both have one; `apps/cable-car` has one but is still being built (`the-cable-car` tasks 1.x–4.x open).
-- Demo builds choose their market and look from the query string, and they do it differently:
-  - `apps/whack/src/services.ts`: `?profile=` picks a template, and the skin follows that profile (`light` is candy; `regulated-uk`, `regulated-on`, `regulated-br`, `ng-draft`, `gh-draft` and `pt-draft` are adult).
-  - `apps/gate/src/services.ts`: defaults to `ng-draft` (Gate Rush) and **forces candy unless `?skin=adult`**, whatever the profile says.
+- **Game apps.** Each game is its own Vite app with `base: './'` and a `build:demo` script (`--mode demo --outDir dist-demo`). `apps/whack` and `apps/gate` both work. `apps/cable-car` has the script but is still being built (`the-cable-car` groups 1–4 are open).
+- **Demo query strings.** Demo builds choose market and look from the query string, and each app does it differently:
+  - `apps/whack/src/services.ts`: `?profile=` picks a template, and the skin follows that profile. With no query the mock's default profile runs, on the Candy look.
+  - `apps/gate/src/services.ts`: defaults to `ng-draft` (Gate Rush) on the Candy Paddock look; `?skin=adult` would switch it.
   - `apps/cable-car/src/services.ts`: `?profile=`, with `allowOverride` and `playerRegion` so the draft profiles run.
-- Every demo already draws a DEMO label (`label.demo` in each catalogue).
-- `apps/sandbox` is a fake operator page with its own `vercel.json`; `apps/whack`, `apps/sandbox` and `apps/api` each deploy as separate Vercel projects.
-- `scripts/shot.mjs` captures a headless-Chrome screenshot of any URL, at any size.
+- **DEMO label.** Every demo already draws one (`label.demo` in each message catalogue).
+- **Tooling.**
+  - The repo uses pnpm workspaces, turbo, TypeScript ~6.0, ESLint 10 flat config and Node 22.
+  - `tsx` is already used by `apps/api` for Node scripts.
+  - `scripts/shot.mjs` drives headless Chrome through `playwright-core`.
+  - Today every deployed app is Vite or Hono; nothing uses Next.js yet.
+- **Design.** Black Glass, on the canvas https://claude.ai/artifact/7BBzisnr9oLV3LLqhBDgyG, board "5 · Black Glass". Its previews were captured on 17 Sep 2026 from the running demos: Whack Crash at 1280×720, clip 694×390 at (453, 302); Gate Rush at 430×932, clip 330×186 at (100, 538); both with no query. The first captures used the adult skin; on 17 Sep 2026 the user asked for the games as built ("I don't want the adult skin or even regulated UK in here"), and they were recaptured.
 
 ## Goals / Non-Goals
 
 **Goals:**
-- One URL someone can open to see every game and play the playable ones, on a phone.
-- Compliance rules for the site hold because the build enforces them, not because someone remembered them.
-- A new game costs one catalogue entry and one tile.
+- One Vercel URL that shows every game and plays the live ones, on a phone.
+- No byte of a demo reaches a visitor who has not tapped "YES, 18+", enforced by the server.
+- The compliance rules for the site hold because the build and tests enforce them.
+- A new game costs one catalogue entry and one preview.
 
 **Non-Goals:**
-- Changing any game's demo behaviour to suit the site. If a game needs a new query parameter, that change goes through that game's own OpenSpec change.
-- Embedding games in the site page (an iframe lobby). That is `apps/sandbox`'s job, and it would pull operator bridge concerns into a marketing page.
-- A framework (React, Astro). One page with a list does not need one.
+- Changing any game's demo behaviour to suit the site. A game that needs a new query parameter changes through its own OpenSpec change.
+- Embedding games in the site page (an iframe lobby). That is `apps/sandbox`'s job.
+- Age *verification*. The gate is an honest self-declaration, as suits a B2B showcase running play money without accounts.
 
 ## Decisions
 
-### D1. A new static app, `apps/site`, in plain TypeScript and CSS
-Vite with `index.html`, `src/main.ts`, `src/catalogue.ts` and `src/style.css`, like `apps/sandbox`. There are no runtime dependencies beyond two self-hosted fonts through `@fontsource`.
-*Alternatives:* extending `apps/sandbox`, rejected because it is a test harness for operator embedding and should stay one; a framework, rejected because it adds weight and nothing needs it.
+### D1. `apps/site` is a Next.js 16 App Router app
+It uses `next`, `react` and `react-dom` 19, and TypeScript, with `app/layout.tsx`, `app/page.tsx`, `app/actions.ts`, `proxy.ts`, `src/catalogue.ts`, `src/copy.ts` and `app/globals.css`. The home page is a server component that reads the gate cookie and renders either the gate or the catalogue. Before confirmation the rows render greyed out and inert (user request, 17 Sep 2026: "grey them out and make them not clickable instead of hiding them"). The HTML sent to an unconfirmed visitor has no Play link and no `/play/` URL at all, so the greying is presentation only: there is no hidden link for CSS to disable, and the proxy refuses `/play/` regardless.
+*Why Next.js:* the user deploys to Vercel. The gate also needs something server-side that runs before static files, and Next's proxy gives that without a separate function.
+*Alternative:* a static Vite page with a client-side gate, rejected because a direct `/play/` link would bypass it. That bypass was an accepted risk in the first draft, and the user has now ruled it out.
 
-### D2. One deployment: the site build assembles the demos under `/play/<slug>/`
-`apps/site` gets a `build` of three steps: `vite build`, then `scripts/assemble-demos.mjs`, then `scripts/check-site.mjs`. The assembly step copies `apps/<app>/dist-demo/` to `apps/site/dist/play/<slug>/` for every `live` entry. Turbo gets a `build:demo` task (outputs `dist-demo/**`), and `@triptown/site#build` depends on the listed apps' `build:demo`. The game apps are not added as package dependencies of the site: the site imports nothing from them. The `base: './'` the games already use makes a sub-path work unchanged.
-*Alternatives:* linking to separately deployed demo projects per game, rejected because every game would need its own Vercel project and URLs, and the site could link to a demo that is stale or missing with nothing to catch it; running the games' production builds, rejected because they need `VITE_API_URL` and would reach the real service.
-This is a demo environment. It never shares a Vercel project with a production game build (hard rule 14: separate preview and production).
+### D2. The 18+ gate: server action, session cookie, proxy on `/play/`
+- **YES, 18+** is a `<form action={confirmAge}>` button, so it works before hydration and with the keyboard.
+  - The server action sets `tt_age=1` as a *session* cookie: no `Max-Age`, with `HttpOnly`, `Secure`, `SameSite=Lax` and `Path=/`.
+  - It then redirects to a validated `next` path, or to `/#games`.
+- **NO** is a second form action that sets nothing and redirects to `/?declined=1`, which renders the exit message.
+- **`proxy.ts`** uses `matcher: ['/play/:path*']`.
+  - If the cookie is missing, it returns `NextResponse.redirect(new URL('/?next=' + encodeURIComponent(pathname + search), req.url), 307)`.
+  - If the cookie is present, it returns `NextResponse.next()`.
+  - The matcher covers every file of every demo (HTML, JS, atlases, audio, `audio.json`), so a copied asset URL is gated too.
+- **`next` is accepted only if** it starts with `/play/` and contains no `//`, `\` or scheme. That stops an open redirect.
 
-### D3. The catalogue is a typed array in the site app
+*Alternatives:*
+- a `localStorage` flag, rejected because the server cannot see it;
+- a signed or long-lived cookie, rejected because the gate declares age rather than proving it, and a session-only lifetime is the stricter reading of "unless the user taps 18+";
+- checking only the HTML page, rejected because the game's JS and assets would still be fetchable.
+
+### D3. Demos are copied into `public/play/<slug>/` before `next build`
+- `scripts/assemble-demos.ts` runs with `tsx` as the `prebuild` step. It clears `public/play/` and copies `apps/<app>/dist-demo/` to `public/play/<slug>/` for each `live` entry only, so an `in-development` game ships nothing.
+- `public/play/` is gitignored.
+- Turbo gains a `build:demo` task (outputs `dist-demo/**`). `@triptown/site#build` depends on `@triptown/whack#build:demo` and `@triptown/gate#build:demo`, and gains `@triptown/cable-car#build:demo` when The Cable Car goes live.
+- The game apps are not package dependencies of the site.
+
+*Alternatives:*
+- a separate Vercel project per demo, rejected because the gate cookie would not cross origins and nothing would stop a stale demo;
+- rewriting to an external demo origin, rejected for the same cookie reason.
+
+### D4. Play links point at `index.html` explicitly
+Next.js normalises trailing slashes, and the games load assets relative to their page (`base: './'`). `/play/gate/` could therefore resolve `./assets/…` against `/play/`. `playUrl(entry)` returns `/play/<slug>/index.html?<demoQuery>`, which fixes the base URL whatever the trailing-slash setting. A `next.config.ts` redirect also sends `/play/:slug` and `/play/:slug/` to `/play/:slug/index.html`, so a hand-typed URL works. Next runs `next.config` redirects before the proxy (bundled docs, proxy execution order), so the redirect itself reveals nothing, and the `index.html` it points at is gated like any other file. Files in `public/` are served after the proxy.
+
+### D5. The catalogue is a typed array; all page copy lives in `src/copy.ts`
 ```ts
 type Entry = {
-  slug: string;              // URL segment under /play/
-  app: string;               // folder under apps/ whose dist-demo is copied
+  slug: string;
+  app: string;                              // folder under apps/ whose dist-demo is copied
   name: string;
-  pitch: string;             // one line, checked by the copy check
+  pitch: string;
   status: 'live' | 'in-development';
-  tile: string;              // file under apps/site/public/tiles/
+  preview?: string;                         // file under public/previews/
+  previewAlt?: string;
+  accent: string;                           // the row's spine colour
   demoQuery: Record<string, string>;
 };
 ```
 The initial entries:
-- **Whack Crash**: `app: 'whack'`, `demoQuery: { profile: 'regulated-uk' }`. The adult skin comes from the profile, and setbacks are off in that market.
-- **Gate Rush**: `app: 'gate'`, `demoQuery: { profile: 'ng-draft', skin: 'adult' }`. The explicit `skin` is required, because this app forces candy without it.
-- **The Cable Car**: `app: 'cable-car'`, `status: 'in-development'`, shown as coming soon. It becomes `live` once `the-cable-car` finishes, which is a one-line edit.
+- **Whack Crash:** `app: 'whack'`, `demoQuery: {}`, accent red.
+- **Gate Rush:** `app: 'gate'`, `demoQuery: {}`, accent blue.
 
-The catalogue names games, which is allowed: it is an app, and only shared packages must stay game-neutral.
+An empty query is the point: the site shows each game as its demo build boots. `demoQuery` stays in the type for a future game whose demo needs a parameter just to run.
+- **The Cable Car:** `app: 'cable-car'`, `status: 'in-development'`, no preview; the row reads "NO SIGNAL" and "COMING SOON".
 
-### D4. The skin check reads the query and the profile together
-`check-site.mjs` imports `profileFromTemplate` from `@triptown/core`, a pure package that is fine in a Node script, as a dev dependency of the site. For each entry, the effective skin is `demoQuery.skin` if present, otherwise the template's `skin`. The check fails if that skin is not `adult`. For `apps/gate`, a missing `skin` fails too, because that app ignores the profile's skin, so the checker keeps a small list of apps whose demo forces candy by default.
-This is as close as a static check can get to reading what actually ran, and task 5.2 backs it with a boot check that reads the skin the running game actually loaded.
-*Alternative:* trusting the query only, rejected because Whack's skin comes from the profile.
+Every other visible string lives in `src/copy.ts`, so the copy check can read all of it: the hero line, the Triptych line, the B2B and play-money statements, the gate question, the exit message and the footer. The catalogue names games, which is fine for an app; only shared packages must stay game-neutral.
 
-### D5. The 18+ gate is a client-side interstitial, and the games are not in the initial HTML
-`index.html` holds only the header, the B2B statement and the gate. `main.ts` renders the cards only after the visitor confirms, so no tile or `/play/` link exists in the DOM before that. The answer is kept in `localStorage` in a try/catch. A declined answer is not stored, so the visitor is asked again next time.
-This is an honesty gate, not age verification. It matches the B2B framing, and a demo with play money and no sign-up does not trigger the verification duties of a real-money account. Direct `/play/` URLs stay reachable, as operators share them. That is recorded as a risk.
-
-### D6. Build checks, one script
-`scripts/check-site.mjs` fails the build on any of:
+### D6. Build checks: one `tsx` script, run at `prebuild`
+`scripts/check-site.ts` runs after assembly and fails the build on any of:
 - a duplicate slug;
-- a `live` entry with no `dist/play/<slug>/index.html`;
-- a missing tile;
-- a non-adult effective skin (D4);
-- a banned-wording match in `name`, `pitch` or the static copy of `index.html`.
+- a `live` entry with no `public/play/<slug>/index.html` or no tile theme;
+- a banned-wording match in the catalogue or `src/copy.ts`;
+- a play-money statement missing from `copy.ts`;
+- a Triptych link that is not `https://triptych-studio.com/`.
 
-The banned-wording list is kept in the script, and a fixture test proves it catches each category in the spec. `packages/crash-client/scripts/copy-check.mjs` is reused if its matcher can be imported. If not, the site gets its own list, because in-game copy rules and advert copy rules overlap but are not the same.
+The rules are exported functions with a Vitest fixture test, one failing case per rule. An adult-skin rule existed in the first implementation and was removed with the user's decision to show the games as built.
 
-### D7. Tiles are captured from the real demo, adult skin, betting screen
-`scripts/capture-tiles.mjs` in the site app runs `vite preview` over the assembled `dist`. It calls `scripts/shot.mjs` for each `live` entry at `/play/<slug>/?<demoQuery>` on the betting screen, and writes `public/tiles/<slug>.webp`, which is committed. The betting screen is used, never a win screen: a tile showing a big multiplier or a payout is a win promise.
-An `in-development` game uses a neutral text-only card rather than concept art that has not been audited.
+### D7. Logo tiles, drawn in each game's look
+The first version captured screenshots of each demo's betting screen. The user replaced them on 17 Sep 2026 ("instead of a snapshot of the game, create the logos as per the game themes and look and feel"). Each live entry now carries `logo: [first, second]` (the game's HUD logo words) and a `tile` theme, and `LogoTile` draws them in HTML and CSS:
+- **The sticker:** the shared `Logo` from `crash-client/src/ui/hud.ts`, reproduced. It has a pink (`#ff3d8b`) rounded sticker with a thick ink (`#1d1424`) border and drop shadow, tilted −3°, set in Lilita One (`next/font`). The first word is cream (`#fff4d6`) and the second the game's `sun` token.
+- **`whack-candy`:** the candy palette's yellow sunburst (`#ffd43b` / `#ffc414`) with the green hill. The second word is yellow.
+- **`gate-paddock`:** Candy Paddock (`apps/gate` `STAGE_PALETTES.candy`, `CANDY_PADDOCK`): a sunburst sky over the cream rail and striped turf (`#6fd14a` / `#4fbf3a`). The second word is deep purple (`#6d28d9`).
 
-### D8. Visual direction: studio-neutral and dark, not a game skin
-The site uses its own quiet look (charcoal ground, cream text, one brass accent, Bricolage Grotesque for text), in line with the adult skins. It does not use Candy Arcade Pop, which is a game's art direction and a minors-appeal risk in marketing. Every card has the same size and layout, with the tile at 16:9, the name, the pitch, and Play or Coming soon.
+Sizes use container query units, so the tile scales from the 300 px desktop column to full width on a phone. There are no characters, multipliers or amounts on a tile. Nothing is captured or committed as an image, so a tile cannot go stale against a stale image cache (the reason the screenshots appeared not to update). A new live game adds a theme class; the build fails a live entry with none.
 
-### D9. Deployment
-`apps/site/vercel.json` builds with `pnpm turbo run build --filter=@triptown/site`, from the repo root, so the demo builds run first, with `outputDirectory: dist`. It sets immutable caching for `/play/*/assets/*` and adds `X-Robots-Tag: noindex` on `/play/*`, so search engines index the showcase and not the raw demos. Connecting the Vercel project is a manual step, and a task records it.
+### D8. Visual system: Black Glass, reproduced from the canvas
+- **Fonts:** `next/font/google` for Michroma (wordmark and game names) and Chivo Mono 300/500 (text). They are self-hosted at build time, so there are no runtime font requests.
+- **Tokens in `globals.css`:**
+  - ground `#07080a`, panel `#0d0f12`;
+  - line `#2a2f35`, text `#e8ecef`, muted `#aab3bb` / `#8d98a2` / `#6f7a84`;
+  - fringe red `#e5383b` and blue `#3abef9`.
+- **Scanlines:** a fixed `repeating-linear-gradient` overlay at 2.5% white.
+- **Wordmark:** a chrome gradient clipped to the text, with a red/blue `drop-shadow` fringe.
+- **VHS distortion:** two `aria-hidden` copies clipped to thin bands (`clip-path: inset(34% 0 56% 0)` and `inset(66% 0 26% 0)`). They are invisible except for about 330 ms in each 5 s cycle (8 s until the user asked for it "a bit more frequent", 17 Sep 2026), when they shift ±7 px and the fringe widens. The page keeps no reflection, mist, sheen or fade-in: the user rejected them on 17 Sep 2026. `prefers-reduced-motion: reduce` turns all of it off.
+- **Game rows:** a 20 px accent spine, a 300 px 16:9 preview, then name and pitch, then a fixed 240 px Play column. Fixed column widths keep the dividers aligned across rows, which the user asked for. On phones the row stacks: preview on top, Play full width.
+- **Header:** navigation only, no small logo, because the doubled wordmark was rejected.
+- **Phone (≤820 px), its own composition** (user, 17 Sep 2026: "the mobile view looks truly amateur"):
+  - **Header:** a compact bar with an "18+ · FOR OPERATORS" chip.
+  - **Hero:** the wordmark edge to edge, with the tagline left-aligned tight beneath it and no dead space.
+  - **Games:** a horizontal shelf of cards, 84% wide with the next one peeking in, with a "SWIPE →" cue. It uses `scroll-snap-type: x mandatory`, `scroll-snap-align: start` and `scroll-snap-stop: always`, so a flick lands one card at a time.
+  - **18+ question:** a frosted glass sheet pinned to the bottom of the screen, so it never pushes the games out of view.
+- **Motion (user request, 17 Sep 2026: "animate things… smooth, add some finesse").** All of it is in `globals.css` under `prefers-reduced-motion: no-preference`, eased with a long ease-out, and none of it touches the wordmark, which keeps only its VHS wobble (spec: The wordmark barely moves):
+  - **Entrance:** tagline, Triptych line, gate bar, list header and rows rise out of a soft blur, staggered; the rule line draws out from the centre.
+  - **Links:** underlines draw in.
+  - **Gate buttons:** a glow on YES; a press scale on both.
+  - **Hovering a greyed-out game** lifts it slightly and lights the 18+ bar it is waiting on (CSS `:has`).
+  - **Live rows:** on hover, the border brightens and an accent line draws along the bottom; the sticker lifts and tilts with a spring; the Play column fills with a light panel as its arrow nudges forward. Each tile's sunburst turns slowly (90 s a turn, 30 s on hover), through an animated `@property` angle.
+  - **Right after YES** (`?unlocked=1`, set by `confirmAge`, so it plays once and not on later visits), each row fades smoothly from greyscale into colour, staggered. The flicker first built here was replaced at the user's request. Locked and live rows differ only in `filter` and `opacity`, which also transition, so the change fades even when Next swaps the classes in place after the server action.
+
+### D9. Deployment on Vercel
+- The Vercel project has Root Directory `apps/site`, framework Next.js, and "Include source files outside of the Root Directory" enabled.
+- `apps/site/vercel.json` sets `installCommand: "pnpm install --frozen-lockfile"` and `buildCommand: "cd ../.. && pnpm turbo run build --filter=@triptown/site"`, so the game demo builds run first.
+- `next.config.ts` adds `X-Robots-Tag: noindex, nofollow` on every route. The site is shared by direct link with operators and partners until an ARCON vetting route is chosen (`docs/compliance/games-showcase-site-2026-09-17.md` F2).
+- Linking the project is a manual step that the user performs.
+
+### D10. Tooling fit
+- `apps/site` gets its own `tsconfig.json`, which extends the repo base where compatible and adds the Next plugin, `jsx: preserve` and the `next-env.d.ts` include.
+- Lint runs through the repo's ESLint flat config with `@next/eslint-plugin-next` added for `apps/site/**` only. It does not use `next lint`, which Next 16 removed.
+- Tests are Vitest, colocated. The proxy and the `next` validation are pure functions tested directly. The end-to-end gate checks use `playwright-core`, like the existing checks.
 
 ## Risks / Trade-offs
 
-- [The site is an advert in Nigeria, and the studio carries ARCON liability] → A marketing-stage compliance note (task 1.1) comes before the page copy is final. No ad placement or promotion comes with this change.
-- [Direct `/play/` URLs skip the 18+ gate] → They are play-money demos with DEMO labels. `noindex` keeps them out of search. The note records this as an accepted B2B trade-off.
-- [A game's demo changes its query contract, for example gate's forced candy default] → The boot check in task 5.2 reads the skin the running game loaded, not the query, so a change like that fails the site build.
-- [The site build gets slower, because it runs every live game's demo build] → Turbo caches `build:demo`, so only changed games rebuild.
-- [Whack on `regulated-uk` hides setbacks, the headline Whack mechanic] → This is deliberate. The showcase is for regulated buyers, and setbacks are off in the regulated markets.
+- [**Next 16 may not accept TypeScript ~6.0 or the repo's ESLint 10 setup.**] → Task 2.1 proves `typecheck` and `lint` first. If they fail, the site pins its own `typescript` devDependency, and that is recorded in the task.
+- [**On Vercel, public files might be served before the proxy runs.**] → Vercel runs Next's proxy before the static and CDN layer, but that is a platform behaviour, not a guarantee in our code. Task 6.2 checks it on the real preview deployment with `curl`, for both an HTML file and a hashed asset, with and without the cookie, before the change is done.
+- [**Every demo asset request now invokes the proxy.**] → Proxy work is a cookie read with no I/O. Browser caching still applies once a visitor has confirmed. The demos have a small number of files.
+- [**The cookie can be set by hand.**] → Accepted. This is a self-declaration gate for a play-money B2B showcase, and the compliance note in 1.1 records it.
+- [**The previews and demos show the Candy looks (cartoon moles with blush and a crown; a bright paddock), which the CAP under-18 guidance treats as high-risk on a tile, and `AGENTS.md` rules 6 and 12 bar in marketing.**] → The user's decision (17 Sep 2026). Mitigated, not removed, by the 18+ gate, the B2B framing and noindex; recorded in the compliance note as a blocker for any public placement or promotion. Whack Crash's "before it dives" intro copy is a separate game-side issue.
+- [**The site build runs every live game's demo build.**] → Turbo caches `build:demo`.
 
 ## Migration Plan
 
-This is additive. Deploy `apps/site` as a new Vercel project. Rollback is removing that project. No existing deployment changes.
+This is additive. Create the Vercel project for `apps/site`, deploy a preview, run the 6.2 checks, then promote. Rollback is removing the Vercel project. No existing deployment changes.

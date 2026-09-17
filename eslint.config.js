@@ -1,12 +1,13 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import globals from 'globals';
+import nextPlugin from '@next/eslint-plugin-next';
 
 // Packages that must stay renderer- and DOM-free so they run in browser, API and verifier alike.
 const PURE_PACKAGES = ['packages/fairness/**', 'packages/core/**'];
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/dist-demo/**', '**/public/**', '**/.vercel/**', '**/node_modules/**', 'openspec/**', 'design/**'] },
+  { ignores: ['**/dist/**', '**/dist-demo/**', '**/public/**', '**/.vercel/**', '**/node_modules/**', '**/.next/**', '**/next-env.d.ts', 'openspec/**', 'design/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -22,6 +23,13 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
+  },
+  {
+    // The Next.js site: Next's own rules, scoped so no other app picks them up.
+    files: ['apps/site/**/*.{ts,tsx}'],
+    plugins: { '@next/next': nextPlugin },
+    languageOptions: { globals: { ...globals.browser, ...globals.node } },
+    rules: { ...nextPlugin.configs.recommended.rules, ...nextPlugin.configs['core-web-vitals'].rules },
   },
   {
     files: PURE_PACKAGES,

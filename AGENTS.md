@@ -21,6 +21,7 @@ apps/
   cable-car/    The Cable Car: a deferred-reveal skin on that engine @triptown/cable-car
   gate/         Gate Rush / Beat the Gate: a Whack Crash skin      @triptown/gate
   sandbox/      fake operator page: iframe embed + verifier       @triptown/sandbox
+  site/         Next.js studio site: catalogue + gated play demos @triptown/site
   api/          Hono on Vercel functions: rounds, SSE, cashout    @triptown/api
 packages/
   fairness/     seeds, HMAC streams, crash time, setbacks and boosts, verifier, RTP simulator
@@ -73,7 +74,18 @@ pnpm --filter @triptown/whack build:demo      # demo build with the mock service
 pnpm --filter @triptown/whack atlas           # rebuild public/assets/atlas-{candy,adult}.{png,json} (add a skin name to build one)
 pnpm --filter @triptown/fairness simulate     # Monte Carlo RTP report -> packages/fairness/reports/
 pnpm --filter @triptown/core exec vitest run src/round.test.ts   # single test file
+pnpm turbo run build --filter=@triptown/site  # builds the live games' demos, copies them in, checks, next build
+pnpm --filter @triptown/site dev              # site on :5180 (run the build once first so public/play/ exists)
+pnpm --filter @triptown/site e2e              # 18+ gate end to end, against `pnpm --filter @triptown/site start`
+pnpm --filter @triptown/site check:layout     # also check:motion; both against the running site
 ```
+
+**The studio site (`apps/site`, Next.js 16 on Vercel)** lists the games from `apps/site/src/catalogue.ts` and serves each live game's `dist-demo` under `/play/<slug>/`. Rules (`openspec/changes/games-showcase-site/`, `docs/compliance/games-showcase-site-2026-09-17.md`):
+- **No demo byte without "YES, 18+".** `proxy.ts` refuses every file under `/play/` without the session cookie the confirmation sets. Never narrow its matcher, never cache a demo file publicly, and never link a demo from outside the site; `pnpm --filter @triptown/site e2e` must pass, and fails if the proxy stops gating.
+- **A game appears by catalogue entry, not by code.** Add an entry (status `live` or `in-development`), its logo words and a tile theme (a class in `app/globals.css` drawn from the game's palette), and add its `build:demo` to `@triptown/site#build` in `turbo.json`. Flipping `status` to `in-development` takes a game off the site and out of the deployment.
+- **Games open as built.** Play links and logo tiles use each game's own look and default market, with no profile or skin override (user decision, 17 Sep 2026). That puts Candy art on an advert; the compliance note records it as a blocker for any public placement or promotion, so the site stays unindexed and B2B.
+- **The build refuses** win, skill, multiplier, RTP or success wording anywhere in `catalogue.ts` or `copy.ts`, a missing demo build or tile theme, and a wrong Triptych link. All visible copy lives in `src/copy.ts` so the check sees it.
+- **The site is unindexed** (`X-Robots-Tag: noindex` on every route) until an ARCON vetting route is chosen: it is an advert, and ARCON s.54 names the studio.
 
 Client compliance behaviour is verified by driving the real client, never by eye: `node packages/crash-client/scripts/presentation-check.mjs` (no win cues at or below the stake) and `node packages/crash-client/scripts/timing-check.mjs --profile <name> --min-ms <gap>` (minimum gap between rounds, and no hold-to-repeat). Both must pass for every active profile before a release.
 

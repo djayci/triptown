@@ -1,86 +1,138 @@
 ## Purpose
 
-Defines the Triptown studio site: the single entry point that shows each game in the catalogue and opens a playable, play-money demo. As marketing for real-money gambling products, it must stay adult-facing, B2B and free of child-appealing or promotional gambling content.
+Defines the Triptown studio site: the single entry point that shows each game in the catalogue and, only after the visitor confirms they are 18 or over, opens a play-money demo. As marketing for real-money gambling products, it must stay adult-facing, B2B and free of promotional gambling claims.
 
 ## ADDED Requirements
 
 ### Requirement: One catalogue drives the site
-The site SHALL render its games from a single catalogue. Each entry MUST give a unique slug, a display name, a one-line description, a status of `live` or `in-development`, a tile image and the demo query the game opens with. No game SHALL appear on the site except through a catalogue entry, and adding a game SHALL NOT require editing any shared package.
+The site SHALL render its games from a single catalogue. Each entry MUST have:
+- a unique slug;
+- a display name;
+- a one-line description;
+- a status of `live` or `in-development`;
+- the two words of the game's logo, and for a live game its tile theme;
+- the demo query the game opens with.
+
+No game SHALL appear on the site except through a catalogue entry, and adding a game SHALL NOT require editing any shared package.
 
 #### Scenario: Games rendered from the catalogue
-- **WHEN** the catalogue holds Whack Crash and Gate Rush as `live`
-- **THEN** the site shows exactly those two game cards, in catalogue order, each with its name, description and tile
+- **WHEN** the catalogue holds Whack Crash and Gate Rush as `live` and The Cable Car as `in-development`
+- **THEN** the confirmed site shows those three rows in catalogue order, each with its name, description and logo tile (or a no-signal placeholder for The Cable Car)
 
 #### Scenario: Duplicate slug
 - **WHEN** two catalogue entries share a slug
 - **THEN** the site build fails and names the duplicate slug
 
+### Requirement: No play without the 18+ confirmation
+The site SHALL ask the visitor whether they are 18 or over before any game can be opened and before it serves any demo. Until the visitor confirms, the games SHALL be shown greyed out and inert: no Play link, no link under `/play/`, nothing clickable or focusable in the row. It SHALL grant access only when the visitor explicitly confirms. The server MUST refuse every request under `/play/` from a visitor who has not confirmed in the current browser session, redirecting to the gate without serving any of the demo's files. This covers:
+- the demo page;
+- its scripts;
+- its images, atlases and audio.
+
+A visitor who declines, ignores the question or arrives by a direct link MUST NOT be able to load a demo. The confirmation SHALL last for the browser session only.
+
+#### Scenario: First visit
+- **WHEN** a visitor opens the site with no confirmation
+- **THEN** the page shows the studio name, the B2B statement and the 18+ question, and the game rows greyed out with "Confirm 18+ to play" in place of a Play link, and contains no link under `/play/`
+
+#### Scenario: Clicking a greyed-out game
+- **WHEN** a visitor who has not confirmed clicks a greyed-out game row
+- **THEN** nothing happens and no demo is requested
+
+#### Scenario: Visitor confirms
+- **WHEN** the visitor taps "YES, 18+"
+- **THEN** the game rows are shown in full colour with their Play links, and following a Play link loads the demo
+
+#### Scenario: Visitor declines
+- **WHEN** the visitor taps "NO"
+- **THEN** the site shows a short exit message, grants no access, keeps the games greyed out, and the page contains no link under `/play/`
+
+#### Scenario: Direct link without confirmation
+- **WHEN** a browser with no confirmation requests `/play/gate/index.html` or any file under `/play/gate/`
+- **THEN** the server responds with a redirect to the gate, the response carries none of the file's content, and after confirming the visitor is returned to the demo they asked for
+
+#### Scenario: New browser session
+- **WHEN** a visitor who confirmed closes the browser and opens a `/play/` link later
+- **THEN** they are sent to the gate again
+
 ### Requirement: Every live game is playable from the site
-For each `live` entry, the site SHALL offer a play link that opens that game's demo build, served by the same deployment under `/play/<slug>/` with the entry's demo query. The demo MUST boot and show its round screen with no further setup. An `in-development` entry MUST NOT offer a play link.
+For each `live` entry, a confirmed visitor SHALL find a Play link that opens that game's demo build, served by the same deployment under `/play/<slug>/` with the entry's demo query. The demo MUST reach its betting screen with no further setup. An `in-development` entry MUST NOT offer a play link, and its files MUST NOT be deployed.
 
 #### Scenario: Play a live game
-- **WHEN** a visitor selects Play on the Gate Rush card
-- **THEN** the browser opens `/play/gate/` with the catalogue's demo query and the game reaches its betting screen with the DEMO label visible
+- **WHEN** a confirmed visitor selects Play demo on the Gate Rush row
+- **THEN** Gate Rush loads from `/play/gate/` with the catalogue's demo query and reaches its betting screen with the DEMO label visible
 
 #### Scenario: Game still in development
-- **WHEN** The Cable Car is listed as `in-development`
-- **THEN** its card, if shown, reads as coming soon and contains no link to a demo
+- **WHEN** The Cable Car is `in-development`
+- **THEN** its row reads "Coming soon" with no link, and no file exists under `/play/cable-car/`
 
 #### Scenario: Demo build missing
 - **WHEN** a `live` entry names a game whose demo build output does not exist at site build time
 - **THEN** the site build fails and names the game
 
 ### Requirement: Demos are play money only
-Every demo reached from the site SHALL run on the demo round service with play money, show its DEMO label, and never connect to a real wallet or the production API. The site MUST state, next to the games, that demos use play money, involve no real-money wagering and need no account.
+Every demo served by the site SHALL be that game's demo build, running on play money with its DEMO label. It MUST never reach a real wallet or the production API. Next to the games, the site MUST state that demos use play money, involve no real-money wagering and need no account.
 
 #### Scenario: Demo bundle has no production service
-- **WHEN** the deployed site serves `/play/<slug>/`
-- **THEN** the served game is its `build:demo` output, not its production build, and it makes no request to the production API
+- **WHEN** a confirmed visitor plays any demo
+- **THEN** the game makes no request to any origin other than the site's own
 
 #### Scenario: Play-money statement visible
-- **WHEN** a visitor views the game list at 390x844 or 1440x900
-- **THEN** the play-money statement is visible without scrolling past any game card
+- **WHEN** a confirmed visitor views the game list at 390x844 or 1440x900
+- **THEN** the play-money statement is visible above the first game row
 
-### Requirement: Adults only, before any game is shown
-The site SHALL ask the visitor to confirm they are 18 or over before it shows any game tile, description or play link, and SHALL say the site is intended for operators and industry partners. A visitor who declines MUST NOT be shown the games. The confirmation MAY be remembered for the visitor where browser storage is available, and the site MUST still work, asking again, where storage is blocked.
+### Requirement: Triptych attribution
+The site SHALL state that Triptown is powered by Triptych, both in the hero under the wordmark and in the footer, and each statement SHALL link to https://triptych-studio.com/.
 
-#### Scenario: First visit
-- **WHEN** a visitor opens the site for the first time
-- **THEN** only the studio name, the 18+ confirmation and the B2B statement are visible, and no tile or play link is present in the page
+#### Scenario: Attribution links
+- **WHEN** a visitor views the home page before or after confirming
+- **THEN** the hero reads "Triptown, proudly powered by Triptych" and the footer reads "Proudly powered by Triptych", and both "Triptych" links point to https://triptych-studio.com/
 
-#### Scenario: Visitor declines
-- **WHEN** a visitor answers that they are under 18
-- **THEN** the site shows a short exit message, and the page contains no game tile and no link under `/play/`
+### Requirement: Games open as built
+Each Play link SHALL open the game's demo exactly as that demo build boots on its own, in its own look and default market, with no profile or skin override added by the site. Each live game's tile SHALL show its logo in the game's own look: its HUD logo words, lettering, outline and colours, on a backdrop from its own scene. A tile MUST NOT show a multiplier, an amount or a result. The site's own visual design (outside the game previews) MUST NOT use cartoon mascots, children, cute animals or runner-game looks.
 
-#### Scenario: Storage blocked
-- **WHEN** browser storage throws on read or write
-- **THEN** the site asks for confirmation on each visit and otherwise works
+#### Scenario: Default look
+- **WHEN** a confirmed visitor opens Whack Crash or Gate Rush from the site
+- **THEN** the game boots in the same look and market as opening its demo build directly with no query string
 
-### Requirement: No child-appealing art
-Every tile, screenshot and default demo query on the site SHALL use the game's adult skin. The site's own visual design MUST NOT use cartoon mascots, children, cute animals or runner-game looks.
-
-#### Scenario: Default demo skin
-- **WHEN** a visitor opens any game from the site
-- **THEN** the game boots on its adult skin
-
-#### Scenario: Candy query rejected
-- **WHEN** a catalogue entry's demo query selects the candy skin, or selects a profile whose skin is candy without overriding it to adult
-- **THEN** the site build fails and names the entry
+#### Scenario: Tile matches the game
+- **WHEN** a confirmed visitor views the Whack Crash and Gate Rush rows
+- **THEN** each shows its logo sticker as the game's HUD draws it (words, Lilita One lettering, ink outline, sticker and word colours) on its own backdrop, and neither shows a number or a result
 
 ### Requirement: No promotional gambling claims
-Site copy SHALL describe what each game is and how it plays. It MUST NOT promise or suggest winnings, present gambling as a way to make money, claim that skill or timing affects the outcome, advertise a maximum multiplier or payout, or state an RTP figure. RTP, caps and rules are shown inside each game's rules screen, measured for its market.
+Site copy SHALL describe what each game is and how it plays. It MUST NOT:
+- promise or suggest winnings;
+- present gambling as a way to make money;
+- claim that skill or timing affects the outcome;
+- advertise a maximum multiplier or payout;
+- state an RTP figure.
 
 #### Scenario: Copy check
 - **WHEN** the site build runs over the catalogue and page copy
-- **THEN** it fails on banned wording, including win promises, "easy money", "guaranteed", skill or reflex claims, a multiplier boast such as "up to x1000", and any RTP percentage
+- **THEN** it fails on banned wording, including:
+  - win promises, "easy money" and "guaranteed";
+  - skill, reflex or timing claims;
+  - a multiplier boast such as "up to x1000";
+  - any RTP percentage.
+
+### Requirement: The wordmark barely moves
+The hero wordmark SHALL stay still except for a brief VHS-style distortion inside the letters. The distortion lasts no more than 400 ms, repeats no more often than every 4 seconds, and offsets thin horizontal slices by no more than 8 px. The wordmark MUST NOT translate, scale, fade in or show a reflection. Under `prefers-reduced-motion: reduce` it MUST be fully still.
+
+#### Scenario: Normal motion
+- **WHEN** the home page is open for 20 seconds with default motion settings
+- **THEN** the wordmark's position and size never change, and the distortion appears at most 5 times, each time for under 400 ms
+
+#### Scenario: Reduced motion
+- **WHEN** the visitor's system requests reduced motion
+- **THEN** no animation runs on the wordmark
 
 ### Requirement: Accessible and light on phones
-The site SHALL be usable at 390x844 and 1440x900 with no horizontal scroll, operable by keyboard, with every tile carrying alternative text and every play link a descriptive accessible name. It SHALL respect `prefers-reduced-motion` and MUST NOT load a game's bundle until that game is opened.
+The site SHALL be usable at 390x844 and 1440x900 with no horizontal scroll, and SHALL be operable by keyboard. Every logo tile SHALL carry an accessible name, and every Play link SHALL have a descriptive accessible name. The home page MUST NOT load any file under `/play/` until a game is opened.
 
-#### Scenario: Keyboard play
-- **WHEN** a keyboard user tabs through the confirmed site
+#### Scenario: Keyboard confirm and play
+- **WHEN** a keyboard user tabs to "YES, 18+", presses Enter, then tabs on
 - **THEN** focus reaches each Play link in catalogue order with a visible focus ring, and Enter opens that demo
 
-#### Scenario: No game code on the landing page
-- **WHEN** the site's landing page finishes loading
+#### Scenario: No game code on the home page
+- **WHEN** a confirmed visitor's home page finishes loading
 - **THEN** no request has been made for any file under `/play/`

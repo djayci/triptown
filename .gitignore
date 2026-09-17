@@ -10,5 +10,11 @@ coverage/
 .DS_Store
 dist-demo/
 
+# Next.js site: build output, and the demo builds copied in before each build
+.next/
+next-env.d.ts
+*.tsbuildinfo
+apps/site/public/play/
+
 # Compliance source snapshots (third-party documents, local reference only)
 docs/compliance/sources/*.txt

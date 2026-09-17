@@ -5,6 +5,14 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".vercel/output/**"]
     },
+    "build:demo": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist-demo/**"]
+    },
+    "@triptown/site#build": {
+      "dependsOn": ["^build", "@triptown/whack#build:demo", "@triptown/gate#build:demo"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
     "dev": {
       "cache": false,
       "persistent": true
