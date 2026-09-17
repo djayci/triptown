@@ -602,6 +602,14 @@ export class GateStage extends Container {
     gsap.to(s.scale, { x: 0.6 * this.u, y: 0.6 * this.u, duration: 0.12, yoyo: true, repeat: 1, onComplete: () => s.destroy() });
   }
 
+  /** A milestone: dust kicked up behind the running horse. Follows the multiplier only, like the rest of the ride. */
+  kick(size = 1): void {
+    if (this.mode !== 'out' || this.reduced || !this.effectsOn) return;
+    const x = (this.horseX - 70) * this.u;
+    this.puff(x, this.groundY(), size);
+    this.puff(x - 30 * this.u, this.groundY(), size * 0.7);
+  }
+
   private puff(x: number, y: number, size: number): void {
     const s = new Sprite(this.frames('dust'));
     s.anchor.set(0.5, 1);

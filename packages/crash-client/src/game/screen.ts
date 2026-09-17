@@ -1,4 +1,4 @@
-import { Container, Graphics, type Application, type Texture } from 'pixi.js';
+import { Container, Graphics, type Application, type Text, type Texture } from 'pixi.js';
 import type { ResultKind } from '@triptown/core';
 import { prefersReducedMotion, type GameApp } from '@triptown/engine';
 import { t } from '../i18n';
@@ -123,6 +123,11 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
   readonly history = new HistoryStrip(W - PAD * 2);
 
   private readonly mult = text('x1.00', displayStyle(88, COLORS.sun, 6, 7), [0.5, 0]);
+  /**
+   * A layer for a game's own effects around the multiplier (milestone badges, flying numbers). It sits above
+   * the live values and below the result card, the stake row and the button, so no effect can hide those.
+   */
+  protected readonly effects = new Container();
   private readonly payout = text('', displayStyle(34, COLORS.lime, 4, 4), [0.5, 0]);
   // Read on a dark stage at arm's length, and clear of the payout's drop shadow.
   private readonly payoutLabel = text('', bodyStyle(13, onStage()), [0.5, 0]);
@@ -222,6 +227,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
       this.payout,
       this.payoutLabel,
       this.revealChance,
+      this.effects,
       this.counter,
       this.demoBadge,
       this.resultCard,
@@ -530,9 +536,14 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     if (counter !== null) this.counterValue.text = counter;
   }
 
-  checkpoint(): void {}
+  /** The multiplier text, for a game that animates it (a pop or a tier colour). Its text belongs to the screen. */
+  protected get multiplierText(): Text {
+    return this.mult;
+  }
 
-  miniCheckpoint(): void {}
+  checkpoint(_value: number, _label: string): void {}
+
+  miniCheckpoint(_label: string): void {}
 
   boost(_percent: number, to: string): void {
     this.mult.text = to;
