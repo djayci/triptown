@@ -157,9 +157,9 @@ export class GateStage extends Container {
     this.latch.anchor.set(0.5);
     this.barn.anchor.set(0, 1);
 
-    // The horse lives in the yard's layer so it can pass between the doors: in front of the right door,
-    // behind the left door, and behind both posts and the latch, going out and coming back.
-    this.yard.addChild(this.barn, this.panels[1], this.horse, this.posts[0], this.panels[0], this.posts[1], this.latch);
+    // The horse lives in the yard's layer so it can pass through the gate: in front of the right door and
+    // the right post, behind the left door and the left post, going out and coming back.
+    this.yard.addChild(this.barn, this.panels[1], this.posts[1], this.horse, this.posts[0], this.panels[0], this.latch);
     // Back to front: sky, beams, lights, crowd, turf, rail, yard (barn, gate and the horse), dust, tint.
     this.addChild(
       this.sky,
@@ -288,7 +288,8 @@ export class GateStage extends Container {
         this.setClip(false);
       },
     });
-    gsap.to(this.yard, { x: yardX, duration: 0.9, delay: OPEN_SECONDS + 0.5, ease: 'power1.in' });
+    // The gate leaves as soon as the horse is through, so it is gone by the time the horse is running.
+    gsap.to(this.yard, { x: yardX, duration: 0.7, delay: OPEN_SECONDS * 0.75, ease: 'power2.in' });
   }
 
   /**
