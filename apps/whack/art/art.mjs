@@ -58,6 +58,14 @@ function mole(kind, face) {
   } else if (face === 'shock') {
     eyes = `<circle cx="78" cy="98" r="14" fill="#fff" stroke="${INK}" stroke-width="4"/><circle cx="122" cy="98" r="14" fill="#fff" stroke="${INK}" stroke-width="4"/><circle cx="78" cy="100" r="4" fill="${INK}"/><circle cx="122" cy="100" r="4" fill="${INK}"/>`;
     mouth = `<ellipse cx="100" cy="152" rx="9" ry="11" fill="#5a1630" stroke="${INK}" stroke-width="4"/>`;
+  } else if (face === 'glad') {
+    // The good mole must read as good news at a glance, and it is drawn small in a background hole.
+    // Closed, upturned eyes and a wide grin carry at that size; the dot eyes of 'happy' read as neutral
+    // next to the bad mole's heavy brow, which is the whole reason the pair is there.
+    eyes = `<path d="M64 104 Q78 88 92 104" fill="none" stroke="${INK}" stroke-width="6" stroke-linecap="round"/><path d="M108 104 Q122 88 136 104" fill="none" stroke="${INK}" stroke-width="6" stroke-linecap="round"/>`;
+    mouth =
+      `<path d="M76 141 q24 26 48 0" fill="none" stroke="${INK}" stroke-width="6" stroke-linecap="round"/>` +
+      (SKIN.teeth ? `<rect x="92" y="141" width="16" height="12" rx="2" fill="#fff" stroke="${INK}" stroke-width="4"/>` : '');
   } else if (face === 'smug') {
     // Escaping mole: one eye winking, a pleased grin. The mole won this round, and shows it.
     eyes = `<path d="M66 102 Q78 92 90 102" fill="none" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><circle cx="122" cy="100" r="9" fill="${INK}"/><circle cx="125" cy="97" r="3" fill="#fff"/>`;
@@ -143,7 +151,7 @@ export function buildSprites() {
     'mole-gold-sleep': mole('gold', 'sleep'),
     'mole-gold-smug': mole('gold', 'smug'),
     'mole-bad-angry': mole('bad', 'angry'),
-    'mole-good-happy': mole('good', 'happy'),
+    'mole-good-happy': mole('good', 'glad'),
     'mole-decoy-happy': mole('decoy', 'happy'),
     'mole-decoy-shock': mole('decoy', 'shock'),
     'mole-decoy-sleep': mole('decoy', 'sleep'),

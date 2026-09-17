@@ -579,17 +579,20 @@ export class GameView extends CrashViewBase implements CrashView {
         ? t('result.returnedEven', { amount: payout })
         : t('result.returnedBelow', { amount: payout, net });
     this.layoutResultCard();
+    // The card covers the mole, so on a win it waits for the blow to land instead of hiding it.
     this.resultCard.visible = true;
     this.resultCard.scale.set(0.3);
-    gsap.to(this.resultCard.scale, { x: 1, y: 1, duration: 0.4, ease: 'back.out(2.2)' });
+    gsap.to(this.resultCard.scale, { x: 1, y: 1, duration: 0.4, delay: celebrate ? 0.22 : 0, ease: 'back.out(2.2)' });
     // Confetti and the BONK sticker are part of the arcade look; the adult skin has neither.
     if (celebrate) this.swingHammer(true);
     if (celebrate && SKIN !== 'adult') {
       this.stars();
       const hole = this.holeRect();
-      const bonk = new Burst(this.frames('burst-sky'), 92, t('result.bonk'), 20);
-      bonk.position.set(hole.x + hole.w * 0.82, hole.y + hole.h * 0.2);
-      bonk.rotation = -0.25;
+      // Sits across the mole's shoulder like a ribbon, overlapping it, rather than floating in the
+      // space beside the hole where it read as unrelated to the hit it is marking.
+      const bonk = new Burst(this.frames('burst-sky'), Math.max(78, hole.w * 0.34), t('result.bonk'), 20);
+      bonk.position.set(hole.x + hole.w * 0.28, hole.y + hole.h * 0.32);
+      bonk.rotation = 0.34;
       this.fx.addChild(bonk);
       this.trackFx(pop(bonk, 1.3, 0.3));
       if (this.intensityEffects) {
@@ -1044,18 +1047,36 @@ export class GameView extends CrashViewBase implements CrashView {
    */
   private swingHammer(impact = false) {
     const hole = this.holeRect();
+    // Swung from off the top-right of the stage, not conjured beside the mole. The old version pivoted
+    // about a point in mid-air with nothing holding it, appeared already in frame and vanished in place,
+    // so it read as a floating mallet. The grip now sits outside the stage, the handle reaches in, and
+    // the swing both enters and leaves through the same arc.
+    const grip = { x: hole.x + hole.w * 1.18, y: hole.y - hole.h * 0.55 };
+    const contact = { x: hole.x + hole.w * 0.5, y: hole.y + hole.h * 0.28 };
+    const dx = contact.x - grip.x;
+    const dy = contact.y - grip.y;
+    const reach = Math.hypot(dx, dy);
+    // Angle that points the handle (local +y) straight at the mole.
+    const down = Math.atan2(-dx, dy);
+    const headH = Math.max(34, hole.w * 0.16);
+    const headW = headH * 1.9;
+    const grap = Math.max(10, hole.w * 0.05);
+
     const hammer = new Graphics()
-      .roundRect(-7, -10, 14, 110, 6).fill(0xc98a55).stroke({ width: 4, color: COLORS.ink })
-      .roundRect(-40, -44, 80, 44, 12).fill(COLORS.pink).stroke({ width: 5, color: COLORS.ink })
-      .roundRect(-40, -44, 18, 44, 8).fill(COLORS.cream).stroke({ width: 4, color: COLORS.ink });
-    hammer.pivot.set(0, 100);
-    hammer.position.set(hole.x + hole.w * 0.78, hole.y + hole.h * 0.28);
-    hammer.rotation = 0.9;
+      .roundRect(-grap / 2, 0, grap, reach, grap / 2).fill(0xc98a55).stroke({ width: 4, color: COLORS.ink })
+      .roundRect(-headW / 2, reach - headH * 0.5, headW, headH, headH * 0.28).fill(COLORS.pink).stroke({ width: 5, color: COLORS.ink })
+      .roundRect(-headW / 2, reach - headH * 0.5, headW * 0.22, headH, headH * 0.2).fill(COLORS.cream).stroke({ width: 4, color: COLORS.ink });
+    hammer.position.set(grip.x, grip.y);
+    // Raised back over the shoulder, off the edge of the stage.
+    const raised = down - 1.25;
+    // A miss stops short of the mole: contact belongs to the settled result, not the optimistic swing.
+    const lands = impact ? down : down - 0.16;
+    hammer.rotation = raised;
     this.fx.addChild(hammer);
     this.trackFx(gsap.timeline({ onComplete: () => hammer.destroy() }))
-      .to(hammer, { rotation: impact ? -0.72 : -0.55, duration: 0.09, ease: 'power3.in' })
-      .to(hammer, { rotation: -0.3, duration: 0.12, ease: 'power2.out' })
-      .to(hammer, { alpha: 0, duration: 0.2, delay: 0.25 });
+      .to(hammer, { rotation: lands, duration: 0.11, ease: 'power3.in' })
+      .to(hammer, { rotation: lands - 0.18, duration: 0.1, ease: 'power2.out' })
+      .to(hammer, { rotation: raised, duration: 0.24, delay: 0.12, ease: 'power2.inOut' });
     if (impact) {
       // The mole takes the hit: a short squash on contact, in time with the swing's downstroke.
       this.trackFx(pop(this.mainHole, 0.88, 0.16));
