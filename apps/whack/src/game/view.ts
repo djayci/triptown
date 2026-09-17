@@ -655,7 +655,9 @@ export class GameView extends CrashViewBase implements CrashView {
       this.mainHole.setFrame(this.frames, 'mole-gold-happy');
       this.mainHole.riseTo(RISE_HIDDEN, 0.1);
       this.bustBurst.visible = true;
-      this.bustBurst.position.set(w / 2, hole.y + hole.h * 0.55);
+      // Above the hole, clear of the amount lost that sits on its mouth. The two used to overlap, so
+      // the chip cut the burst in half and neither read properly.
+      this.bustBurst.position.set(w / 2, hole.y + hole.h * 0.06);
       this.bustBurst.scale.set(0.2);
       gsap.to(this.bustBurst.scale, { x: 1, y: 1, duration: 0.35, ease: 'back.out(3)' });
       this.escaped.set(t('result.instantBust'));
