@@ -401,8 +401,12 @@ export class GameView extends CrashViewBase implements CrashView {
     pop(this.mult, 1.22, 0.24);
 
     const badge = new Burst(this.frames(value >= 10 ? 'burst-gold' : 'burst-sky'), 84, label, 26);
-    // Below the multiplier and clear of the side buttons, so nothing important is covered.
-    badge.position.set(this.stage.size.width - 78, this.mult.y + this.mult.height + 18);
+    // Anchored to the multiplier, not the stage edge: the number is centred, so a badge pinned to the
+    // right edge sat a whole stage-width away on desktop and read as unrelated to the value it marks.
+    // Clamped so a long multiplier cannot push it off the stage. The side buttons are hidden mid-round.
+    const desktop = this.layout === 'desktop';
+    const beside = this.mult.x + this.mult.width / 2 + (desktop ? 58 : 38);
+    badge.position.set(Math.min(beside, this.stage.size.width - 56), this.mult.y + this.mult.height * 0.42);
     badge.scale.set(0.2);
     this.fx.addChild(badge);
     this.trackFx(gsap.timeline({ onComplete: () => badge.destroy({ children: true }) }))
@@ -711,24 +715,27 @@ export class GameView extends CrashViewBase implements CrashView {
     this.designH = desktop ? design.h : Math.min(1000, Math.max(680, Math.round(height / scale)));
     this.root.scale.set(scale);
     this.root.position.set((width - design.w * scale) / 2, (height - this.designH * scale) / 2);
-    this.sharpenText(scale);
     this.relayout(false);
   }
 
   /**
-   * Pixi rasterises a `Text` once at the renderer resolution, and the root container then scales it.
-   * Desktop lays out a 1440-wide design into a wider window, so every label was being stretched from a
-   * 1x bitmap and read soft next to the multiplier, which is a `BitmapText` baked at a large size. Re-
-   * rasterise text at the size it is actually displayed at. Capped so a very large window cannot ask
-   * for enormous glyph textures.
+   * Pixi rasterises a `Text` once at the renderer resolution, and its ancestors then scale it. Desktop
+   * scales the root to fit the window AND scales some containers again on top (the READY block is 1.6x),
+   * so a label could end up stretched from a bitmap less than half the size it is drawn at, reading soft
+   * next to the multiplier, which is a `BitmapText` baked large. Accumulate the real world scale down the
+   * tree and re-rasterise each text at the size it is actually displayed. Capped so a large window
+   * cannot ask for enormous glyph textures.
    */
-  private sharpenText(scale: number) {
-    const target = Math.min(4, Math.max(1, this.game.app.renderer.resolution * scale));
-    const walk = (node: Container) => {
-      if (node instanceof Text && node.resolution !== target) node.resolution = target;
-      for (const child of node.children) walk(child as Container);
+  private sharpenText() {
+    const walk = (node: Container, scale: number) => {
+      const here = scale * Math.abs(node.scale.x || 1);
+      if (node instanceof Text) {
+        const target = Math.min(4, Math.max(1, here));
+        if (node.resolution !== target) node.resolution = target;
+      }
+      for (const child of node.children) walk(child as Container, here);
     };
-    walk(this.root);
+    walk(this.root, this.game.app.renderer.resolution);
   }
 
   /** Positions everything for the current layout and phase. */
@@ -793,6 +800,8 @@ export class GameView extends CrashViewBase implements CrashView {
       }
     }
     this.relayoutHeader();
+    // Last: every container scale is now final, so text rasterises at its true on-screen size.
+    this.sharpenText();
   }
 
   private relayoutHeader() {
