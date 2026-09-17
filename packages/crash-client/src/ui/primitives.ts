@@ -179,9 +179,22 @@ export class StickerButton extends Container {
     const { width: w, height: h } = this.opts;
     const iconSize = this.iconSprite?.visible ? (this.opts.iconSize ?? Math.round((this.opts.labelSize ?? 44) * 0.8)) : 0;
     const gap = iconSize ? 14 : 0;
+    // Shrink a label that does not fit rather than letting it run past both edges. The button's width is
+    // fixed by the layout but its text is not: "INSUFFICIENT BALANCE" is three times the width of "BET".
+    const room = w - iconSize - gap - 24;
+    const base = this.opts.labelSize ?? 44;
+    if (room > 0 && this.labelText.width > room) {
+      const fitted = Math.max(12, Math.floor((base * room) / this.labelText.width));
+      if (this.labelText.style.fontSize !== fitted) this.labelText.style.fontSize = fitted;
+    } else if (this.labelText.style.fontSize !== base) {
+      this.labelText.style.fontSize = base;
+    }
+    // The measured width includes the drop shadow, which extends only to the right, so centring on it
+    // pushes every label half a shadow off-centre.
+    const SHADOW = 4;
     const textW = Math.max(this.labelText.width, this.subText?.width ?? 0);
     const total = iconSize + gap + textW;
-    let x = (w - total) / 2;
+    let x = (w - total) / 2 - SHADOW / 2;
     if (this.iconSprite?.visible) {
       this.iconSprite.width = this.iconSprite.height = iconSize;
       this.iconSprite.position.set(x, h / 2 - iconSize / 2);

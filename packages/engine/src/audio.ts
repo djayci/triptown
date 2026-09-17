@@ -241,10 +241,13 @@ export class AudioManager {
 
   get musicLayerTargets(): { base: number; drums: number; lead: number } {
     const m = this.ducked ? Math.min(0.08, this.settings.music) : this.settings.music;
+    // Each layer sits under the one below it. At equal gain a layer arriving is a step up in loudness
+    // rather than a change of texture, which is what made the third stem read as a sound effect firing
+    // mid-round instead of the music filling out.
     return {
       base: m,
-      drums: this.intensity >= 1 ? m : 0,
-      lead: this.intensity >= 2 ? m : 0,
+      drums: this.intensity >= 1 ? m * 0.72 : 0,
+      lead: this.intensity >= 2 ? m * 0.55 : 0,
     };
   }
 
