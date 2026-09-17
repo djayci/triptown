@@ -624,7 +624,7 @@ export class GameView extends CrashViewBase implements CrashView {
         bonk.scale.set(0.12);
         this.fx.addChild(bonk);
         this.trackFx(gsap.to(bonk.scale, { x: 1, y: 1, duration: 0.24, ease: 'back.out(3)' }));
-        this.trackFx(gsap.to(bonk, { x: hit.x + hole.w * 0.2, y: hit.y - hole.h * 0.13, duration: 0.24, ease: 'power2.out' }));
+        this.trackFx(gsap.to(bonk, { x: hit.x + hole.w * 0.07, y: hit.y - hole.h * 0.06, duration: 0.24, ease: 'power2.out' }));
         if (this.intensityEffects) {
           this.confetti.burst({ x: this.stage.size.width / 2, y: this.stage.size.height * 0.75, count: big ? 120 : 60, speed: big ? 1300 : 950 });
         }
