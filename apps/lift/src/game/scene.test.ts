@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { intensityFor, scrollSpeed } from './scene';
+import { ZONES, floorFor, intensityFor, scrollSpeed, zoneFor } from './scene';
+import { t } from '../i18n/en';
 
 // The rule this file exists to protect: the scene may read the multiplier and nothing else.
 // A scene that quickened as the end approached would be an advance warning, and there are no
@@ -31,5 +32,37 @@ describe('ascent intensity', () => {
     expect(new Set(off).size).toBe(1);
     // and the escalation only exists when the profile allows it
     expect(scrollSpeed(10, true)).toBeGreaterThan(scrollSpeed(10, false));
+  });
+});
+
+describe('building zones', () => {
+  it('are a function of the multiplier alone, so two rounds at the same value look the same', () => {
+    // The same value must give the same place in the building whatever the crash time, or the
+    // scenery would be telling the player something about the outcome.
+    for (const m of [1, 1.49, 1.5, 2.99, 3, 5.99, 6, 11.99, 12, 24.99, 25, 500]) {
+      expect(zoneFor(m)).toBe(zoneFor(m));
+      expect(zoneFor(m).from).toBeLessThanOrEqual(m);
+    }
+  });
+
+  it('never goes back down as the value climbs', () => {
+    let last = -1;
+    for (let m = 1; m <= 60; m += 0.01) {
+      const from = zoneFor(m).from;
+      expect(from).toBeGreaterThanOrEqual(last);
+      last = from;
+    }
+  });
+
+  it('names every zone through the catalogue rather than in the scene', () => {
+    // A hardcoded zone name would be a player-facing string that no market could translate and no
+    // reviewer would see in the catalogue (GLI-19 4.4.1, PT R7 language).
+    for (const z of ZONES) expect(t(z.key)).not.toBe(z.key);
+  });
+
+  it('puts the floor number above the lobby only once the value has climbed', () => {
+    expect(floorFor(1)).toBe(0);
+    expect(floorFor(2)).toBe(10);
+    expect(floorFor(0.4)).toBe(0);
   });
 });
