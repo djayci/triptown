@@ -2,6 +2,17 @@ import type { RoundService } from '@triptown/rgs-client';
 
 export const DEMO = import.meta.env.VITE_DEMO === 'true';
 
+/**
+ * Starting stake for a demo build, from `?bet=`, so the shared compliance checks can play at the
+ * market's minimum. Never read in production: the operator sets the stake there.
+ */
+export function demoBetMinor(): number | undefined {
+  if (!DEMO) return undefined;
+  const raw = new URLSearchParams(location.search).get('bet');
+  const minor = raw === null ? NaN : Number(raw);
+  return Number.isInteger(minor) && minor > 0 ? minor : undefined;
+}
+
 /** Picks the round backend. The mock is only reachable in demo builds, so production bundles drop it. */
 export async function createRoundService(): Promise<RoundService> {
   if (import.meta.env.VITE_DEMO === 'true') {

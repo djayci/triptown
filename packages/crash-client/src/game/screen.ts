@@ -77,7 +77,8 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
 
   private readonly counter = new Container();
   private readonly counterBg = new Graphics();
-  private readonly counterValue = text('0', bodyStyle(15), [0, 0]);
+  private readonly counterValue = text('0', bodyStyle(15), [1, 0]);
+  private readonly counterCaption = text('', labelStyle(10), [0, 0]);
 
   private readonly resultCard = new Container();
   private readonly resultBg = new Graphics();
@@ -119,11 +120,12 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
       a11y: t('button.bet', { amount: '' }),
     });
 
-    this.demoBadge.addChild(this.demoBg, text('DEMO', labelStyle(11, COLORS.cream), [0.5, 0.5]));
+    this.demoBadge.addChild(this.demoBg, text(t('label.demo'), labelStyle(11, COLORS.cream), [0.5, 0.5]));
     this.demoBadge.visible = false;
 
     if (words.counterLabel) {
-      this.counter.addChild(this.counterBg, text(words.counterLabel, labelStyle(10), [0, 0]), this.counterValue);
+      this.counterCaption.text = words.counterLabel;
+      this.counter.addChild(this.counterBg, this.counterCaption, this.counterValue);
     }
     this.resultCard.addChild(this.resultBg, this.resultTitle, this.resultLine);
     this.resultCard.visible = false;
@@ -182,7 +184,11 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     this.counter.position.set(W / 2 - 46, 312);
     this.counterBg.clear();
     drawSticker(this.counterBg, 92, 28, { fill: COLORS.cream, radius: 8, border: 3, shadow: 3 });
-    this.counterValue.position.set(54, 6);
+    // Both sit inside the 92x28 sticker: caption left, value right-aligned against the inner edge.
+    // The caption used to be added at the container origin and never positioned, so its first letter
+    // fell outside the box.
+    this.counterCaption.position.set(11, 9);
+    this.counterValue.position.set(81, 5);
 
     this.resultCard.position.set(28, 360);
     this.resultTitle.position.set((W - 56) / 2, 20);
@@ -283,6 +289,11 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     this.resultLine.text = `${multiplier} · ${line}${withholding}`;
     this.card(celebrate ? COLORS.lime : COLORS.violet);
     this.resultCard.visible = true;
+    // The big value becomes the SETTLED return, not the last animated frame, so the figure on screen
+    // is the one actually paid (UK RTS 7E, AGCO 4.15). The live caption goes: it said "collect now".
+    this.payout.text = line;
+    this.payout.style.fill = celebrate ? COLORS.lime : COLORS.cream;
+    this.payoutLabel.text = '';
     this.replay(celebrate);
   }
 
@@ -293,6 +304,12 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     this.card(COLORS.violet);
     this.resultCard.visible = true;
     this.mult.text = multiplier;
+    // Nothing was won, so the live payout must not survive the crash. It used to: a lost round kept
+    // the last animated figure in green above the result card, which reads as the amount the player
+    // would have collected — the near-miss framing that is banned outright (AGCO 2.15, GLI §4.6.1(a),
+    // RTS 7C), and a false statement of winnings besides.
+    this.payout.text = '';
+    this.payoutLabel.text = '';
     this.stage.onCrash();
     this.replay(false);
   }

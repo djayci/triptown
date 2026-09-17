@@ -1,0 +1,48 @@
+{
+  "url": "http://localhost:5175",
+  "date": "2026-09-17T10:26:39.101Z",
+  "profile": {
+    "belowStake": true,
+    "even": true,
+    "why": "profile light: setbacks on, minimum cash-out none"
+  },
+  "audioCues": "none",
+  "results": [
+    {
+      "case": "win above stake",
+      "expect": "win",
+      "kind": "win",
+      "celebrated": true,
+      "shakes": 0,
+      "audio": [],
+      "pass": true
+    },
+    {
+      "case": "return below stake after a setback",
+      "expect": "not-win",
+      "kind": "loss",
+      "celebrated": false,
+      "shakes": 0,
+      "audio": [],
+      "pass": true
+    },
+    {
+      "case": "even return at x1.00",
+      "expect": "not-win",
+      "kind": "even",
+      "celebrated": false,
+      "shakes": 0,
+      "audio": [],
+      "pass": true
+    },
+    {
+      "case": "crash",
+      "expect": "not-win",
+      "kind": "loss",
+      "celebrated": false,
+      "shakes": 0,
+      "audio": [],
+      "pass": true
+    }
+  ]
+}

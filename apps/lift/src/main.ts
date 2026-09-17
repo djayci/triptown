@@ -16,7 +16,7 @@ import bands from '@triptown/fairness/reports/bands.json';
 import type { BandsByConfig } from '@triptown/fairness';
 import { t } from './i18n/en';
 import { LiftView } from './game/view';
-import { createRoundService, DEMO } from './services';
+import { createRoundService, demoBetMinor, DEMO } from './services';
 
 // The shared client renders this game's words through whatever translator it is given.
 setTranslator(t);
@@ -45,6 +45,7 @@ async function boot() {
   const controller = new GameController(game, frames, service, null, (app, f, cb) => new LiftView(app, f, cb), {
     collectSfx: 'collect',
     clientVersion: __APP_VERSION__,
+    initialBetMinor: demoBetMinor(),
     onFairness: () => void fairness?.open(),
     onRules: () => rules?.open(),
     onHistory: () => void history?.open(),
@@ -78,6 +79,10 @@ async function boot() {
   // Dev hooks for the shared compliance checks. Demo builds only, never production.
   if (DEMO) {
     const w = window as unknown as Record<string, unknown>;
+    // The Lift ships no audio, so this log is empty by construction rather than by accident. It is
+    // still exposed, because the shared check treats a missing hook as a build it cannot judge —
+    // and reports a game with no cue channel as such, so an empty log is never read as proof.
+    w.__triptownAudioLog = [];
     w.__triptownView = () => controller.debugState();
   }
 

@@ -4,8 +4,23 @@
 import { writeFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 
+const KNOWN = new Set(['url', 'profile', 'out']);
+// Parse strictly: a malformed invocation must stop the run, never silently produce a result for
+// options that were never applied. An unquoted "$pf" in a zsh loop arrives as ONE argv entry
+// ("--profile ng-draft"), which shifts every later pair — a run labelled as a regulated market then
+// quietly measured the default profile at the default gap and reported PASS.
 const args = new Map();
-for (let i = 2; i < process.argv.length; i += 2) args.set(process.argv[i].replace(/^--/, ''), process.argv[i + 1]);
+for (let i = 2; i < process.argv.length; i += 2) {
+  const flag = process.argv[i];
+  const value = process.argv[i + 1];
+  if (!flag.startsWith('--') || flag.includes(' ')) {
+    throw new Error(`bad argument ${JSON.stringify(flag)} — expected --flag value pairs (quote values containing spaces)`);
+  }
+  const key = flag.slice(2);
+  if (!KNOWN.has(key)) throw new Error(`unknown option --${key}; known: ${[...KNOWN].join(', ')}`);
+  if (value === undefined) throw new Error(`--${key} needs a value`);
+  args.set(key, value);
+}
 const url = args.get('url') ?? 'http://localhost:5173';
 const profile = args.get('profile');
 /** Keeps any query already on --url (e.g. ?profile=regulated-uk) and adds the scenario. */
@@ -65,7 +80,17 @@ async function play(force, when, ms = 0, betMinor) {
     const log = window.__triptownAudioLog;
     if (log) log.length = 0;
   });
-  await page.mouse.click(195, 783);
+  // A market with a long minimum gap (Nigeria's 5 s) may still be counting down when the first press
+  // lands, and that press is correctly refused. Press again as a player would until the round is
+  // actually running, rather than reading a refused press as a client that cannot start a round.
+  for (let i = 0; i < 8; i++) {
+    await page.mouse.click(195, 783);
+    const started = await page
+      .waitForFunction(() => window.__triptownView?.().phase !== 'betting', null, { timeout: 1500 })
+      .then(() => true)
+      .catch(() => false);
+    if (started) break;
+  }
   if (when === 'time') {
     await page.waitForTimeout(ms);
     await page.mouse.click(195, 783);
@@ -154,18 +179,28 @@ for (const c of cases) {
     results.push({ name: c.name, status: 'unreachable', why: can.why });
     continue;
   }
-  const state = await play(c.force, c.when, c.ms, c.betMinor);
-  assertObservable(state, c.name);
-  // A rounding-dependent case that did not actually land on its outcome proves nothing about the
-  // rule, so say so rather than bank a pass that only shows the stake was too large.
+  // An even return is a race: it needs a fast collect whose rounded payout lands back on the stake,
+  // and on a profile with setbacks a setback can land inside that window and make it a loss instead.
+  // Retry a bounded number of times rather than either failing on the first miss or, worse, banking
+  // a pass from a round that never produced an at-stake return and so never exercised the rule.
+  const attempts = c.needs === 'even' ? 8 : 1;
+  let state = null;
+  let landed = 0;
+  for (let i = 0; i < attempts; i++) {
+    state = await play(c.force, c.when, c.ms, c.betMinor);
+    assertObservable(state, c.name);
+    landed = i + 1;
+    if (c.needs !== 'even' || state.view?.resultKind === 'even') break;
+  }
   if (c.needs === 'even' && state.view?.resultKind !== 'even') {
     console.error(
-      `FAIL  ${c.name}: settled as ${state.view?.resultKind} at stake ${state.view?.betMinor} minor, ` +
-        `so no at-stake return was produced and the celebration rule was never exercised.`,
+      `FAIL  ${c.name}: ${attempts} attempts at stake ${state.view?.betMinor} minor never produced an ` +
+        `at-stake return (last settled ${state.view?.resultKind}), so the celebration rule was never exercised.`,
     );
-    results.push({ case: c.name, expect: c.expect, kind: state.view?.resultKind, pass: false });
+    results.push({ case: c.name, expect: c.expect, kind: state.view?.resultKind, attempts, pass: false });
     continue;
   }
+  if (c.needs === 'even') console.info(`  (even return landed on attempt ${landed} of ${attempts})`);
   // Emphasis is not only sound and confetti: a screen shake on a return at or below the stake reads
   // as celebration just as clearly, and was reaching losing rounds through the cash-out hammer.
   const shakes = state.view?.shakes ?? 0;

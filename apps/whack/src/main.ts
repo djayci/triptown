@@ -11,7 +11,7 @@ import { GameController, setTranslator, useSkin } from '@triptown/crash-client';
 import { t } from './i18n/en';
 import bands from '@triptown/fairness/reports/bands.json';
 import type { BandsByConfig } from '@triptown/fairness';
-import { createRoundService } from './services';
+import { createRoundService, demoBetMinor } from './services';
 import { GameView } from './game/view';
 
 // The shared client renders this game's words through whatever translator it is given.
@@ -52,6 +52,7 @@ async function boot() {
   const controller = new GameController(game, frames, service, audio, (app, f, cb) => new GameView(app, f, cb), {
     collectSfx: 'whack',
     clientVersion: __APP_VERSION__,
+    initialBetMinor: demoBetMinor(),
     onFairness: () => void fairness?.open(),
     onRules: () => rules?.open(),
     onHistory: () => void history?.open(),

@@ -21,6 +21,8 @@ export const EN = {
   'button.wait': 'WAIT {seconds}s',
   'button.waitSub': 'Next round',
 
+  'label.demo': 'DEMO',
+
   'label.balance': 'Balance',
   'label.session': 'Session',
   'label.net': 'Net',

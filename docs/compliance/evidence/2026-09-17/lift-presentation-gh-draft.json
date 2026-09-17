@@ -1,0 +1,40 @@
+{
+  "url": "http://localhost:5175",
+  "date": "2026-09-17T10:27:52.516Z",
+  "profile": {
+    "belowStake": false,
+    "even": false,
+    "why": "profile gh-draft: setbacks off, minimum cash-out x1.01"
+  },
+  "audioCues": "none",
+  "results": [
+    {
+      "case": "win above stake",
+      "expect": "win",
+      "kind": "win",
+      "celebrated": true,
+      "shakes": 0,
+      "audio": [],
+      "pass": true
+    },
+    {
+      "name": "return below stake after a setback",
+      "status": "unreachable",
+      "why": "profile gh-draft: setbacks off, minimum cash-out x1.01"
+    },
+    {
+      "name": "even return at x1.00",
+      "status": "unreachable",
+      "why": "profile gh-draft: setbacks off, minimum cash-out x1.01"
+    },
+    {
+      "case": "crash",
+      "expect": "not-win",
+      "kind": "loss",
+      "celebrated": false,
+      "shakes": 0,
+      "audio": [],
+      "pass": true
+    }
+  ]
+}

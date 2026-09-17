@@ -1,0 +1,93 @@
+{
+  "url": "http://localhost:5173",
+  "date": "2026-09-17T10:27:13.447Z",
+  "profile": {
+    "belowStake": true,
+    "even": true,
+    "why": "profile light: setbacks on, minimum cash-out none"
+  },
+  "audioCues": "present",
+  "results": [
+    {
+      "case": "win above stake",
+      "expect": "win",
+      "kind": "win",
+      "celebrated": true,
+      "shakes": 1,
+      "audio": [
+        "lobby:start",
+        "sfx:bet",
+        "lobby:stop",
+        "music:start",
+        "tone:start",
+        "sfx:whack",
+        "tone:stop",
+        "music:stop",
+        "lobby:start",
+        "sfx:win"
+      ],
+      "pass": true
+    },
+    {
+      "case": "return below stake after a setback",
+      "expect": "not-win",
+      "kind": "loss",
+      "celebrated": false,
+      "shakes": 0,
+      "audio": [
+        "lobby:start",
+        "sfx:bet",
+        "lobby:stop",
+        "music:start",
+        "tone:start",
+        "sfx:setback",
+        "music:duck",
+        "sfx:whack",
+        "tone:stop",
+        "music:stop",
+        "lobby:start",
+        "sfx:return"
+      ],
+      "pass": true
+    },
+    {
+      "case": "even return at x1.00",
+      "expect": "not-win",
+      "kind": "even",
+      "celebrated": false,
+      "shakes": 0,
+      "audio": [
+        "lobby:start",
+        "sfx:bet",
+        "lobby:stop",
+        "music:start",
+        "tone:start",
+        "sfx:whack",
+        "tone:stop",
+        "music:stop",
+        "lobby:start",
+        "sfx:return"
+      ],
+      "pass": true
+    },
+    {
+      "case": "crash",
+      "expect": "not-win",
+      "kind": "loss",
+      "celebrated": false,
+      "shakes": 0,
+      "audio": [
+        "lobby:start",
+        "sfx:bet",
+        "lobby:stop",
+        "music:start",
+        "tone:start",
+        "tone:stop",
+        "music:stop",
+        "lobby:start",
+        "sfx:crash"
+      ],
+      "pass": true
+    }
+  ]
+}

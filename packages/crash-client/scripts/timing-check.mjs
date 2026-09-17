@@ -5,8 +5,23 @@
 import { writeFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 
+const KNOWN = new Set(['url', 'profile', 'rounds', 'min-ms', 'out']);
+// Parse strictly: a malformed invocation must stop the run, never silently produce a result for
+// options that were never applied. An unquoted "$pf" in a zsh loop arrives as ONE argv entry
+// ("--profile ng-draft"), which shifts every later pair — a run labelled as a regulated market then
+// quietly measured the default profile at the default gap and reported PASS.
 const args = new Map();
-for (let i = 2; i < process.argv.length; i += 2) args.set(process.argv[i].replace(/^--/, ''), process.argv[i + 1]);
+for (let i = 2; i < process.argv.length; i += 2) {
+  const flag = process.argv[i];
+  const value = process.argv[i + 1];
+  if (!flag.startsWith('--') || flag.includes(' ')) {
+    throw new Error(`bad argument ${JSON.stringify(flag)} — expected --flag value pairs (quote values containing spaces)`);
+  }
+  const key = flag.slice(2);
+  if (!KNOWN.has(key)) throw new Error(`unknown option --${key}; known: ${[...KNOWN].join(', ')}`);
+  if (value === undefined) throw new Error(`--${key} needs a value`);
+  args.set(key, value);
+}
 const url = args.get('url') ?? 'http://localhost:5173';
 const profile = args.get('profile');
 /** Keeps any query already on --url (e.g. ?profile=regulated-uk) and adds the scenario. */
@@ -29,6 +44,18 @@ const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, de
 const page = await ctx.newPage();
 await page.goto(pageUrl('instantBust'), { waitUntil: 'networkidle' });
 await page.waitForTimeout(2000);
+
+// A client that never booted has no rounds, which would otherwise read as an infinite gap and a
+// plain FAIL — hiding the real cause. The draft profiles did exactly that: they threw at boot for
+// want of the dev override, and this check reported a timing failure for a client that never ran.
+if (!(await page.evaluate(() => typeof window.__triptownView === 'function'))) {
+  console.error(
+    'timing-check FAILED: the demo hook __triptownView is missing, so the client never booted (or is ' +
+      'not a demo build). This is not a timing result.',
+  );
+  await browser.close();
+  process.exit(1);
+}
 
 const BET = { x: 195, y: 783 };
 

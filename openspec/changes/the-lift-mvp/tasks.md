@@ -12,7 +12,7 @@
 - [x] 2.5 Confirm the shared package is game-neutral; verify no symbol named for a mole, burrow, decoy, lift, shaft or floor appears in it
 - [x] 2.6 Preserve the demo-only hooks the shared checks depend on, `window.__triptownAudioLog` and `window.__triptownView` (compliance-baseline design D24), through the move; verify they are still present in a demo build of `apps/whack` and absent from the production bundle
 - [x] 2.6a Make the shared check harness fail loudly instead of passing vacuously: assert the hooks exist and that each scenario reached a `settled` round before it may report a pass. A missing hook or an unsettled round is a FAILURE, never a silent skip — `presentation-check` passed trivially for an afternoon during `compliance-baseline` because the round never settled. Verify by deleting a hook in a scratch build and confirming the check fails rather than passing
-- [ ] 2.7 Confirm the extraction changed no behaviour; verify `presentation-check.mjs`, `timing-check.mjs` and `copy-check.mjs` give identical results before and after the move
+- [x] 2.7 Confirm the extraction changed no behaviour; verify `presentation-check.mjs`, `timing-check.mjs` and `copy-check.mjs` give identical results before and after the move
 
 ## 3. Register the game
 
@@ -30,7 +30,7 @@
 - [x] 4.4 Honour `intensityEffects` and `prefers-reduced-motion`; verify a headless test under a profile with intensity off shows constant baseline speed, and a reduced-motion test shows no animation, no shake and no particles
 - [x] 4.5 Render the multiplier and the currency return as the two largest values with the floor subordinate (spec: The multiplier and the money are the primary values); verify a layout test asserts both font size and z-order at 390x844 and 1440x900
 - [x] 4.6 Confirm nothing reveals the end: no top floor, no progress bar toward max win, no pre-crash cue (spec: The shaft has no visible end); verify a review of every animated property against the crash time, recorded in the change, plus a test that the scene at the last tick before a crash matches the same multiplier in a surviving round
-- [ ] 4.7 Build the settled states, including the at-or-below-stake return as its own screen with no celebration (spec: Results are shown without celebrating a loss); verify `presentation-check.mjs` — the shared check, not a new one — over forced below-stake, even, win and crash rounds shows no win cue on the first two
+- [x] 4.7 Build the settled states, including the at-or-below-stake return as its own screen with no celebration (spec: Results are shown without celebrating a loss); verify `presentation-check.mjs` — the shared check, not a new one — over forced below-stake, even, win and crash rounds shows no win cue on the first two
 - [x] 4.8 Add the message catalogue with no near-miss, skill or "would have reached" copy, and expose `window.__triptownAudioLog` and `window.__triptownView` in demo builds so the shared checks can run against this game (design D24); verify `copy-check.mjs` passes on the catalogue and fails on a fixture containing banned wording
 
 ## 5. Skins and information
@@ -49,5 +49,5 @@
 ## 6. Closing checks
 
 - [x] 6.1 Run the full gate; verify `pnpm turbo run lint typecheck test` passes for every package
-- [ ] 6.2 Re-run the compliance audit against the built game and confirm the concept-stage findings are closed; verify the updated report marks each critical fix PASS or records why it is deferred
+- [x] 6.2 Re-run the compliance audit against the built game and confirm the concept-stage findings are closed; verify the updated report marks each critical fix PASS or records why it is deferred
 - [x] 6.3 Update `AGENTS.md` with the new app and the skin-on-an-engine pattern; verify the described layout matches `apps/` and `packages/`
