@@ -59,18 +59,14 @@ function mole(kind, face) {
     eyes = `<circle cx="78" cy="98" r="14" fill="#fff" stroke="${INK}" stroke-width="4"/><circle cx="122" cy="98" r="14" fill="#fff" stroke="${INK}" stroke-width="4"/><circle cx="78" cy="100" r="4" fill="${INK}"/><circle cx="122" cy="100" r="4" fill="${INK}"/>`;
     mouth = `<ellipse cx="100" cy="152" rx="9" ry="11" fill="#5a1630" stroke="${INK}" stroke-width="4"/>`;
   } else if (face === 'glad') {
-    // Pleased, not delighted: raised brows and a smile that sits BELOW the snout. An earlier version put
-    // the smile at the same height as the other faces, where the snout ellipse covers it, so the mole
-    // looked identical to the neutral decoys. Kept short of a beaming grin, which read as cute and is a
-    // minors-appeal risk (CAP under-18 guidance).
+    // A background hole shows a mole only down to its snout, so the expression has to live in the eyes:
+    // a mouth change cannot read there, and a smile drawn below the snout just peeks out as a stray line.
+    // Upward-curving closed eyes are unambiguously friendly at that size. Brows were tried and read as
+    // surprise. The default mouth is left alone, which also keeps this short of the beaming grin that
+    // tipped the face into cute (CAP under-18 guidance).
     eyes =
-      `<path d="M66 84 q12 -7 24 -2" fill="none" stroke="${INK}" stroke-width="5" stroke-linecap="round"/>` +
-      `<path d="M110 82 q12 -5 24 2" fill="none" stroke="${INK}" stroke-width="5" stroke-linecap="round"/>` +
-      `<circle cx="78" cy="102" r="9" fill="${INK}"/><circle cx="122" cy="102" r="9" fill="${INK}"/>` +
-      `<circle cx="81" cy="99" r="3" fill="#fff"/><circle cx="125" cy="99" r="3" fill="#fff"/>`;
-    mouth =
-      (SKIN.teeth ? `<rect x="92" y="141" width="16" height="11" rx="2" fill="#fff" stroke="${INK}" stroke-width="4"/>` : '') +
-      `<path d="M78 152 q22 20 44 0" fill="none" stroke="${INK}" stroke-width="5" stroke-linecap="round"/>`;
+      `<path d="M64 106 Q78 90 92 106" fill="none" stroke="${INK}" stroke-width="6" stroke-linecap="round"/>` +
+      `<path d="M108 106 Q122 90 136 106" fill="none" stroke="${INK}" stroke-width="6" stroke-linecap="round"/>`;
   } else if (face === 'smug') {
     // Escaping mole: one eye winking, a pleased grin. The mole won this round, and shows it.
     eyes = `<path d="M66 102 Q78 92 90 102" fill="none" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><circle cx="122" cy="100" r="9" fill="${INK}"/><circle cx="125" cy="97" r="3" fill="#fff"/>`;
