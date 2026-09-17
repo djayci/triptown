@@ -4,6 +4,8 @@
 // no "would have reached", and never call a return at or below the stake a win (UK RTS 14F).
 
 export const EN = {
+  'rules.withholding': 'Winnings may be subject to withholding tax applied by your operator. This game does not calculate or deduct any tax.',
+  'result.withholding': 'Tax may apply',
   'rules.rtpBandMissing': 'Measured band unavailable for this configuration \u2014 this figure is incomplete.',
   'logo.the': 'THE',
   'logo.lift': 'LIFT',

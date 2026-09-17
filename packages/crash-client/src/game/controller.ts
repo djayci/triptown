@@ -262,6 +262,7 @@ export class GameController {
   private applyProfile() {
     const p = this.session?.profile;
     if (!p) return;
+    this.view.setDisclosures?.({ withholdingNotice: p.withholdingNotice });
     this.view.setPresentation({
       quickReplay: p.quickReplay,
       intensityEffects: p.intensityEffects && !this.reduceEffectsChoice,

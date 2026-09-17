@@ -88,6 +88,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
   private readonly bigButton: StickerButton;
 
   private multiplier = 1;
+  private withholding = false;
 
   protected constructor(
     game: GameApp,
@@ -269,7 +270,11 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     // The rule lives in the base; this only draws what it returns.
     const { celebrate, line } = this.resultPresentation(kind, payout, net);
     this.resultTitle.text = this.words.settledTitle;
-    this.resultLine.text = `${multiplier} · ${line}`;
+    // Some markets require players to be told winnings may be taxed. It follows the base's
+    // celebrate decision rather than a kind branch: a return at or below the stake is not winnings,
+    // so there is nothing to withhold from. The game never calculates or deducts anything.
+    const withholding = celebrate && this.withholding ? ` · ${t('result.withholding')}` : '';
+    this.resultLine.text = `${multiplier} · ${line}${withholding}`;
     this.card(celebrate ? COLORS.lime : COLORS.violet);
     this.resultCard.visible = true;
     this.replay(celebrate);
@@ -322,6 +327,11 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
 
   toast(message: string): void {
     this.resultLine.text = message;
+  }
+
+  /** Market disclosures the profile switches on. Set from the session before any round settles. */
+  setDisclosures(d: { withholdingNotice?: boolean }): void {
+    this.withholding = d.withholdingNotice === true;
   }
 
   override setPresentation(flags: Parameters<CrashViewBase["setPresentation"]>[0]): void {

@@ -146,6 +146,7 @@ export class RulesPanel {
       <p><strong>${t('rules.outcomeFixed')}</strong></p>
       <ul>${lines.map((l) => `<li>${l}</li>`).join('')}</ul>
       <label class="toggle"><input type="checkbox" class="reduce" ${this.opts.reduceEffects ? 'checked' : ''} /> ${t('rules.reduceEffects')}</label>
+      ${session.profile.withholdingNotice ? `<p>${t('rules.withholding')}</p>` : ''}
       <p>${t('rules.responsible')}</p>
       <div class="foot">${t('rules.version', {
         version: this.opts.version,

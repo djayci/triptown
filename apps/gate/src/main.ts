@@ -46,7 +46,7 @@ async function loadAudio(): Promise<AudioManager | null> {
  * stage colour those values sit on, which the shared theme checks for contrast.
  */
 const FLOODLIGHT_GOLD = {
-  colors: { sun: 0xffc414, sun2: 0xe0a800, cream: 0xfff4d6, lime: 0x8ce99a, sky: 0x1c3a7a, violet: 0x3a1030 },
+  colors: { sun: 0xffc414, sun2: 0xe0a800, cream: 0xfff4d6, lime: 0x8ce99a, sky: 0x1c3a7a, violet: 0xf1a9a0 },
   display: 'Bungee, Arial Black, sans-serif',
   ground: 0x101b44,
 };

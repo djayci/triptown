@@ -72,6 +72,8 @@ export const EN = {
   'rules.voidRefund': 'If a system failure prevents a round from settling, the round is voided and your stake is returned.',
   'rules.provablyFair': 'Every round can be verified from its seeds after the seed is revealed. Open the fairness panel to check.',
   'rules.version': 'Version {version} · build {build} · game {config} · market {profile}',
+  'rules.withholding': 'Winnings may be subject to withholding tax applied by your operator. This game does not calculate or deduct any tax.',
+  'result.withholding': 'Tax may apply',
   'rules.close': 'Close',
   'rules.reduceEffects': 'Reduce effects',
   'rules.responsible': 'Set your limits and take breaks. Gambling should stay entertainment.',

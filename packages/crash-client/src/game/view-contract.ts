@@ -81,6 +81,8 @@ export interface CrashView {
   boost(percent: number, to: string, payout: string): void;
   setback(from: string, to: string, payout: string): void;
   toast(message: string): void;
+  /** Optional: market disclosures a profile switches on, e.g. a withholding-tax notice. */
+  setDisclosures?(d: { withholdingNotice?: boolean }): void;
   readonly history: Pick<HistoryStrip, 'setAll' | 'push'>;
 }
 
