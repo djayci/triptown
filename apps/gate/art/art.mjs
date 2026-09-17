@@ -5,28 +5,46 @@
 // realistic, non-cute horse; nothing shows a whip, a fall or an injury. The saddle cloth carries no
 // number, so a mirrored sprite (riding home) never shows a backwards numeral.
 
-export const INK = '#1d1424';
-export const CREAM = '#fff4d6';
-export const GOLD = '#ffc414';
-export const RED = '#e03131';
+// One palette per skin, as on Whack Crash (packages/crash-client/src/theme.ts):
+// - candy: Candy Paddock (chosen 17 Sep 2026), Whack's yellow, pink and sky stickers;
+// - adult: Adult Sticker, the charcoal, teal and brass set regulated builds and marketing use.
+// The shapes and proportions are the same in both; only colour changes, so the adult-horse rules hold for
+// either skin. `buildSprites(skin)` selects the palette before drawing.
+const PALETTES = {
+  candy: {
+    INK: '#1d1424',
+    CREAM: '#fff4d6',
+    GOLD: '#ffd43b',
+    RED: '#ff3d8b',
+    DUST: '#f6ead2',
+    BARN: ['#e03131', '#8a1c1c'],
+    horse: { coat: '#a0602f', shade: '#6f3e1d', light: '#c98a55', mane: '#2a1712', blaze: '#f6ead2', tack: '#2a1712', silks: '#3ec6ff', silks2: '#fff4d6', cloth: '#ff3d8b', skin: '#7a4a2b' },
+    halo: 0,
+  },
+  adult: {
+    INK: '#14161a',
+    CREAM: '#e8e3d9',
+    GOLD: '#b98a3c',
+    RED: '#a33b33',
+    DUST: '#d9d2c6',
+    BARN: ['#b8431a', '#5e1f0c'],
+    horse: { coat: '#8c8279', shade: '#645b54', light: '#a89e94', mane: '#3b3431', blaze: '#f4f1ea', tack: '#3b3431', silks: '#2f5d73', silks2: '#e8e3d9', cloth: '#b98a3c', skin: '#7a4a2b' },
+    halo: 0.14,
+  },
+};
+export const SKINS = Object.keys(PALETTES);
+
+let INK = PALETTES.adult.INK;
+let CREAM = PALETTES.adult.CREAM;
+let GOLD = PALETTES.adult.GOLD;
+let RED = PALETTES.adult.RED;
+let P = PALETTES.adult;
 
 const svg = (w, h, body, viewBox = `0 0 ${w} ${h}`) =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${viewBox}">${body}</svg>`;
 
-const BAY = {
-  coat: '#a0602f',
-  shade: '#6f3e1d',
-  light: '#c98a55',
-  mane: '#2a1712',
-  blaze: '#f6ead2',
-  tack: '#2a1712',
-  cloth: CREAM,
-  clothStripe: GOLD,
-  silks: RED,
-  silks2: GOLD,
-  breeches: CREAM,
-  skin: '#7a4a2b',
-};
+/** The horse and rider for the selected palette: a bay in pink and sky (candy), a grey in teal and brass (adult). */
+const horseColors = () => ({ ...P.horse, clothStripe: CREAM, breeches: CREAM });
 
 // ---------- limbs ----------
 
@@ -95,7 +113,7 @@ function riderUpright(c) {
 }
 
 /** Floodlight rim light, drawn first so it sits behind the legs as well as the body. */
-const HALO = `<path d="${BODY}" fill="none" stroke="#ffe8a8" stroke-width="20" stroke-linejoin="round" opacity="0.28"/>`;
+const halo = () => `<path d="${BODY}" fill="none" stroke="${CREAM}" stroke-width="18" stroke-linejoin="round" opacity="${P.halo}"/>`;
 
 // Tail shapes: streaming at speed, hanging at rest.
 const TAIL_FLOW = 'M90 124 C58 118 34 134 14 168 C36 156 52 158 70 160 C60 170 54 182 50 196 C70 176 84 164 96 150 Z';
@@ -150,7 +168,7 @@ function gallop(c, frame) {
   return svg(
     400,
     300,
-    `<g transform="translate(0 ${f.bob + 12})">${HALO}
+    `<g transform="translate(0 ${f.bob + 12})">${halo()}
     ${leg(farHind.slice(0, 3), c.shade, 26, 12, farHind[3])}
     ${leg(farFore.slice(0, 3), c.shade, 20, 11, farFore[3])}
     ${leg(nearHind.slice(0, 3), c.coat, 28, 13, nearHind[3])}
@@ -163,7 +181,7 @@ function standing(c) {
   return svg(
     400,
     300,
-    `${HALO}${leg([[132, 176], [128, 230], [130, 274]], c.shade, 26, 12)}
+    `${halo()}${leg([[132, 176], [128, 230], [130, 274]], c.shade, 26, 12)}
     ${leg([[252, 182], [254, 232], [256, 274]], c.shade, 20, 11)}
     ${leg([[116, 172], [106, 228], [110, 274]], c.coat, 28, 13)}
     ${leg([[236, 186], [238, 232], [238, 274]], c.coat, 22, 12)}
@@ -203,9 +221,9 @@ const barn = () =>
   svg(
     180,
     130,
-    `<path d="M6 126 L6 52 L90 8 L174 52 L174 126 Z" fill="#b8431a" stroke="${INK}" stroke-width="7" stroke-linejoin="round"/>
+    `<path d="M6 126 L6 52 L90 8 L174 52 L174 126 Z" fill="${P.BARN[0]}" stroke="${INK}" stroke-width="7" stroke-linejoin="round"/>
      <path d="M6 52 L90 8 L174 52" fill="none" stroke="${CREAM}" stroke-width="8" stroke-linecap="round"/>
-     <rect x="62" y="62" width="56" height="64" fill="#5e1f0c" stroke="${INK}" stroke-width="6"/>
+     <rect x="62" y="62" width="56" height="64" fill="${P.BARN[1]}" stroke="${INK}" stroke-width="6"/>
      <path d="M62 62 L118 126 M118 62 L62 126" stroke="${CREAM}" stroke-width="5"/>
      <rect x="22" y="70" width="26" height="22" rx="3" fill="${GOLD}" stroke="${INK}" stroke-width="5"/>
      <rect x="132" y="70" width="26" height="22" rx="3" fill="${GOLD}" stroke="${INK}" stroke-width="5"/>`,
@@ -221,12 +239,16 @@ const floodlight = () =>
   );
 
 const dust = () =>
-  svg(120, 62, `<path d="M10 52 C0 38 16 22 30 30 C34 12 58 10 64 26 C74 14 98 18 96 36 C112 36 116 56 100 58 Z" fill="#e9dcc0" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>`);
+  svg(120, 62, `<path d="M10 52 C0 38 16 22 30 30 C34 12 58 10 64 26 C74 14 98 18 96 36 C112 36 116 56 100 58 Z" fill="${P.DUST}" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>`);
 
 const flash = () =>
-  svg(40, 40, `<path d="M20 2 L25 15 L38 20 L25 25 L20 38 L15 25 L2 20 L15 15 Z" fill="#ffffff" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`);
+  svg(40, 40, `<path d="M20 2 L25 15 L38 20 L25 25 L20 38 L15 25 L2 20 L15 15 Z" fill="${CREAM}" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`);
 
-export function buildSprites() {
+export function buildSprites(skin = 'candy') {
+  P = PALETTES[skin];
+  if (!P) throw new Error(`unknown skin ${skin}`);
+  ({ INK, CREAM, GOLD, RED } = P);
+  const BAY = horseColors();
   return {
     'horse-gallop-0': gallop(BAY, 0),
     'horse-gallop-1': gallop(BAY, 1),

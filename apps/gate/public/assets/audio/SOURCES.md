@@ -4,10 +4,10 @@ All files in this folder are **placeholders** generated from code in this reposi
 
 | File | Made by | Licence |
 |---|---|---|
-| `sfx.webm`, `sfx.mp3` (tick, bet, collect, setback, boost, return, win, bigwin, crash) | `apps/gate/scripts/synth.mjs` (collect: hoofbeats and latch; crash: gate slam) | Original work of Triptych Studio, no third-party material |
+| `sfx.webm`, `sfx.mp3` (tick, bet, collect, setback, boost, return, win, bigwin, crash) | `apps/gate/scripts/synth.mjs` (bet: latch, hoof stamps and a whoosh; tick: rush of air; collect: hoofbeats and latch; crash: gate slam) | Original work of Triptych Studio, no third-party material |
 | `lobby` (loop for the betting screen) | `apps/gate/scripts/synth.mjs` | Same as above |
-| `stem-base`, `stem-drums`, `stem-lead` (`.webm`, `.mp3`) | `apps/gate/scripts/synth.mjs` | Same as above |
-| `tone.webm`, `tone.mp3` | `apps/gate/scripts/synth.mjs` | Same as above |
+| `stem-base`, `stem-drums`, `stem-lead` (`.webm`, `.mp3`) | `apps/gate/scripts/synth.mjs` (150 BPM; drums: gallop rhythm; lead: rising brass-like saws with wind swells) | Same as above |
+| `tone.webm`, `tone.mp3` | `apps/gate/scripts/synth.mjs` (gallop loop over wind; its rate rises with the multiplier) | Same as above |
 
 Rebuild with `pnpm --filter @triptown/gate audio`. Encoders: MP3 via `@breezystack/lamejs` (LGPL, build-time only), WebM/Opus via Chrome WebCodecs + `webm-muxer` (MIT, build-time only). No encoder code ships to players.
 

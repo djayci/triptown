@@ -7,9 +7,11 @@
 export const EN = {
   'logo.beatThe': 'BEAT THE',
   'logo.gate': 'GATE',
+  'logo.rush': 'RUSH',
 
   'stage.ready': 'READY?',
   'stage.readySub': 'Ride out. Get back in before the gate slams.',
+  'stage.readySubRush': 'Go in when you like. Gate open chance = 97% ÷ value.',
   'button.bet': 'BET {amount}',
   'button.collect': 'IN!',
   'button.cashOut': 'In for {amount}',
@@ -37,7 +39,13 @@ export const EN = {
   'bet.insufficient': 'INSUFFICIENT BALANCE',
 
   'run.winNow': 'IN NOW {amount}',
+  'run.ifOpen': 'IF THE GATE IS OPEN',
+  'run.revealChance': 'GATE OPEN IF YOU GO IN NOW · {chance}',
+  'run.headingHome': 'LOCKED · HEADING HOME',
+  'button.headingHome': 'RIDING IN…',
+  'button.headingHomeSub': 'The result was fixed when the round started',
   'result.cashedOut': 'HOME SAFE',
+  'result.gateOpen': 'GATE OPEN',
   // Net, not the gross return: a gain is only shown when the player is actually up (RTS 14F).
   'result.net': '+{amount}',
   'result.returnedEven': 'Returned {amount} · Net 0.00',

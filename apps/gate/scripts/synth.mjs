@@ -1,8 +1,9 @@
-// Procedural placeholder audio for Whack Crash. Pure JS synthesis, 48 kHz mono Float32.
+// Procedural placeholder audio for Gate Rush and Beat the Gate. Pure JS synthesis, 48 kHz mono Float32.
 // Every sound here is generated from code in this file, so there are no third-party licences.
 
 export const SR = 48000;
-export const BPM = 128;
+// A gallop is quicker than an arcade beat: 150 BPM, and the tone slot carries a hoofbeat loop.
+export const BPM = 150;
 export const BEAT = 60 / BPM;
 export const LOOP_BEATS = 16;
 export const LOOP_SECONDS = LOOP_BEATS * BEAT; // 7.5 s
@@ -58,22 +59,44 @@ const hat = (t, len) => {
   return (n - (hat.prev = (hat.prev ?? 0) * 0.6 + n * 0.4)) * expDecay(t, 60) * env(t, len, 0.001, 0.01);
 };
 
+// ---------- hooves and wind ----------
+/** One hoof strike on turf: a low thump with a short dirt click. */
+const hoof = (pitch = 1) => (t, len) =>
+  (Math.sin(TAU * (95 * pitch) * t) * expDecay(t, 34) + rand() * 0.35 * expDecay(t, 90)) * env(t, len, 0.001, 0.02);
+
+/** Filtered noise swell, for the rush of air at speed. */
+function whoosh(out, start, seconds, gain, from = 400, to = 2600) {
+  let y = 0;
+  add(out, start, seconds, (t, len) => {
+    const k = t / len;
+    const cutoff = from + (to - from) * Math.sin(Math.PI * k);
+    const a = 1 - Math.exp((-TAU * cutoff) / SR);
+    y += a * (rand() - y);
+    return y * Math.sin(Math.PI * k);
+  }, gain);
+}
+
 // ---------- sfx ----------
 function coinBlip(out, start, freq, gain = 0.5) {
   add(out, start, 0.08, (t, len) => (Math.sin(TAU * freq * t) * 0.7 + tri(freq * 2 * t) * 0.3) * env(t, len, 0.002, 0.05), gain);
   add(out, start + 0.07, 0.22, (t, len) => (Math.sin(TAU * freq * 1.335 * t) * 0.7 + tri(freq * 2.67 * t) * 0.3) * expDecay(t, 9) * env(t, len, 0.002, 0.08), gain);
 }
 
+/** Milestone: a quick rush of air past the horse. */
 export function sfxTick() {
-  const b = buffer(0.06);
-  add(b, 0, 0.05, (t, len) => (Math.sin(TAU * 1800 * t) * 0.6 + rand() * 0.2) * expDecay(t, 90) * env(t, len, 0.001, 0.01));
-  return normalize(b, 0.5);
+  const b = buffer(0.32);
+  whoosh(b, 0, 0.3, 1.2, 600, 4200);
+  add(b, 0, 0.05, (t, len) => Math.sin(TAU * 1600 * t) * expDecay(t, 70) * env(t, len, 0.001, 0.01), 0.25);
+  return normalize(b, 0.55);
 }
 
+/** Round start: the yard latch lifts, two hoof stamps, and the rider is away. */
 export function sfxBet() {
-  const b = buffer(0.45);
-  add(b, 0, 0.25, kick, 0.9);
-  coinBlip(b, 0.02, 1320, 0.6);
+  const b = buffer(0.7);
+  add(b, 0, 0.06, (t, len) => (square(1900 * t) * 0.4 + rand() * 0.6) * expDecay(t, 60) * env(t, len, 0.0005, 0.02), 0.5);
+  add(b, 0.12, 0.12, hoof(1), 1);
+  add(b, 0.24, 0.12, hoof(1.15), 0.9);
+  whoosh(b, 0.3, 0.38, 0.9, 500, 3000);
   return normalize(b);
 }
 
@@ -182,28 +205,34 @@ export function stemBase() {
   return normalize(lowpass(b, 5000), 0.7);
 }
 
+/** Gallop rhythm: a three-beat "da-da-DUM" per beat on low toms and kick, backbeat snare, driving hats. */
 export function stemDrums() {
   const b = buffer(LOOP_SECONDS);
   for (let beat = 0; beat < LOOP_BEATS; beat++) {
-    add(b, beat * BEAT, 0.25, kick, 1, true);
-    if (beat % 2 === 1) add(b, beat * BEAT, 0.18, snare, 0.55, true);
-    for (let s = 0; s < 4; s++) add(b, (beat + s / 4) * BEAT, 0.05, hat, s % 2 ? 0.18 : 0.3, true);
+    const t0 = beat * BEAT;
+    add(b, t0, 0.14, hoof(0.9), 0.55, true);
+    add(b, t0 + BEAT / 4, 0.14, hoof(1.05), 0.6, true);
+    add(b, t0 + BEAT / 2, 0.25, kick, 1, true);
+    if (beat % 2 === 1) add(b, t0 + BEAT / 2, 0.18, snare, 0.5, true);
+    for (let s = 0; s < 4; s++) add(b, t0 + (s / 4) * BEAT, 0.05, hat, s % 2 ? 0.16 : 0.26, true);
   }
-  return normalize(b, 0.75);
+  return normalize(b, 0.8);
 }
 
+/** Rising brass-like lead: detuned saws climbing the chord, a lift on the last bar. Rush, not reward. */
 export function stemLead() {
   const b = buffer(LOOP_SECONDS);
-  const pattern = [0, 1, 2, 3, 2, 1, 2, 3];
+  const climb = [0, 1, 2, 3, 1, 2, 3, 2];
   for (let bar = 0; bar < 4; bar++) {
-    const chord = CHORDS[bar].map((n) => n + 24);
-    for (let s = 0; s < 16; s++) {
-      const n = chord[pattern[s % 8]] + (s >= 12 && bar === 3 ? 2 : 0);
-      const t0 = (bar * 4 + s / 4) * BEAT;
-      add(b, t0, BEAT * 0.22, (t, len) => (square(midi(n) * t) * 0.4 + saw(midi(n) * 1.003 * t) * 0.3) * env(t, len, 0.003, 0.04), 0.35, true);
+    const chord = CHORDS[bar].map((n) => n + 12);
+    for (let s = 0; s < 8; s++) {
+      const n = chord[climb[s]] + (bar === 3 && s >= 4 ? 2 : 0);
+      const t0 = (bar * 4 + s / 2) * BEAT;
+      add(b, t0, BEAT * 0.46, (t, len) => (saw(midi(n) * t) * 0.45 + saw(midi(n) * 1.006 * t) * 0.35 + Math.sin(TAU * midi(n) * 0.5 * t) * 0.2) * env(t, len, 0.02, 0.06), 0.3, true);
     }
+    whoosh(b, (bar * 4 + 3) * BEAT, BEAT, 0.25, 300, 1800);
   }
-  return normalize(lowpass(b, 6500), 0.65);
+  return normalize(lowpass(b, 4200), 0.6);
 }
 
 /**
@@ -246,14 +275,25 @@ export function lobbyLoop() {
   return normalize(lowpass(b, 7000), 0.62);
 }
 
-/** One-second tone loop. Integer frequencies and a 5 Hz wobble keep it periodic in exactly 1 s. */
+/**
+ * The tone slot plays a gallop: two strides a second, four hoof strikes each, over a bed of wind. The
+ * engine raises its playback rate with the multiplier (toneRate), so the hooves quicken and lift in pitch
+ * as the value climbs. It follows the multiplier only, never the crash time.
+ */
 export function toneLoop() {
   const b = buffer(TONE_SECONDS);
+  const stride = TONE_SECONDS / 2;
+  for (let k = 0; k < 2; k++) {
+    const t0 = k * stride;
+    [0, 0.07, 0.15, 0.26].forEach((dt, i) => add(b, t0 + dt, 0.12, hoof(i === 3 ? 0.85 : 1 + i * 0.08), i === 3 ? 1 : 0.75, true));
+  }
+  let y = 0;
   add(b, 0, TONE_SECONDS, (t) => {
-    const wobble = 1 + 0.01 * Math.sin(TAU * 5 * t);
-    return Math.sin(TAU * 330 * t * wobble) * 0.6 + Math.sin(TAU * 660 * t) * 0.2 + tri(165 * t) * 0.2;
-  }, 1, true);
-  return normalize(b, 0.6);
+    const a = 1 - Math.exp((-TAU * 900) / SR);
+    y += a * (rand() - y);
+    return y * (0.55 + 0.45 * Math.sin(TAU * 2 * t));
+  }, 0.35, true);
+  return normalize(b, 0.7);
 }
 
 /** Two copies back to back; the game loops the middle region, away from encoder padding at the edges. */

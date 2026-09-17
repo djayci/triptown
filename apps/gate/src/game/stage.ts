@@ -15,15 +15,18 @@ const REF_H = 542;
 /** One lap of the field, in seconds. Fixed: the lap never knows anything about the round. */
 export const LAP_SECONDS = 5;
 
-const COLORS = {
-  ink: 0x1d1424,
-  night: 0x101b44,
-  turf: 0x1f6b3a,
-  turf2: 0x1b5e33,
-  cream: 0xfff4d6,
-  gold: 0xffc414,
-  crash: 0x5a1030,
-};
+/**
+ * Stage colours per skin, matching the atlas of the same name (art/art.mjs).
+ * - candy: Candy Paddock (chosen 17 Sep 2026), Whack Crash's yellow sunburst and green paddock.
+ * - adult: Adult Sticker, Whack Crash's adult tokens on a charcoal sunburst.
+ * `night` is the stage ground the shared screen's contrast check is given in main.ts.
+ */
+export const STAGE_PALETTES = {
+  candy: { ink: 0x1d1424, night: 0xffd43b, ray: 0xffc414, turf: 0x6fd14a, turf2: 0x4fbf3a, cream: 0xfff4d6, crash: 0xff7361 },
+  adult: { ink: 0x14161a, night: 0x2c333b, ray: 0x232930, turf: 0x4a6b52, turf2: 0x3c5744, cream: 0xe8e3d9, crash: 0x5a4045 },
+} as const;
+export type StageSkin = keyof typeof STAGE_PALETTES;
+type StagePalette = (typeof STAGE_PALETTES)[StageSkin];
 
 /**
  * The value of `multiplier` mapped to 0..1. This is the only input intensity may use: the multiplier
@@ -38,7 +41,17 @@ export function lapOffset(t: number, amplitude = 14): number {
   return Math.sin((2 * Math.PI * t) / LAP_SECONDS) * amplitude;
 }
 
-export type StageMode = 'idle' | 'out' | 'home' | 'shut';
+export type StageMode = 'idle' | 'out' | 'heading' | 'home' | 'shut';
+
+/**
+ * How the round's result is shown (gate-odds-mvp). `live`: Beat the Gate, the gate is on screen and
+ * slams at the crash. `onCollect`: Gate Rush, the horse leaves through the open gate, the gate is left
+ * behind off screen while it is out, and it comes back into view only at the reveal after IN!.
+ */
+export type RevealMode = 'live' | 'onCollect';
+
+/** Seconds the heading-home turn takes. Fixed, and the same for every outcome (gate-odds-mvp D6). */
+export const HEADING_HOME_SECONDS = 1.2;
 
 /**
  * Beat the Gate's scene: a floodlit night field with the yard gate fixed at the left.
@@ -56,6 +69,8 @@ export type StageMode = 'idle' | 'out' | 'home' | 'shut';
  */
 export class GateStage extends Container {
   private readonly sky = new Graphics();
+  /** The green mound the field sits on; its top edge is outlined like Whack's hole lip. */
+  private readonly mound = new Graphics();
   private readonly beams = new Graphics();
   private readonly lights: [Sprite, Sprite];
   private readonly crowd: TilingSprite;
@@ -66,11 +81,15 @@ export class GateStage extends Container {
   private readonly posts: [Sprite, Sprite];
   private readonly panels: [Sprite, Sprite];
   private readonly latch: Sprite;
+  /** Barn, posts, panels and latch, moved as one so Gate Rush can leave the gate behind and bring it back. */
+  private readonly yard = new Container();
+  private readonly c: StagePalette;
   private readonly horseRun: AnimatedSprite;
   private readonly horseStand: Sprite;
   private readonly horse = new Container();
   private readonly dustLayer = new Container();
   private readonly crashTint = new Graphics();
+  private revealMode: RevealMode = 'live';
 
   private w = REF_W;
   private h = REF_H;
@@ -89,8 +108,10 @@ export class GateStage extends Container {
   constructor(
     app: Application,
     private readonly frames: Frames,
+    skin: StageSkin = 'candy',
   ) {
     super();
+    this.c = STAGE_PALETTES[skin];
     this.lights = [new Sprite(frames('floodlight')), new Sprite(frames('floodlight'))];
     this.crowd = new TilingSprite({ texture: this.crowdTexture(app), width: REF_W, height: 40 });
     this.turf = new TilingSprite({ texture: this.turfTexture(app), width: REF_W, height: 200 });
@@ -109,23 +130,20 @@ export class GateStage extends Container {
     this.latch.anchor.set(0.5);
     this.barn.anchor.set(0, 1);
 
-    // Back to front: sky, beams, lights, crowd, turf, rail, horse, barn, gate, dust, tint.
+    this.yard.addChild(this.barn, this.posts[0], this.panels[0], this.panels[1], this.posts[1], this.latch);
+    // Back to front: sky, beams, lights, crowd, turf, rail, horse, yard (barn and gate), dust, tint.
     this.addChild(
       this.sky,
       this.beams,
       ...this.lights,
       this.crowd,
       this.flashLayer,
+      this.mound,
       this.turf,
       this.rail,
       // The horse passes behind the barn and the gate, so riding home reads as going in.
       this.horse,
-      this.barn,
-      this.posts[0],
-      this.panels[0],
-      this.panels[1],
-      this.posts[1],
-      this.latch,
+      this.yard,
       this.dustLayer,
       this.crashTint,
     );
@@ -140,9 +158,16 @@ export class GateStage extends Container {
     this.idle();
   }
 
-  /** CRASH arrived. */
+  /** CRASH arrived. Live: the gate slams now. Deferred: this is the shut reveal after heading home. */
   onCrash(): void {
-    this.slamGate();
+    if (this.revealMode === 'onCollect') this.revealShut();
+    else this.slamGate();
+  }
+
+  /** Chosen once per session from the effective reveal mode; Gate Rush leaves the gate behind while out. */
+  setRevealMode(mode: RevealMode): void {
+    this.revealMode = mode;
+    this.idle();
   }
 
   // ---------- inputs ----------
@@ -169,11 +194,12 @@ export class GateStage extends Container {
 
   // ---------- states ----------
 
-  /** Betting: the gate stands open and the horse waits beside it. */
+  /** Betting: the gate stands open and the horse waits beside it, in both presentations. */
   idle(): void {
     this.killTweens();
     this.mode = 'idle';
     this.setGateOpen(1);
+    this.yard.x = 0;
     this.crashTint.alpha = 0;
     this.horseX = 244;
     this.faceHorse(1);
@@ -182,7 +208,10 @@ export class GateStage extends Container {
     this.placeHorse();
   }
 
-  /** Round start: the horse rides out onto the field. */
+  /**
+   * Round start: the horse rides out through the open gate onto the field. In Gate Rush the gate, still
+   * open, drops behind off screen, the same way every round, so it says nothing about the result.
+   */
   rideOut(): void {
     this.killTweens();
     this.mode = 'out';
@@ -190,12 +219,15 @@ export class GateStage extends Container {
     this.setGateOpen(1);
     this.faceHorse(1);
     this.showStanding(false);
+    const yardX = this.revealMode === 'onCollect' ? this.yardAway() : 0;
     if (this.reduced) {
       this.horseX = this.fieldX;
+      this.yard.x = yardX;
       this.placeHorse();
       return;
     }
     gsap.to(this, { horseX: this.fieldX, duration: 0.7, ease: 'power2.out', onUpdate: () => this.placeHorse() });
+    gsap.to(this.yard, { x: yardX, duration: 0.9, ease: 'power1.in' });
   }
 
   /** Called only after the server confirms the cash-out: the horse rides home through the gate and out of sight. */
@@ -218,6 +250,45 @@ export class GateStage extends Container {
       onUpdate: () => this.placeHorse(),
       onComplete: () => onDone?.(),
     });
+  }
+
+  /**
+   * Gate Rush: IN! was pressed. The horse turns and gallops for home in place, never closing on the yard,
+   * for HEADING_HOME_SECONDS. It is identical for every outcome and must be played before the result is
+   * known; the reveal comes from `revealOpen` or `revealShut` once the server settles.
+   */
+  headHome(): void {
+    this.killTweens();
+    this.mode = 'heading';
+    this.faceHorse(-1);
+    this.showStanding(false);
+    this.horseX = this.fieldX;
+    this.placeHorse();
+  }
+
+  /** Gate Rush: settled as won. The gate comes back into view open and the horse rides through it. */
+  revealOpen(): void {
+    this.setGateOpen(1);
+    // rideHome clears running tweens, so the gate is brought back after it starts.
+    this.rideHome();
+    this.bringYardBack();
+  }
+
+  /**
+   * Gate Rush: settled as lost. The yard appears with the gate already shut; the horse stops out in the
+   * field and turns away. Nothing slams in front of it and no position hints at how close it was.
+   */
+  revealShut(): void {
+    this.killTweens();
+    this.mode = 'shut';
+    this.setGateOpen(0);
+    this.bringYardBack();
+    this.showStanding(true);
+    this.faceHorse(1);
+    this.horseX = this.fieldX;
+    this.placeHorse();
+    if (this.reduced) this.crashTint.alpha = 0.35;
+    else gsap.to(this.crashTint, { alpha: 0.35, duration: 0.3 });
   }
 
   /**
@@ -246,8 +317,9 @@ export class GateStage extends Container {
 
   update(dtSeconds: number): void {
     this.time += dtSeconds;
-    const running = this.mode === 'out';
-    const speedRef = this.effectsOn ? 160 + 380 * this.intensity : 160;
+    // Heading home scrolls the field the other way at the baseline speed: no multiplier, no outcome.
+    const running = this.mode === 'out' || this.mode === 'heading';
+    const speedRef = this.mode === 'heading' ? -160 : this.effectsOn ? 160 + 380 * this.intensity : 160;
 
     if (running && !this.reduced) {
       this.scroll += speedRef * this.u * dtSeconds;
@@ -256,7 +328,7 @@ export class GateStage extends Container {
       this.crowd.tilePosition.x = -this.scroll * 0.15;
       this.horseRun.animationSpeed = this.effectsOn ? 0.2 + 0.16 * this.intensity : 0.2;
       if (!this.horseRun.playing) this.horseRun.play();
-      if (!gsap.isTweening(this)) {
+      if (this.mode === 'out' && !gsap.isTweening(this)) {
         this.horseX = this.fieldX + lapOffset(this.time);
         this.placeHorse();
       }
@@ -268,7 +340,7 @@ export class GateStage extends Container {
     }
 
     // Crowd camera flashes: rate follows the multiplier only.
-    if (running && this.effectsOn && !this.reduced) {
+    if (this.mode === 'out' && this.effectsOn && !this.reduced) {
       this.flashCooldown -= dtSeconds;
       if (this.flashCooldown <= 0) {
         this.flash();
@@ -292,13 +364,19 @@ export class GateStage extends Container {
     const ground = this.groundY();
     const crowdY = h * 0.43;
 
-    this.sky.clear().rect(0, 0, w, h).fill(COLORS.night);
-    this.beams
-      .clear()
-      .poly([0, 0, 80 * u, 0, w * 0.62, crowdY + 40 * u, 0, crowdY + 40 * u])
-      .fill({ color: 0xffecaa, alpha: 0.1 })
-      .poly([w, 0, w - 80 * u, 0, w * 0.38, crowdY + 40 * u, w, crowdY + 40 * u])
-      .fill({ color: 0xffecaa, alpha: 0.1 });
+    // Sunburst: alternating wedges around a point above the field, as on Whack's stage card.
+    this.sky.clear().rect(0, 0, w, h).fill(this.c.night);
+    const cx = w / 2;
+    const cy = h * 0.36;
+    const reach = Math.hypot(w, h);
+    for (let i = 0; i < 40; i += 2) {
+      const a0 = (i / 40) * Math.PI * 2;
+      const a1 = ((i + 1) / 40) * Math.PI * 2;
+      this.sky.poly([cx, cy, cx + Math.cos(a0) * reach, cy + Math.sin(a0) * reach, cx + Math.cos(a1) * reach, cy + Math.sin(a1) * reach]).fill(this.c.ray);
+    }
+    // Floodlights, beams, crowd and barn belong to the night look; the sticker stage has none.
+    this.beams.clear();
+    for (const part of [this.beams, ...this.lights, this.crowd, this.barn]) part.visible = false;
     this.lights[0].scale.set(0.6 * u);
     this.lights[0].position.set(8 * u, 10 * u);
     this.lights[1].scale.set(0.6 * u);
@@ -310,6 +388,12 @@ export class GateStage extends Container {
     this.crowd.position.set(0, crowdY);
     this.flashLayer.position.set(0, crowdY);
 
+    const moundTop = crowdY + 26 * u;
+    this.mound
+      .clear()
+      .ellipse(w / 2, moundTop + 150 * u, w * 0.9, 150 * u)
+      .fill(this.c.turf)
+      .stroke({ color: this.c.ink, width: 5 });
     this.turf.position.set(0, crowdY + 40 * u);
     this.turf.width = w;
     this.turf.height = h - this.turf.y;
@@ -332,7 +416,7 @@ export class GateStage extends Container {
 
     this.horse.scale.set(0.52 * u);
     this.placeHorse();
-    this.crashTint.clear().rect(0, 0, w, h).fill(COLORS.crash);
+    this.crashTint.clear().rect(0, 0, w, h).fill(this.c.crash);
   }
 
   /** 1 = swung open towards the viewer, 0 = shut across the opening. One texture, squashed about its hinge. */
@@ -390,13 +474,30 @@ export class GateStage extends Container {
     gsap.to(s, { alpha: 0, duration: 0.5, delay: 0.5, onComplete: () => s.destroy() });
   }
 
+  /** Where the yard waits while the horse is out: fully off the left edge. */
+  private yardAway(): number {
+    return -170 * this.u;
+  }
+
+  /** The reveal: the gate, already in its final state, slides back into view. Same motion either way. */
+  private bringYardBack(): void {
+    gsap.killTweensOf(this.yard);
+    if (this.reduced) {
+      this.yard.x = 0;
+      return;
+    }
+    this.yard.x = Math.min(this.yard.x, this.yardAway());
+    gsap.to(this.yard, { x: 0, duration: 0.3, ease: 'power2.out' });
+  }
+
   private killTweens(): void {
     gsap.killTweensOf(this);
+    gsap.killTweensOf(this.yard);
     gsap.killTweensOf(this.crashTint);
   }
 
   private crowdTexture(app: Application): Texture {
-    const g = new Graphics().rect(0, 0, 48, 40).fill({ color: COLORS.night, alpha: 0 });
+    const g = new Graphics().rect(0, 0, 48, 40).fill({ color: this.c.night, alpha: 0 });
     for (const [x, y, c] of [
       [6, 8, 0xfff4d6],
       [18, 22, 0xffc414],
@@ -407,12 +508,12 @@ export class GateStage extends Container {
     ] as const) {
       g.circle(x, y, 3).fill({ color: c, alpha: 0.55 });
     }
-    g.rect(0, 37, 48, 3).fill(COLORS.ink);
+    g.rect(0, 37, 48, 3).fill(this.c.ink);
     return app.renderer.generateTexture(g);
   }
 
   private turfTexture(app: Application): Texture {
-    const g = new Graphics().rect(0, 0, 44, 200).fill(COLORS.turf).rect(44, 0, 44, 200).fill(COLORS.turf2);
+    const g = new Graphics().rect(0, 0, 44, 200).fill(this.c.turf).rect(44, 0, 44, 200).fill(this.c.turf2);
     return app.renderer.generateTexture(g);
   }
 
@@ -421,14 +522,14 @@ export class GateStage extends Container {
       .rect(0, 0, 66, 30)
       .fill({ color: 0, alpha: 0 })
       .rect(0, 2, 66, 10)
-      .fill(COLORS.cream)
+      .fill(this.c.cream)
       .rect(0, 0, 66, 3)
-      .fill(COLORS.ink)
+      .fill(this.c.ink)
       .rect(0, 11, 66, 3)
-      .fill(COLORS.ink)
+      .fill(this.c.ink)
       .rect(28, 2, 10, 28)
-      .fill(COLORS.cream)
-      .stroke({ color: COLORS.ink, width: 3 });
+      .fill(this.c.cream)
+      .stroke({ color: this.c.ink, width: 3 });
     return app.renderer.generateTexture(g);
   }
 }
