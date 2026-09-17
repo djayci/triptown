@@ -1,18 +1,26 @@
 {
-  "url": "http://127.0.0.1:5178/?profile=light",
-  "date": "2026-09-17T09:27:17.972Z",
+  "url": "http://127.0.0.1:5178/",
+  "date": "2026-09-17T10:40:56.440Z",
+  "profile": {
+    "belowStake": true,
+    "even": true,
+    "why": "profile light: setbacks on, minimum cash-out none"
+  },
+  "audioCues": "present",
   "results": [
     {
       "case": "win above stake",
       "expect": "win",
       "kind": "win",
       "celebrated": true,
+      "shakes": 0,
       "audio": [
         "lobby:start",
         "sfx:bet",
         "lobby:stop",
         "music:start",
         "tone:start",
+        "sfx:boost",
         "sfx:collect",
         "tone:stop",
         "music:stop",
@@ -26,6 +34,7 @@
       "expect": "not-win",
       "kind": "loss",
       "celebrated": false,
+      "shakes": 0,
       "audio": [
         "lobby:start",
         "sfx:bet",
@@ -33,9 +42,31 @@
         "music:start",
         "tone:start",
         "sfx:boost",
+        "sfx:boost",
         "sfx:tick",
+        "sfx:boost",
         "sfx:setback",
         "music:duck",
+        "sfx:collect",
+        "tone:stop",
+        "music:stop",
+        "lobby:start",
+        "sfx:return"
+      ],
+      "pass": true
+    },
+    {
+      "case": "even return at x1.00",
+      "expect": "not-win",
+      "kind": "even",
+      "celebrated": false,
+      "shakes": 0,
+      "audio": [
+        "lobby:start",
+        "sfx:bet",
+        "lobby:stop",
+        "music:start",
+        "tone:start",
         "sfx:collect",
         "tone:stop",
         "music:stop",
@@ -49,18 +80,25 @@
       "expect": "not-win",
       "kind": "loss",
       "celebrated": false,
+      "shakes": 0,
       "audio": [
         "lobby:start",
         "sfx:bet",
         "lobby:stop",
         "music:start",
         "tone:start",
+        "sfx:boost",
         "tone:stop",
         "music:stop",
         "lobby:start",
         "sfx:crash"
       ],
       "pass": true
+    },
+    {
+      "name": "deferred heading home is the same for a win and a loss",
+      "status": "unreachable",
+      "why": "live reveal"
     }
   ]
 }

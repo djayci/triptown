@@ -29,7 +29,12 @@ async function boot() {
   // The session decides the skin, so the service comes first.
   const service = await createRoundService();
   const skin = (await service.getSession().catch(() => null))?.profile?.skin === 'adult' ? 'adult' : 'candy';
-  useSkin(skin);
+  // The Lift's stage is a flat ink fill, so the multiplier and the money sit directly on `ink`
+  // rather than on artwork. The adult palette's charcoal `sun` reads at 1.42:1 there — the primary
+  // value, invisible — and its `lime` at only 3.08:1. Brass and a lighter teal read on this ground
+  // while staying muted, and passing `ground` makes useSkin check the claim rather than trust it.
+  const INK = { candy: 0x1d1424, adult: 0x14161a }[skin];
+  useSkin(skin, skin === 'adult' ? { colors: { sun: 0xd2a34a, lime: 0x5cae99 }, ground: INK } : { ground: INK });
 
   const game = await createGameApp(parent);
   // The Lift draws with vector shapes and requests no atlas frames.

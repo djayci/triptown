@@ -136,9 +136,11 @@ export function useSkin(skin: SkinName, options: SkinOptions = {}) {
   const { colors = {}, display, ground } = options;
   const next = { ...PALETTES[skin], ...colors };
 
-  // Only checked when a game recolours. The shipped palettes are reviewed against the stages they
-  // were drawn for; a game that changes them takes on the duty of saying what its ground is.
-  if (Object.keys(colors).length > 0) {
+  // Checked whenever a game says what its ground is, not only when it recolours. "The shipped
+  // palettes were reviewed against the stages they were drawn for" is only true of the stage each
+  // was drawn for: The Lift fills its screen with flat `ink`, where the adult `sun` reads at 1.42:1
+  // and the multiplier is effectively invisible. A game that declares its ground gets checked on it.
+  if (ground !== undefined || Object.keys(colors).length > 0) {
     if (ground === undefined) {
       throw new Error(
         `useSkin(${skin}): recolouring requires \`ground\` — the colour the multiplier and the money ` +

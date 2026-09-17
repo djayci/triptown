@@ -162,7 +162,9 @@ export class LiftScene extends Container {
     g.rect(0, 0, W, 22).fill(zone.band);
     g.rect(0, 0, W, 5).fill(COLORS.ink);
     g.rect(0, 17, W, 5).fill(COLORS.ink);
-    for (const x of [10, 300]) {
+    // The right window is pulled in from 300 so it does not sit under the shared icon column
+    // (x 338-378): a rules or history button over a lit window reads as clutter and hides both.
+    for (const x of [10, 246]) {
       g.roundRect(x, 40, 80, 74, 8).fill(zone.window);
       g.roundRect(x, 40, 80, 74, 8).stroke({ color: COLORS.ink, width: 6 });
       g.rect(x + 6, 68, 68, 6).fill({ color: COLORS.ink, alpha: 0.55 });

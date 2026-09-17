@@ -1,20 +1,29 @@
 {
-  "url": "http://localhost:5175",
-  "date": "2026-09-17T11:27:14.815Z",
+  "url": "http://127.0.0.1:5178/?profile=ng-draft",
+  "date": "2026-09-17T09:33:55.868Z",
   "profile": {
     "belowStake": false,
     "even": false,
     "why": "profile ng-draft: setbacks off, minimum cash-out x1.01"
   },
-  "audioCues": "none",
   "results": [
     {
       "case": "win above stake",
       "expect": "win",
       "kind": "win",
       "celebrated": true,
-      "shakes": 0,
-      "audio": [],
+      "audio": [
+        "lobby:start",
+        "sfx:bet",
+        "lobby:stop",
+        "music:start",
+        "tone:start",
+        "sfx:collect",
+        "tone:stop",
+        "music:stop",
+        "lobby:start",
+        "sfx:win"
+      ],
       "pass": true
     },
     {
@@ -32,14 +41,18 @@
       "expect": "not-win",
       "kind": "loss",
       "celebrated": false,
-      "shakes": 0,
-      "audio": [],
+      "audio": [
+        "lobby:start",
+        "sfx:bet",
+        "lobby:stop",
+        "music:start",
+        "tone:start",
+        "tone:stop",
+        "music:stop",
+        "lobby:start",
+        "sfx:crash"
+      ],
       "pass": true
-    },
-    {
-      "name": "deferred heading home is the same for a win and a loss",
-      "status": "unreachable",
-      "why": "live reveal"
     }
   ]
 }
