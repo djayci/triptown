@@ -311,7 +311,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     this.demoBg.clear();
     drawSticker(this.demoBg, 62, 24, { fill: COLORS.pink, radius: 8, border: 3, shadow: 3 });
     this.demoBg.position.set(-31, -12);
-    this.demoBadge.position.set(PAD + 31, H - 196);
+    if (!this.demoBadgeUnderHistory()) this.demoBadge.position.set(PAD + 31, H - 196);
 
     this.counter.position.set(W / 2 - 46, 312);
     this.counterBg.clear();
@@ -363,7 +363,18 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
 
   /** The history chips move up into the session strip's row when a market shows no clock or net. */
   private placeHistory(): void {
-    this.history.position.set(PAD, this.session.visible ? 96 : 64);
+    const historyY = this.session.visible ? 96 : 64;
+    this.history.position.set(PAD, historyY);
+    // Chips are 30 px tall with a 3 px shadow; the badge sits a small gap below them.
+    if (this.demoBadgeUnderHistory()) this.demoBadge.position.set(PAD + 31, historyY + 33 + 8 + 12);
+  }
+
+  /**
+   * Where the DEMO badge goes: false keeps it above the stake row, true puts it at the top, under the
+   * multiplier history. Called from layout, so an override must return a constant.
+   */
+  protected demoBadgeUnderHistory(): boolean {
+    return false;
   }
 
   private placeControls(): void {

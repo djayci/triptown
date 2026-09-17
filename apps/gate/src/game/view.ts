@@ -46,6 +46,11 @@ export class GateView extends CrashScreen {
     return null;
   }
 
+  /** DEMO at the top, under the history, clear of the gate and the stake row. */
+  protected override demoBadgeUnderHistory(): boolean {
+    return true;
+  }
+
   /** The card sits above the field, so the gate opening or staying shut is seen, not covered. */
   protected override resultCardTop(): number {
     return 262;

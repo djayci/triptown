@@ -41,7 +41,7 @@ export function lapOffset(t: number, amplitude = 14): number {
   return Math.sin((2 * Math.PI * t) / LAP_SECONDS) * amplitude;
 }
 
-export type StageMode = 'idle' | 'out' | 'heading' | 'home' | 'shut';
+export type StageMode = 'idle' | 'out' | 'heading' | 'arriving' | 'home' | 'shut';
 
 /**
  * How the round's result is shown (gate-odds-mvp). `live`: Beat the Gate, the gate is on screen and
@@ -61,6 +61,16 @@ const OPEN_DEGREES = 115;
 const CAMERA_DISTANCE = 220;
 /** Where the horse waits at the start, clear of the open right-hand door. */
 const IDLE_X = 292;
+/**
+ * The yard is on the far side of the left post: a horse whose right edge is left of the post is inside and
+ * out of sight. The horse is clipped at the post whenever it goes in or out, so it only shows through the
+ * opening. Its sprite reaches about 105 reference units either side of its x.
+ */
+const INSIDE_X = GATE_LEFT - 115;
+/** Seconds the gate takes to come back into view at the reveal: the departure played in reverse. */
+const ARRIVE_SECONDS = 1;
+/** Seconds the doors take to swing open when a round starts. */
+const OPEN_SECONDS = 0.8;
 
 /**
  * Beat the Gate's scene: a floodlit night field with the yard gate fixed at the left.
@@ -101,6 +111,14 @@ export class GateStage extends Container {
   private readonly dustLayer = new Container();
   private readonly crashTint = new Graphics();
   private revealMode: RevealMode = 'live';
+  /** How open the doors are now (0 shut, 1 open), kept so a resize redraws them where they were. */
+  private gateOpen = 1;
+  private readonly gateSwing = { open: 1 };
+  /** Clips the horse at the left gate post while it goes in or out of the yard. Follows the yard as it moves. */
+  private readonly horseMask = new Graphics();
+  private clipAtPost = false;
+  /** True while the horse is coming out of the yard, so the lap motion leaves its position alone. */
+  private emerging = false;
 
   private w = REF_W;
   private h = REF_H;
@@ -139,8 +157,10 @@ export class GateStage extends Container {
     this.latch.anchor.set(0.5);
     this.barn.anchor.set(0, 1);
 
-    this.yard.addChild(this.barn, this.posts[0], this.panels[0], this.panels[1], this.posts[1], this.latch);
-    // Back to front: sky, beams, lights, crowd, turf, rail, horse, yard (barn and gate), dust, tint.
+    // The horse lives in the yard's layer so it can pass between the doors: in front of the right door,
+    // behind the left door, and behind both posts and the latch, going out and coming back.
+    this.yard.addChild(this.barn, this.panels[1], this.horse, this.posts[0], this.panels[0], this.posts[1], this.latch);
+    // Back to front: sky, beams, lights, crowd, turf, rail, yard (barn, gate and the horse), dust, tint.
     this.addChild(
       this.sky,
       this.beams,
@@ -152,7 +172,7 @@ export class GateStage extends Container {
       this.mound,
       this.rail,
       // The horse passes behind the barn and the gate, so riding home reads as going in.
-      this.horse,
+      this.horseMask,
       this.yard,
       this.dustLayer,
       this.crashTint,
@@ -204,61 +224,106 @@ export class GateStage extends Container {
 
   // ---------- states ----------
 
-  /** Betting: the gate stands open and the horse waits beside it, in both presentations. */
+  /** Betting: the gate stands shut with the horse inside the yard, out of sight, in both presentations. */
   idle(): void {
     this.killTweens();
     this.mode = 'idle';
-    this.setGateOpen(1);
+    this.setGateOpen(0);
     this.yard.x = 0;
     this.crashTint.alpha = 0;
-    this.horseX = IDLE_X;
+    this.horseX = INSIDE_X;
     this.faceHorse(1);
     this.showStanding(true);
+    this.horse.visible = false;
+    this.setClip(false);
+    this.emerging = false;
     this.dustLayer.removeChildren();
     this.placeHorse();
   }
 
   /**
-   * Round start: the horse rides out through the open gate onto the field. In Gate Rush the gate, still
-   * open, drops behind off screen, the same way every round, so it says nothing about the result.
+   * Round start: the doors swing open, the horse comes out of the yard through them and runs. In Gate Rush
+   * the gate, left open, then drops behind off screen. Every round does exactly this, so it says nothing
+   * about the result. Called again after a refused IN!, when the horse is already out: it just runs on.
    */
   rideOut(): void {
+    const fromYard = this.mode === 'idle';
     this.killTweens();
     this.mode = 'out';
     this.crashTint.alpha = 0;
-    this.setGateOpen(1);
     this.faceHorse(1);
     this.showStanding(false);
+    this.horse.visible = true;
+    if (!fromYard) {
+      this.setClip(false);
+      this.emerging = false;
+      return;
+    }
+    // Measured with the doors open, the widest the gate gets, so it clears the screen once they are.
+    this.setGateOpen(1);
     const yardX = this.revealMode === 'onCollect' ? this.yardAway() : 0;
+    this.setGateOpen(0);
     if (this.reduced) {
+      this.setGateOpen(1);
       this.horseX = this.fieldX;
       this.yard.x = yardX;
       this.placeHorse();
       return;
     }
-    gsap.to(this, { horseX: this.fieldX, duration: 0.7, ease: 'power2.out', onUpdate: () => this.placeHorse() });
-    gsap.to(this.yard, { x: yardX, duration: 0.9, ease: 'power1.in' });
+    this.horseX = INSIDE_X;
+    this.setClip(true);
+    this.emerging = true;
+    this.placeHorse();
+    this.gateSwing.open = 0;
+    gsap.to(this.gateSwing, { open: 1, duration: OPEN_SECONDS, ease: 'power2.inOut', onUpdate: () => this.setGateOpen(this.gateSwing.open) });
+    // The horse sets off once the doors are half open, and is clear of the yard by the time the gate moves.
+    gsap.to(this, {
+      horseX: this.fieldX,
+      duration: 1.1,
+      delay: OPEN_SECONDS * 0.5,
+      ease: 'power1.out',
+      onUpdate: () => this.placeHorse(),
+      onComplete: () => {
+        this.emerging = false;
+        this.setClip(false);
+      },
+    });
+    gsap.to(this.yard, { x: yardX, duration: 0.9, delay: OPEN_SECONDS + 0.5, ease: 'power1.in' });
   }
 
-  /** Called only after the server confirms the cash-out: the horse rides home through the gate and out of sight. */
+  /**
+   * Called only after the server confirms a win: the horse gallops in through the open gate and out of
+   * sight, and the doors close behind it.
+   */
   rideHome(onDone?: () => void): void {
     this.killTweens();
     this.mode = 'home';
     this.faceHorse(-1);
     this.showStanding(false);
-    const target = -150;
-    if (this.reduced) {
-      this.horseX = target;
-      this.placeHorse();
+    this.horse.visible = true;
+    const closed = () => {
+      this.horse.visible = false;
+      this.showStanding(true);
+      this.setClip(false);
       onDone?.();
+    };
+    if (this.reduced) {
+      this.horseX = INSIDE_X;
+      this.setGateOpen(0);
+      this.placeHorse();
+      closed();
       return;
     }
+    this.setClip(true);
     gsap.to(this, {
-      horseX: target,
+      horseX: INSIDE_X,
       duration: 1.1,
       ease: 'power1.in',
       onUpdate: () => this.placeHorse(),
-      onComplete: () => onDone?.(),
+      onComplete: () => {
+        this.gateSwing.open = this.gateOpen;
+        gsap.to(this.gateSwing, { open: 0, duration: OPEN_SECONDS, ease: 'power2.inOut', onUpdate: () => this.setGateOpen(this.gateSwing.open), onComplete: closed });
+      },
     });
   }
 
@@ -272,16 +337,22 @@ export class GateStage extends Container {
     this.mode = 'heading';
     this.faceHorse(-1);
     this.showStanding(false);
+    this.horse.visible = true;
+    this.setClip(false);
+    this.emerging = false;
     this.horseX = this.fieldX;
     this.placeHorse();
   }
 
   /** Gate Rush: settled as won. The gate comes back into view open and the horse rides through it. */
   revealOpen(): void {
+    this.killTweens();
+    this.mode = 'arriving';
     this.setGateOpen(1);
-    // rideHome clears running tweens, so the gate is brought back after it starts.
-    this.rideHome();
-    this.bringYardBack();
+    this.faceHorse(-1);
+    this.showStanding(false);
+    // The horse keeps galloping as the open gate comes towards it, then rides through.
+    this.bringYardBack(() => this.rideHome());
   }
 
   /**
@@ -290,16 +361,26 @@ export class GateStage extends Container {
    */
   revealShut(): void {
     this.killTweens();
-    this.mode = 'shut';
+    this.mode = 'arriving';
     this.setGateOpen(0);
-    this.bringYardBack();
-    this.showStanding(true);
-    this.faceHorse(1);
-    // Well clear of the shut gate, so the loss never reads as stopping just short of it.
-    this.horseX = IDLE_X - 8;
-    this.placeHorse();
-    if (this.reduced) this.crashTint.alpha = 0.35;
-    else gsap.to(this.crashTint, { alpha: 0.35, duration: 0.3 });
+    this.faceHorse(-1);
+    this.showStanding(false);
+    this.horse.visible = true;
+    this.setClip(false);
+    // Well clear of the shut gate, so the loss never reads as stopping just short of it: the horse eases
+    // back as the gate comes in, then stands and turns away.
+    const stopX = IDLE_X - 8;
+    const settle = () => {
+      this.mode = 'shut';
+      this.horseX = stopX;
+      this.placeHorse();
+      this.showStanding(true);
+      this.faceHorse(1);
+      if (this.reduced) this.crashTint.alpha = 0.35;
+      else gsap.to(this.crashTint, { alpha: 0.35, duration: 0.3 });
+    };
+    if (!this.reduced) gsap.to(this, { horseX: stopX, duration: ARRIVE_SECONDS, ease: 'power1.out', onUpdate: () => this.placeHorse() });
+    this.bringYardBack(settle);
   }
 
   /**
@@ -328,9 +409,10 @@ export class GateStage extends Container {
 
   update(dtSeconds: number): void {
     this.time += dtSeconds;
-    // Heading home scrolls the field the other way at the baseline speed: no multiplier, no outcome.
-    const running = this.mode === 'out' || this.mode === 'heading';
-    const speedRef = this.mode === 'heading' ? -160 : this.effectsOn ? 160 + 380 * this.intensity : 160;
+    const running = this.mode === 'out' || this.mode === 'heading' || this.mode === 'arriving';
+    // Heading home and the gate coming back scroll the field the other way at the baseline speed: no
+    // multiplier, no outcome.
+    const speedRef = this.mode === 'heading' || this.mode === 'arriving' ? -160 : this.effectsOn ? 160 + 380 * this.intensity : 160;
 
     if (running && !this.reduced) {
       this.scroll += speedRef * this.u * dtSeconds;
@@ -339,7 +421,7 @@ export class GateStage extends Container {
       this.crowd.tilePosition.x = -this.scroll * 0.15;
       this.horseRun.animationSpeed = this.effectsOn ? 0.2 + 0.16 * this.intensity : 0.2;
       if (!this.horseRun.playing) this.horseRun.play();
-      if (this.mode === 'out' && !gsap.isTweening(this)) {
+      if (this.mode === 'out' && !this.emerging && !gsap.isTweening(this)) {
         this.horseX = this.fieldX + lapOffset(this.time);
         this.placeHorse();
       }
@@ -349,6 +431,9 @@ export class GateStage extends Container {
     } else {
       this.horseRun.stop();
     }
+
+    // The yard may be moving; keep the horse where it is on screen, and the clip on the post.
+    this.placeHorse();
 
     // Crowd camera flashes: rate follows the multiplier only.
     if (this.mode === 'out' && this.effectsOn && !this.reduced) {
@@ -430,7 +515,7 @@ export class GateStage extends Container {
     this.posts[0].position.set(GATE_LEFT * u, ground + 6 * u);
     this.posts[1].position.set(GATE_RIGHT * u, ground + 6 * u);
     this.latch.scale.set(0.6 * u);
-    this.setGateOpen(this.mode === 'shut' ? 0 : 1);
+    this.setGateOpen(this.gateOpen);
 
     this.horse.scale.set(0.52 * u);
     this.placeHorse();
@@ -443,6 +528,7 @@ export class GateStage extends Container {
    * the centre of the view, as a real door opening towards you does.
    */
   private setGateOpen(open: number): void {
+    this.gateOpen = open;
     const u = this.u;
     const ground = this.groundY();
     const left = GATE_LEFT * u;
@@ -476,7 +562,23 @@ export class GateStage extends Container {
   }
 
   private placeHorse(): void {
-    this.horse.position.set(this.horseX * this.u, this.groundY());
+    // Screen position, undoing the yard's own offset while it moves.
+    this.horse.position.set(this.horseX * this.u - this.yard.x, this.groundY());
+    this.drawClip();
+  }
+
+  private setClip(on: boolean): void {
+    this.clipAtPost = on;
+    this.horse.mask = on ? this.horseMask : null;
+    this.drawClip();
+  }
+
+  /** Everything right of the left post, which moves with the yard. */
+  private drawClip(): void {
+    this.horseMask.clear();
+    if (!this.clipAtPost) return;
+    const left = this.yard.x + GATE_LEFT * this.u;
+    this.horseMask.rect(left, 0, Math.max(0, this.w - left) + 400 * this.u, this.h).fill(0xffffff);
   }
 
   private faceHorse(dir: 1 | -1): void {
@@ -517,20 +619,26 @@ export class GateStage extends Container {
     return -(this.yard.getLocalBounds().maxX + 16 * this.u);
   }
 
-  /** The reveal: the gate, already in its final state, slides back into view. Same motion either way. */
-  private bringYardBack(): void {
+  /**
+   * The reveal: the gate, already in its final state, comes back into view the way it left, over
+   * ARRIVE_SECONDS while the field scrolls. The same motion and timing for either result.
+   */
+  private bringYardBack(onArrived?: () => void): void {
     gsap.killTweensOf(this.yard);
     if (this.reduced) {
       this.yard.x = 0;
+      onArrived?.();
       return;
     }
     this.yard.x = Math.min(this.yard.x, this.yardAway());
-    gsap.to(this.yard, { x: 0, duration: 0.3, ease: 'power2.out' });
+    gsap.to(this.yard, { x: 0, duration: ARRIVE_SECONDS, ease: 'power1.out', onComplete: () => onArrived?.() });
   }
 
   private killTweens(): void {
+    this.emerging = false;
     gsap.killTweensOf(this);
     gsap.killTweensOf(this.yard);
+    gsap.killTweensOf(this.gateSwing);
     gsap.killTweensOf(this.crashTint);
   }
 
