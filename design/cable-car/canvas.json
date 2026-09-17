@@ -1,0 +1,128 @@
+{
+  "artboards": [
+    {
+      "file": "Betting.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Before any bet"
+    },
+    {
+      "file": "Main.dc.html",
+      "x": 490,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Riding"
+    },
+    {
+      "file": "Requested.dc.html",
+      "x": 980,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Next stop requested"
+    },
+    {
+      "file": "HoppedOut.dc.html",
+      "x": 1470,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Hopped out, above stake"
+    },
+    {
+      "file": "AtOrBelowStake.dc.html",
+      "x": 1960,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "At or below stake"
+    },
+    {
+      "file": "PulledIn.dc.html",
+      "x": 2450,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "The car pulled in"
+    },
+    {
+      "file": "AdultSkin.dc.html",
+      "x": 2940,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Regulated skin, Nigeria"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "the-idea",
+      "x": 0,
+      "y": -250,
+      "w": 380,
+      "text": "THE CABLE CAR\n\nSideways, so you can see the whole vehicle, the rope, the drop, and the people riding. The shaft could only ever show a box in a tube.\n\nSame certified engine as Whack Crash. One bet, one action: hop out before the car pulls in."
+    },
+    {
+      "id": "no-visible-end",
+      "x": 490,
+      "y": -250,
+      "w": 380,
+      "text": "THE LINE HAS NO VISIBLE END\n\nThe rope climbs into cloud and no summit is ever drawn. If you could see the last station coming, that would be an advance warning of the crash, which is the one rule that cannot bend.\n\nSpeed, colour and every other animated property key off the multiplier, never off the time remaining."
+    },
+    {
+      "id": "the-wait",
+      "x": 980,
+      "y": -250,
+      "w": 380,
+      "text": "ASK FOR THE NEXT STOP\n\nThe value locks on the press and the car keeps going. You find out at the stop.\n\nWhether the ride was already over was settled BEFORE you pressed \u2014 the wait is theatre, and it has to be: a wait whose length varied with the answer would leak it.\n\nSo the wait is a fixed length from the press, identical for a win and a loss. The money is cream, not green: nothing is won yet."
+    },
+    {
+      "id": "stops-are-scenery",
+      "x": 1470,
+      "y": -250,
+      "w": 380,
+      "text": "THE STOPS ARE SCENERY\n\nVALLEY, PINE HALT, MIDWAY, CLOUD DECK, EAGLE POINT, OPEN SKY. Each is entered at a multiplier, so two rounds reaching the same value have passed the same places.\n\nThey are NOT cash-out points. Making them the only place you could collect would change the maths and break the certified engine. You can hop out at any moment."
+    },
+    {
+      "id": "at-or-below",
+      "x": 1960,
+      "y": -250,
+      "w": 380,
+      "text": "THE ARTBOARD PEOPLE FORGET\n\nA return at or below the stake is never celebrated: no green, no confetti, no +amount. It shows the net instead.\n\nUKGC RTS 14F, AGCO 2.20. The card goes violet, not lime, and the money loses its green."
+    },
+    {
+      "id": "pulled-in",
+      "x": 2450,
+      "y": -250,
+      "w": 380,
+      "text": "NOTHING BREAKS, NOBODY FALLS\n\nThe car pulls in and the doors open. No snapped rope, no drop, no impact.\n\nThat is why people can be in the car at all: the empty cabin in the lift was a consequence of the fall, not a rule. Portugal Rule 7(b) and Ghana AAG Art. 15 need something bad to happen to someone.\n\nThe stop is abrupt. Slowing or chiming as it neared the station would be a warning."
+    },
+    {
+      "id": "regulated",
+      "x": 2940,
+      "y": -250,
+      "w": 380,
+      "text": "REGULATED SKIN\n\nMuted charcoal, brass and teal for markets where cartoon styling is a minors-appeal risk (CAP Oct 2025 \u00a714, Kenya reg 95, PT R7c, BR 1.231).\n\nBrass is 7.83:1 on this ground. The shipped charcoal was 1.42:1, which made the multiplier \u2014 the primary value \u2014 effectively invisible."
+    },
+    {
+      "id": "still-open",
+      "x": 3430,
+      "y": 0,
+      "w": 380,
+      "text": "STILL OPEN\n\n- The altitude readout on the cabin: metres, or keep it as a stop count?\n- OPEN SKY is deliberately not a terminus. Any name that sounds like the end of the line is out.\n- No sound yet. That needs licensed audio, so it is real scope rather than something to start quietly."
+    },
+    {
+      "id": "the-odds-line",
+      "x": 980,
+      "y": 900,
+      "w": 380,
+      "text": "WHY THE PERCENTAGE IS THERE\n\nOn a deferred reveal the number keeps climbing past a crash that already happened, so the screen can show money that is no longer winnable. Ontario forbids displaying amounts that are unachievable.\n\nThe live chance (RTP / value) is what makes it honest. It is also the answer to 'is this a strategy': chance x value = RTP at every value, so no stopping point beats another."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}
