@@ -253,12 +253,10 @@ export class GameView extends CrashViewBase implements CrashView {
     this.practiceButton = new StickerButton({
       width: 358,
       height: 46,
-      // Sky, not cream: on a cream face the cream sub-label was invisible, and the button read as a
-      // disabled control rather than a second option. Subordinate is carried by width and label size.
-      fill: COLORS.sky,
+      fill: COLORS.cream,
       label: t('button.practice'),
+      sub: t('button.practiceSub'),
       labelSize: 20,
-      a11y: `${t('button.practice')} — ${t('button.practiceSub')}`,
       onTap: () => this.handlers.onPractice(),
     });
     this.practiceButton.visible = false;
@@ -803,11 +801,8 @@ export class GameView extends CrashViewBase implements CrashView {
       const showPracticeDesktop = this.practiceRounds && (this.phase === 'won' || this.phase === 'lost');
       this.practiceButton.visible = showPracticeDesktop;
       if (showPracticeDesktop) {
-        const gap = 8;
-        const mainW = Math.round((w - gap) * 0.62);
-        this.bigButton.resize(mainW, 116);
-        this.practiceButton.resize(w - gap - mainW, 116);
-        this.practiceButton.position.set(x + mainW + gap, 738);
+        this.practiceButton.resize(w, 46);
+        this.practiceButton.position.set(x, 610);
       }
     } else {
       const H = this.designH;
@@ -831,12 +826,16 @@ export class GameView extends CrashViewBase implements CrashView {
       } else {
         const btnY = H - 112;
         const statY = btnY - 58;
-        // Offered only on a settled result, and only where the market allows it. It shares the row with
-        // the primary action but stays subordinate: narrower, cream rather than lime, no icon, smaller
-        // label. Sharing the row costs no stage height, so the composition is unchanged without it.
+        // Offered only on a settled result, and only where the market allows it. Subordinate by
+        // construction: shorter, cream, no icon, and below the primary action rather than beside it.
         const showPractice = this.practiceRounds && (this.phase === 'won' || this.phase === 'lost');
         this.practiceButton.visible = showPractice;
-        this.setStageSize(CONTENT, Math.max(240, statY - 10 - top), animate);
+        const practiceH = showPractice ? 52 : 0;
+        if (showPractice) {
+          this.practiceButton.resize(CONTENT, 46);
+          this.practiceButton.position.set(PAD, statY - practiceH);
+        }
+        this.setStageSize(CONTENT, Math.max(240, statY - practiceH - 10 - top), animate);
         this.placeBetControls(PAD, statY, CONTENT, false);
         this.statBet.visible = this.statAuto.visible = true;
         const half = (CONTENT - 10) / 2;
@@ -844,14 +843,8 @@ export class GameView extends CrashViewBase implements CrashView {
         this.statAuto.resize(half, 44);
         this.statBet.position.set(PAD, statY);
         this.statAuto.position.set(PAD + half + 10, statY);
-        const gap = 8;
-        const mainW = showPractice ? Math.round((CONTENT - gap) * 0.62) : CONTENT;
-        this.bigButton.resize(mainW, 96);
+        this.bigButton.resize(CONTENT, 96);
         this.bigButton.position.set(PAD, btnY);
-        if (showPractice) {
-          this.practiceButton.resize(CONTENT - gap - mainW, 96);
-          this.practiceButton.position.set(PAD + mainW + gap, btnY);
-        }
       }
     }
     this.relayoutHeader();

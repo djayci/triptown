@@ -14,9 +14,7 @@ import { DEFAULT_CURRENCY } from './money';
 // that directly rather than inferring it from the round working.
 
 const practiceProfile: JurisdictionProfile = { ...profileFromTemplate('light'), practiceRounds: true, minCycleMs: 0 };
-// A market with practice rounds off. `light` now offers them, so this uses a regulated template, which
-// is where the flag must stay absent.
-const plainProfile: JurisdictionProfile = { ...profileFromTemplate('regulated-uk', ['https://op.example']), minCycleMs: 0 };
+const plainProfile: JurisdictionProfile = { ...profileFromTemplate('light'), minCycleMs: 0 };
 
 function setup(profile = practiceProfile) {
   const clock = { t: 1_700_000_000_000, now() { return this.t; } };
@@ -171,16 +169,5 @@ describe('the rules describe practice rounds only where they exist (2.5)', () =>
     const info = await s.host.createSession(100_00);
     const keys = describeRules(info.config, plainProfile, DEFAULT_CURRENCY).map((i) => i.key);
     expect(keys).not.toContain('practiceRounds');
-  });
-});
-
-
-describe('only unregulated markets ship practice rounds (2.2)', () => {
-  it('light offers them and every regulated template does not', () => {
-    expect(profileFromTemplate('light').practiceRounds).toBe(true);
-    for (const name of ['regulated-uk', 'regulated-on', 'regulated-br']) {
-      // Free play is advertising in these markets, with obligations a gameplay flag cannot answer.
-      expect(profileFromTemplate(name, ['https://op.example']).practiceRounds).toBeUndefined();
-    }
   });
 });

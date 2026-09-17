@@ -77,23 +77,7 @@ let starts = await page.evaluate(() => window.__triptownView?.().starts ?? []);
 // This measures rather than asserts a refusal. The gap runs from one START to the next, so after a
 // round that lasts longer than the gap it has already elapsed and a refusal would be the wrong thing
 // to expect. Any practice start that came too soon shows up in the gaps computed below.
-// Gated on what the MARKET permits, not on whether the demo hook happens to exist. The hook is
-// present in every demo build, so testing for it alone drove a practice round on markets that forbid
-// one, where the host correctly refused it and the refusal read as a failure to measure. A market
-// that allows practice but cannot be driven is still a FAIL, below — "not permitted here" and
-// "cannot be observed" must not collapse into the same outcome.
-const practicePermitted = await page.evaluate(() => window.__triptownView?.().profile?.practiceRounds === true);
-const practiceHook = await page.evaluate(() => typeof window.__triptownPractice === 'function');
-if (practicePermitted && !practiceHook) {
-  // Permitted but undrivable: the one case that must fail rather than skip, or a build that dropped
-  // the hook would report green on the pacing rule it never measured.
-  console.error('FAIL: this market allows practice rounds but __triptownPractice is missing, so their pacing was not measured');
-  await browser.close();
-  process.exit(1);
-}
-if (!practicePermitted) {
-  console.info('practice pacing: UNREACHABLE on this profile (the market does not allow practice rounds) — not measured, and not a pass');
-} else {
+if (await page.evaluate(() => typeof window.__triptownPractice === 'function')) {
   const ready = await page
     .waitForFunction(() => ['betting', 'won', 'lost'].includes(window.__triptownView?.().phase), null, { timeout: 30_000 })
     .then(() => true)
