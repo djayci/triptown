@@ -302,7 +302,7 @@ export class GameView extends CrashViewBase implements CrashView {
     this.minus.eventMode = this.plus.eventMode = this.autoRow.eventMode = this.autoField.eventMode = ui.locked ? 'none' : 'static';
     this.lockedLabel.visible = this.layout === 'desktop' && ui.locked;
     this.drawAuto(ui.autoOn, ui.auto);
-    this.statBet.set('Bet', ui.bet);
+    this.statBet.set(t(ui.locked ? 'label.bet' : 'label.betTapToChange'), ui.bet);
     this.statAuto.set('Auto', ui.autoOn ? ui.auto : 'OFF');
     if (this.phase === 'betting') this.setActionLabel({ label: ui.reason ?? `BET ${ui.bet}`, sub: '', enabled: ui.canBet });
     if (this.phase === 'betting' && !this.counting) {

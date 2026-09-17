@@ -28,6 +28,8 @@ export const EN = {
   'button.wait': 'WAIT {seconds}s',
   'button.waitSub': 'Next round',
   'label.bet': 'Bet',
+  // The stake box on the result screen is tappable; without saying so it reads as a readout.
+  'label.betTapToChange': 'Bet · tap to change',
   'label.auto': 'Auto',
   'label.autoCashOut': 'AUTO CASH OUT',
   'label.off': 'OFF',
