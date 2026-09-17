@@ -845,10 +845,10 @@ export class GameView extends CrashViewBase implements CrashView {
         const showStats = this.phase !== 'running' && this.phase !== 'cashing';
         this.statBet.visible = showStats;
         this.statAuto.visible = false;
-        // With the stat row hidden the stage takes the space back, rather than leaving a gap where it
-        // used to be. That is also the moment the player most wants the stage large.
-        const stageBottom = showStats ? statY - 10 : btnY - 12;
-        this.setStageSize(CONTENT, Math.max(240, stageBottom - practiceH - top), animate);
+        // The stage keeps one height across the round and its result. Growing it while the stat row was
+        // hidden meant it shrank again the moment the round settled, and the hole and the diving mole
+        // are positioned from that height — so every crash ended with the scene lurching downward.
+        this.setStageSize(CONTENT, Math.max(240, statY - 10 - practiceH - top), animate);
         // BET spans the row now that AUTO is gone, rather than leaving a gap where it used to sit.
         this.statBet.resize(CONTENT, 44);
         this.statBet.position.set(PAD, statY);
