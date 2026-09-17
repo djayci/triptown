@@ -1,0 +1,59 @@
+{
+  "url": "http://localhost:5176",
+  "date": "2026-09-17T14:55:47.161Z",
+  "profile": {
+    "belowStake": true,
+    "even": true,
+    "practice": false,
+    "why": "profile light: setbacks on, minimum cash-out none, practice rounds not allowed"
+  },
+  "audioCues": "none",
+  "results": [
+    {
+      "case": "win above stake",
+      "expect": "win",
+      "kind": "win",
+      "celebrated": true,
+      "shakes": 0,
+      "audio": [],
+      "pass": true
+    },
+    {
+      "case": "return below stake after a setback",
+      "expect": "not-win",
+      "kind": "loss",
+      "celebrated": false,
+      "shakes": 0,
+      "audio": [],
+      "pass": true
+    },
+    {
+      "case": "even return at x1.00",
+      "expect": "not-win",
+      "kind": "even",
+      "celebrated": false,
+      "shakes": 0,
+      "audio": [],
+      "pass": true
+    },
+    {
+      "case": "crash",
+      "expect": "not-win",
+      "kind": "loss",
+      "celebrated": false,
+      "shakes": 0,
+      "audio": [],
+      "pass": true
+    },
+    {
+      "name": "deferred heading home is the same for a win and a loss",
+      "status": "unreachable",
+      "why": "live reveal"
+    },
+    {
+      "name": "practice round",
+      "status": "unreachable",
+      "why": "profile light: setbacks on, minimum cash-out none, practice rounds not allowed"
+    }
+  ]
+}

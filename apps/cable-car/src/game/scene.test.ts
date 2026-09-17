@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { effectiveConfig, effectiveReveal, profileFromTemplate, registerGame } from '@triptown/core';
-import { STOPS, heightExact, heightFor, intensityFor, scrollSpeed, stopFor } from './scene';
+import { FAR_PROFILE, RIDGE_PROFILE, STOPS, heightExact, heightFor, intensityFor, scrollSpeed, stopFor } from './scene';
 import { t } from '../i18n/en';
 
 registerGame('cable-car', 'whack-crash', { reveal: ['onCollect'] });
@@ -118,5 +118,25 @@ describe('nothing keyed to the crash', () => {
       expect(fn.length).toBe(1);
     }
     expect(scrollSpeed.length).toBe(2);
+  });
+});
+
+describe('the landscape loops without a seam', () => {
+  it('starts and ends each layer at the same height', () => {
+    // The layers tile sideways forever. If a tile's left and right edges sit at different heights,
+    // a step appears at every wrap — which is the only way these layers can show a seam.
+    for (const profile of [FAR_PROFILE, RIDGE_PROFILE]) {
+      const first = profile[0]!;
+      const last = profile[profile.length - 1]!;
+      expect(last[1]).toBe(first[1]);
+    }
+  });
+
+  it('spans exactly one tile width', () => {
+    // A profile narrower or wider than the tile would stretch or clip at the repeat.
+    for (const profile of [FAR_PROFILE, RIDGE_PROFILE]) {
+      expect(profile[0]![0]).toBe(0);
+      expect(profile[profile.length - 1]![0]).toBe(390);
+    }
   });
 });

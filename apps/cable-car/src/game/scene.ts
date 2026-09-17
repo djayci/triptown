@@ -74,6 +74,20 @@ export function heightFor(multiplier: number): number {
   return Math.round(heightExact(multiplier) / 10) * 10;
 }
 
+/**
+ * The silhouettes each landscape layer is cut from, as [x, y] pairs across one tile width.
+ *
+ * Exported so the seam is testable as a property rather than as a screenshot: a capture taken at
+ * the wrong phase of the loop proves nothing either way. A tile whose first and last y differ
+ * shows a step every time it wraps, which is the only way these layers can seam.
+ */
+export const FAR_PROFILE: readonly (readonly [number, number])[] = [
+  [0, 150], [64, 34], [130, 128], [196, 22], [262, 120], [326, 48], [390, 150],
+];
+export const RIDGE_PROFILE: readonly (readonly [number, number])[] = [
+  [0, 96], [98, 30], [196, 104], [292, 42], [390, 96],
+];
+
 /** The landscape occupies the lower screen; the sky above it is where the value is read. */
 const FAR_TOP = 430;
 const FAR_H = 210;
