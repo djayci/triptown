@@ -48,7 +48,9 @@ export const EN = {
   'result.bonk': 'BONK!',
   // The meter's fixed caption. The right-hand label is the live value (SLOW / MEDIUM / FAST), so a
   // fixed "SLOW" on the left read as "SLOW ... SLOW" and said nothing about what the bar measured.
-  'meter.caption': 'CLIMB SPEED',
+  // Kept factual rather than urgent: it describes how fast the multiplier is climbing, and copy that
+  // pushes the player to act would breach the no-urgency rule (Spain RD 176/2023 art. 17.2, AGCO 2.15).
+  'meter.caption': 'PACE',
   'meter.slow': 'SLOW',
   'meter.fast': 'FAST',
 
