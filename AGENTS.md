@@ -19,6 +19,7 @@ Settled decisions are not up for debate while you implement. If code and spec di
 apps/
   whack/        Vite + PixiJS v8 game client (static build)       @triptown/whack
   lift/         The Lift: a skin on the Whack Crash engine         @triptown/lift
+  gate/         Beat the Gate: a skin on the Whack Crash engine    @triptown/gate
   sandbox/      fake operator page: iframe embed + verifier       @triptown/sandbox
   api/          Hono on Vercel functions: rounds, SSE, cashout    @triptown/api
 packages/
@@ -90,7 +91,7 @@ These games are built to be certified by accredited test labs and licensed to re
 
 0. **A modifier may never take the multiplier down in Brazil or Portugal.** Brazil 1.207 Annex I item 14(d) lists the only permitted round endings and assumes a multiplier that only increases, so a falling value fits none of them (primary text, verified 2026-09-16). Keep `setbacksMode: 'off'` for those markets. Upward modifiers are fine.
 
-1. **Never celebrate a return that is at or below the stake.** No confetti, win sound or "+payout" on those rounds; show the net result instead. Source: UKGC RTS 14F (applies to all casino games since Jan 2025), AGCO 2.20.
+1. **Never celebrate a return that is at or below the stake.** No confetti, win sound or "+payout" on those rounds; show the net result instead. Emphasis is not only sound and confetti: screen shake, a burst, a hit landing on the character all read as celebration too, and a shake on a losing round was shipping until `presentation-check` learned to count it. **Every win effect must route through the single celebrate decision** (`resultPresentation` / `resultKind`) and register on a flag or counter the check can read — `confetti` and `shakes` today. The check reads decisions, not pixels, so an effect fired straight from the scene is invisible to it whatever its z-order, and an effect that plays under a result panel is invisible to the player while still counting against you. Source: UKGC RTS 14F (applies to all casino games since Jan 2025), AGCO 2.20.
 2. **Enforce a minimum gap between round starts on the server.** It must be configurable per market: UK 5 s, Brazil 5 s (planned), Ontario 2.5 s. The player must release and press again to start the next round. Verify timing with automated tests, not a stopwatch (Stakelogic was fined for that).
 3. **Make rules and help available before any bet.** Cover modifiers, RTP and how it is derived, max win and caps, minimum cash-out, disconnect and latency policy, and rounding. State that the outcome is fixed and that tapping or decorations do nothing. Source: GLI-19 §4.4.1, UK RTS 3/4.
 4. **No autoplay and no auto-rebet.** Auto cash-out is allowed because it only ends the current bet. One game at a time per player.
