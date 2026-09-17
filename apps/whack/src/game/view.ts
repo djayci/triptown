@@ -570,7 +570,6 @@ export class GameView extends CrashViewBase implements CrashView {
     this.phase = 'cashing';
     this.bigButton.setEnabled(false);
     this.bigButton.setLabel(t('button.whack'), `Cashing out ${cashout}…`);
-    this.swingHammer(false);
   }
 
   /**
@@ -585,12 +584,9 @@ export class GameView extends CrashViewBase implements CrashView {
     const celebrate = kind === 'win';
     this.stage.setMood(celebrate ? 'lime' : 'sun');
     this.mult.visible = this.winNow.visible = this.meter.visible = false;
-    // On a win the mole keeps its running face until the hammer actually lands; see the contact
-    // callback below. Every other result has no swing, so it changes straight away.
-    if (!celebrate) {
-      this.mainHole.setFrame(this.frames, 'mole-gold-dizzy');
-      this.mainHole.riseTo(50, 0.3, 'power2.out');
-    }
+    // The mole keeps its running face until the hammer actually lands; the contact callback below
+    // changes it. A cash-out always swings, win or not — the swing is feedback for the player's own
+    // action. Only the contact effects are gated on the result (UK RTS 14F).
     this.resultTitle.text = t('result.cashedOut');
     this.resultMult.text = multiplier;
     // Net, not the gross return: "+4.20" only when the player is actually up.
@@ -606,10 +602,11 @@ export class GameView extends CrashViewBase implements CrashView {
     gsap.to(this.resultCard.scale, { x: 1, y: 1, duration: 0.4, delay: celebrate ? 0.22 : 0, ease: 'back.out(2.2)' });
     // Everything the blow causes waits for the blow. The mole used to be dizzy, and the confetti already
     // flying, before the hammer had finished its downstroke — the effect arriving ahead of its cause.
-    if (celebrate) {
-      this.swingHammer(true, () => {
+    {
+      this.swingHammer(celebrate, () => {
         this.mainHole.setFrame(this.frames, 'mole-gold-dizzy');
         this.mainHole.riseTo(50, 0.3, 'power2.out');
+        if (!celebrate) return;
         // Confetti and the BONK sticker are part of the arcade look; the adult skin has neither.
         if (SKIN === 'adult') return;
         this.stars();
@@ -1113,19 +1110,22 @@ export class GameView extends CrashViewBase implements CrashView {
       .roundRect(-headW / 2, reach - headH * 0.5, headW, headH, headH * 0.28).fill(COLORS.pink).stroke({ width: 5, color: COLORS.ink })
       .roundRect(-headW / 2, reach - headH * 0.5, headW * 0.22, headH, headH * 0.2).fill(COLORS.cream).stroke({ width: 4, color: COLORS.ink });
     hammer.position.set(grip.x, grip.y);
-    // Cocked back from the player's side, off the edge of the stage.
-    const raised = down - 1.0;
-    // A miss stops short of the mole: contact belongs to the settled result, not the optimistic swing.
-    const lands = impact ? down : down - 0.16;
+    // Cocked back and UP, so the downstroke travels downward onto the mole. Rotating the other way
+    // started the head low and swept it up into the mole, which reads as hitting from underneath.
+    const raised = down + 0.95;
+    const lands = down;
     hammer.rotation = raised;
     this.fx.addChild(hammer);
     const strike = () => {
-      if (!impact) return;
-      // The mole takes the hit: a short squash, and the shake, exactly when the head arrives.
-      this.trackFx(pop(this.mainHole, 0.88, 0.16));
-      if (this.intensityEffects) {
-        this.shakesShown++;
-        shake(this.root, 5, 0.18);
+      // The blow lands whatever the result: the player really did whack the mole. Only the emphasis is
+      // gated — a squash and a screen shake on a return at or below the stake would read as celebration
+      // (UK RTS 14F, AGCO 2.20).
+      if (impact) {
+        this.trackFx(pop(this.mainHole, 0.88, 0.16));
+        if (this.intensityEffects) {
+          this.shakesShown++;
+          shake(this.root, 5, 0.18);
+        }
       }
       onContact?.();
     };
