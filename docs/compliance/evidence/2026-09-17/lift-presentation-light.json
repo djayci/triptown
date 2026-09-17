@@ -1,10 +1,11 @@
 {
   "url": "http://localhost:5175",
-  "date": "2026-09-17T13:42:56.413Z",
+  "date": "2026-09-17T13:50:39.794Z",
   "profile": {
     "belowStake": true,
     "even": true,
-    "why": "profile light: setbacks on, minimum cash-out none"
+    "practice": true,
+    "why": "profile light: setbacks on, minimum cash-out none, practice rounds allowed"
   },
   "audioCues": "none",
   "results": [
