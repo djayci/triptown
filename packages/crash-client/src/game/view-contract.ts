@@ -31,11 +31,15 @@ export interface PresentationFlags {
   intensityEffects: boolean;
   setbacks: boolean;
   boosts: boolean;
+  /** The market offers stake-free practice rounds, so a game may show a control for one. */
+  practiceRounds: boolean;
 }
 
 /** What the player can do. `onCollect` is the cash-out; each game names the button itself. */
 export interface CrashViewCallbacks {
   onBigButton(): void;
+  /** Starts a stake-free practice round. Only ever called where the profile permits one. */
+  onPractice(): void;
   onCollect(): void;
   onCountdownDone(): void;
   onStepBet(dir: 1 | -1): void;
@@ -81,6 +85,20 @@ export interface CrashView {
   boost(percent: number, to: string, payout: string): void;
   setback(from: string, to: string, payout: string): void;
   toast(message: string): void;
+  /**
+   * Optional, deferred reveal (gate-odds-mvp). Called at every round start with the round's reveal mode,
+   * before any frame, so a game can choose its presentation for the round.
+   */
+  setRevealMode?(mode: 'live' | 'onCollect'): void;
+  /** Optional: the live win chance of a deferred round (already formatted), or null to hide it. */
+  setRevealOdds?(chance: string | null): void;
+  /**
+   * Optional: the player pressed collect on a deferred round. The value is locked and the result is
+   * not known yet; this state must look and sound the same whatever the outcome.
+   */
+  showHeadingHome?(multiplier: string, payoutIfWon: string): void;
+  /** Optional: whether this game has audio at all. A sound control with nothing behind it is a false signal. */
+  setAudioAvailable?(available: boolean): void;
   /** Optional: market disclosures a profile switches on, e.g. a withholding-tax notice. */
   setDisclosures?(d: { withholdingNotice?: boolean }): void;
   /**

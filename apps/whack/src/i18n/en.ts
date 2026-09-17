@@ -21,6 +21,8 @@ export const EN = {
   'button.playAgain': 'PLAY AGAIN',
   'button.betAgain': 'BET AGAIN',
   'button.playAgainSub': 'Same bet',
+  'button.practice': 'WATCH A ROUND',
+  'button.practiceSub': 'No stake, no payout',
   'button.continue': 'CONTINUE',
   'button.continueSub': 'Back to betting',
   'button.wait': 'WAIT {seconds}s',

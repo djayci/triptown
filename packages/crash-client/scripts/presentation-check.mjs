@@ -141,6 +141,27 @@ function reachable(profile) {
   };
 }
 
+// Ask the game, not the market. A profile's `crashReveal: 'onCollect'` only says what the market allows;
+// whether THIS game's rounds are deferred is `effectiveReveal(game, profile, config)`, which the START
+// event carries and debugState() exposes as `deferred`. Start one round and read it: a game that has not
+// opted in plays live even on a deferred market, and must be checked as live.
+async function detectDeferred() {
+  await page.goto(pageUrl('longRound'), { waitUntil: 'networkidle' });
+  await page.waitForTimeout(2000);
+  for (let i = 0; i < 8; i++) {
+    await page.mouse.click(195, 783);
+    const running = await page
+      .waitForFunction(() => window.__triptownView?.().phase === 'running', null, { timeout: 1500 })
+      .then(() => true)
+      .catch(() => false);
+    if (running) break;
+  }
+  return page.evaluate(() => window.__triptownView?.().deferred === true);
+}
+const deferredProfile = await detectDeferred();
+console.info(`presentation-check: this game's rounds reveal ${deferredProfile ? 'at collect (deferred)' : 'live'}`);
+const crashWhen = deferredProfile ? { when: 'time', ms: 4000 } : { when: 'never', ms: 0 };
+
 const cases = [
   { name: 'win above stake', force: 'bigWin', when: 'time', ms: 2500, expect: 'win', needs: null },
   { name: 'return below stake after a setback', force: 'setback', when: 'belowStake', expect: 'not-win', needs: 'belowStake' },
@@ -150,11 +171,11 @@ const cases = [
   // window is +/-2.5%, which a fast collect does reach — and the minimum stake is where the rule
   // bites hardest anyway (GLI-19 4.7.1(a), AGENTS hard rule 9).
   { name: 'even return at x1.00', force: 'longRound', when: 'time', ms: 150, expect: 'not-win', needs: 'even', betMinor: 20 },
-  { name: 'crash', force: 'quickCrash', when: 'never', expect: 'not-win', needs: null },
+  { name: 'crash', force: 'quickCrash', ...crashWhen, expect: 'not-win', needs: null },
 ];
 
 // One probe round tells us what this profile can produce before we try to force anything.
-const probe = await play('quickCrash', 'never');
+const probe = await play('quickCrash', crashWhen.when, crashWhen.ms);
 assertObservable(probe, 'probe');
 const can = reachable(probe.view?.profile);
 console.info(`presentation-check: ${can.why}`);
@@ -224,6 +245,87 @@ for (const c of cases) {
   console.info(
     `${ok ? 'PASS' : 'FAIL'}  ${c.name}: kind=${kind} celebrated=${celebrated} shakes=${shakes} audio=${state.audio.join(',')}`,
   );
+}
+
+/**
+ * Deferred reveal (gate-odds-mvp D6): between the press and the reveal, a round that will win and a round
+ * that will lose must be indistinguishable. Captured 600 ms into heading home, before either result can
+ * show: the phase, the heading-home flag and every audio cue since the press must match.
+ */
+async function headingHomeSnapshot(force, pressAfterMs) {
+  await page.goto(pageUrl(force), { waitUntil: 'networkidle' });
+  await page.waitForTimeout(2000);
+  for (let i = 0; i < 8; i++) {
+    await page.mouse.click(195, 783);
+    const started = await page
+      .waitForFunction(() => window.__triptownView?.().phase === 'running', null, { timeout: 1500 })
+      .then(() => true)
+      .catch(() => false);
+    if (started) break;
+  }
+  await page.waitForTimeout(pressAfterMs);
+  await page.evaluate(() => {
+    const log = window.__triptownAudioLog;
+    if (log) log.length = 0;
+  });
+  await page.mouse.click(195, 783);
+  await page.waitForTimeout(600);
+  return page.evaluate(() => {
+    const v = window.__triptownView?.();
+    return { deferred: v?.deferred ?? false, phase: v?.phase, headingHome: v?.headingHome ?? false, audio: [...(window.__triptownAudioLog ?? [])] };
+  });
+}
+
+if (deferredProfile) {
+  const win = await headingHomeSnapshot('longRound', 500);
+  const loss = await headingHomeSnapshot('quickCrash', 4000);
+  const same = JSON.stringify(win) === JSON.stringify(loss);
+  const ok = same && win.deferred && win.headingHome && win.phase === 'cashing';
+  results.push({ case: 'deferred heading home is the same for a win and a loss', win, loss, pass: ok });
+  console.info(`${ok ? 'PASS' : 'FAIL'}  deferred heading home: win=${JSON.stringify(win)} loss=${JSON.stringify(loss)}`);
+} else {
+  console.info('deferred heading home: UNREACHABLE on this profile (crash is revealed live) — not tested, and not a pass');
+  results.push({ name: 'deferred heading home is the same for a win and a loss', status: 'unreachable', why: 'live reveal' });
+}
+
+// ---- Practice rounds (practice-rounds) ----
+// A stake-free round must show no money and celebrate nothing, because nothing was staked and nothing
+// was won. Driven through a named demo hook rather than a click point: coordinates stop hitting
+// anything when a layout moves, and the check would then prove nothing while still reporting green.
+{
+  const u = new URL(pageUrl('bigWin'));
+  u.searchParams.set('practice', 'on');
+  await page.goto(u.toString(), { waitUntil: 'networkidle' });
+  await page.waitForTimeout(2000);
+  const available = await page.evaluate(() => typeof window.__triptownPractice === 'function');
+  if (!available) {
+    // A missing hook is a failure, never a skip: the check must not report on what it cannot see.
+    results.push({ case: 'practice round', pass: false, why: 'the demo hook __triptownPractice is missing' });
+    console.error('FAIL  practice round: the demo hook __triptownPractice is missing, so nothing was proved');
+  } else {
+    await page.evaluate(() => window.__triptownAudioLog && (window.__triptownAudioLog.length = 0));
+    await page.evaluate(() => window.__triptownPractice());
+    await page.waitForFunction(() => window.__triptownView?.().phase === 'running', null, { timeout: 15_000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+    await page.mouse.click(195, 783);
+    await page
+      .waitForFunction(() => ['won', 'lost'].includes(window.__triptownView?.().phase), null, { timeout: 30_000 })
+      .catch(() => {});
+    const v = await page.evaluate(() => window.__triptownView?.());
+    const audio = await page.evaluate(() => [...(window.__triptownAudioLog ?? [])]);
+    // What the client actually handed the view, not what the DOM shows: the money is drawn into a Pixi
+    // canvas, so scanning document.innerText for a currency symbol finds nothing and proves nothing —
+    // it passed a build that displayed a payout. This reads the decision instead.
+    const money = (v?.moneyShown ?? []).join(' ');
+    const settled = ['won', 'lost'].includes(v?.phase);
+    const celebrated = audio.some(isWinCue) || !!v?.confetti || (v?.shakes ?? 0) > 0;
+    const ok = settled && v?.practice === true && !celebrated && !money;
+    results.push({ case: 'practice round', practice: v?.practice, settled, celebrated, money: money || null, pass: ok });
+    console.info(
+      `${ok ? 'PASS' : 'FAIL'}  practice round: practice=${v?.practice} settled=${settled} celebrated=${celebrated}` +
+        `${money ? ` money=${JSON.stringify(money)}` : ''} audio=${audio.join(',')}`,
+    );
+  }
 }
 
 await browser.close();

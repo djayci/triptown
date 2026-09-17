@@ -67,7 +67,44 @@ while (Date.now() < deadline) {
   const n = await page.evaluate(() => window.__triptownView?.().starts.length ?? 0);
   if (n >= rounds) break;
 }
-const starts = await page.evaluate(() => window.__triptownView?.().starts ?? []);
+let starts = await page.evaluate(() => window.__triptownView?.().starts ?? []);
+
+// Mixed sequence (practice-rounds): a stake-free round must be paced exactly like a staked one, or it
+// becomes a way to fill the enforced wait with play, which is the opposite of what the gap is for.
+// Practice starts go into the same log, so a practice round missing from it would be invisible here
+// while still being playable — the shape that makes a check pass while proving nothing.
+//
+// This measures rather than asserts a refusal. The gap runs from one START to the next, so after a
+// round that lasts longer than the gap it has already elapsed and a refusal would be the wrong thing
+// to expect. Any practice start that came too soon shows up in the gaps computed below.
+if (await page.evaluate(() => typeof window.__triptownPractice === 'function')) {
+  const ready = await page
+    .waitForFunction(() => ['betting', 'won', 'lost'].includes(window.__triptownView?.().phase), null, { timeout: 30_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!ready) {
+    console.error('FAIL: the client never settled, so practice pacing was not measured');
+    await browser.close();
+    process.exit(1);
+  }
+  const before = (await page.evaluate(() => window.__triptownView?.().starts ?? [])).length;
+  // Hammer it the way a player would, so a client that lets one through early is caught by the gaps.
+  // The window has to outlast this market's own gap, or a refusal for pacing reads as "never started".
+  const attempts = Math.ceil((minMs + 4000) / 250);
+  for (let i = 0; i < attempts; i++) {
+    await page.evaluate(() => window.__triptownPractice());
+    await page.waitForTimeout(250);
+    const n = await page.evaluate(() => window.__triptownView?.().starts.length ?? 0);
+    if (n > before) break;
+  }
+  starts = await page.evaluate(() => window.__triptownView?.().starts ?? []);
+  if (starts.length <= before) {
+    console.error('FAIL: the practice round never reached the start log, so its pacing was not measured');
+    await browser.close();
+    process.exit(1);
+  }
+  console.info(`practice round recorded: start log grew ${before} -> ${starts.length}`);
+}
 
 // A held control must not roll into another round: wait out the gap while Space stays down.
 await page.waitForTimeout(500);

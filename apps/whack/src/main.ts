@@ -86,6 +86,9 @@ async function boot() {
     const w = window as unknown as Record<string, unknown>;
     if (audio) w.__triptownAudioLog = audio.log;
     w.__triptownView = () => controller.debugState();
+    // Coordinates stop hitting anything when a layout changes, and the check then proves nothing while
+    // still passing. A named hook cannot drift that way (practice-rounds D9).
+    w.__triptownPractice = () => void controller.bet({ practice: true });
   }
   await controller.init();
   // Effects load after the first frame so audio never delays startup.

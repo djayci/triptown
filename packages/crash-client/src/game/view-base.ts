@@ -33,6 +33,8 @@ export interface ActionLabel {
 export abstract class CrashViewBase {
   protected phase: Phase = 'betting';
   protected quickReplay = true;
+  /** The market offers stake-free practice rounds, so a game may show a control for one. */
+  protected practiceRounds = false;
   protected intensityEffects = true;
   protected modifiers = { setbacks: true, boosts: false };
 
@@ -44,6 +46,15 @@ export abstract class CrashViewBase {
 
   /** The control the countdown borrows. A game returns its start/collect button. */
   protected abstract actionControl(): ActionControl;
+
+  /**
+   * A secondary result-screen control, if the game has one. The countdown disables it alongside the
+   * primary: a practice round started during the enforced gap would be a way to fill the wait, which
+   * is what the gap exists to prevent (practice-rounds D7).
+   */
+  protected secondaryControl(): ActionControl | null {
+    return null;
+  }
 
   // ---------- release and press (RTS 14G) ----------
 
@@ -105,15 +116,18 @@ export abstract class CrashViewBase {
   private updateCountdown(): void {
     if (this.phase === 'running' || this.phase === 'starting' || this.phase === 'cashing') return;
     const control = this.actionControl();
+    const secondary = this.secondaryControl();
     const left = this.countdownUntil - performance.now();
     if (left > 0) {
       control.setEnabled(false);
+      secondary?.setEnabled(false);
       control.setLabel(t('button.wait', { seconds: (left / 1000).toFixed(1) }), t('button.waitSub'));
     } else if (this.countdownUntil) {
       this.countdownUntil = 0;
       // Put the control back the way the screen wanted it, then let the controller refresh.
       control.setLabel(this.action.label, this.action.sub);
       control.setEnabled(this.action.enabled);
+      secondary?.setEnabled(true);
       this.handlers.onCountdownDone();
     }
   }
@@ -140,5 +154,6 @@ export abstract class CrashViewBase {
     this.quickReplay = flags.quickReplay;
     this.intensityEffects = flags.intensityEffects;
     this.modifiers = { setbacks: flags.setbacks, boosts: flags.boosts };
+    this.practiceRounds = flags.practiceRounds;
   }
 }

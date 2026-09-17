@@ -111,6 +111,8 @@ export class GameView extends CrashViewBase implements CrashView {
   private readonly statBet: StatBox;
   private readonly statAuto: StatBox;
   readonly bigButton: StickerButton;
+  /** Stake-free practice round, offered beside the primary action where the market allows it. */
+  private readonly practiceButton: StickerButton;
 
   /** Count of setback moments played (used by automated checks). */
   setbacksShown = 0;
@@ -248,14 +250,29 @@ export class GameView extends CrashViewBase implements CrashView {
       onTap: () => this.handlers.onBigButton(),
     });
 
+    this.practiceButton = new StickerButton({
+      width: 358,
+      height: 46,
+      fill: COLORS.cream,
+      label: t('button.practice'),
+      sub: t('button.practiceSub'),
+      labelSize: 20,
+      onTap: () => this.handlers.onPractice(),
+    });
+    this.practiceButton.visible = false;
+
     this.history.onOpen = () => this.handlers.onHistory();
-    this.root.addChild(this.panel, this.logo, this.logoBig, this.balance, this.balanceBig, this.history, this.stage, this.lockedLabel, this.minus, this.amountBox, this.plus, ...this.chips, this.autoRow, this.statBet, this.statAuto, this.bigButton);
+    this.root.addChild(this.panel, this.logo, this.logoBig, this.balance, this.balanceBig, this.history, this.stage, this.lockedLabel, this.minus, this.amountBox, this.plus, ...this.chips, this.autoRow, this.statBet, this.statAuto, this.bigButton, this.practiceButton);
 
     app.ticker.add(this.tick);
     game.onResize((v) => this.applyViewport(v.width, v.height));
     // Release-and-press (RTS 14G) and the minimum-gap countdown live in CrashViewBase, so every
     // game gets them without reimplementing them.
     this.installInput(game);
+  }
+
+  protected override secondaryControl() {
+    return this.practiceButton.visible ? this.practiceButton : null;
   }
 
   protected actionControl(): ActionControl {
@@ -781,6 +798,12 @@ export class GameView extends CrashViewBase implements CrashView {
       this.statAuto.position.set(x + (w - 8) / 2 + 8, 676);
       this.bigButton.resize(w, 116);
       this.bigButton.position.set(x, 738);
+      const showPracticeDesktop = this.practiceRounds && (this.phase === 'won' || this.phase === 'lost');
+      this.practiceButton.visible = showPracticeDesktop;
+      if (showPracticeDesktop) {
+        this.practiceButton.resize(w, 46);
+        this.practiceButton.position.set(x, 610);
+      }
     } else {
       const H = this.designH;
       const top = 122;
@@ -803,7 +826,16 @@ export class GameView extends CrashViewBase implements CrashView {
       } else {
         const btnY = H - 112;
         const statY = btnY - 58;
-        this.setStageSize(CONTENT, Math.max(280, statY - 10 - top), animate);
+        // Offered only on a settled result, and only where the market allows it. Subordinate by
+        // construction: shorter, cream, no icon, and below the primary action rather than beside it.
+        const showPractice = this.practiceRounds && (this.phase === 'won' || this.phase === 'lost');
+        this.practiceButton.visible = showPractice;
+        const practiceH = showPractice ? 52 : 0;
+        if (showPractice) {
+          this.practiceButton.resize(CONTENT, 46);
+          this.practiceButton.position.set(PAD, statY - practiceH);
+        }
+        this.setStageSize(CONTENT, Math.max(240, statY - practiceH - 10 - top), animate);
         this.placeBetControls(PAD, statY, CONTENT, false);
         this.statBet.visible = this.statAuto.visible = true;
         const half = (CONTENT - 10) / 2;

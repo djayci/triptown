@@ -22,7 +22,13 @@ export async function createRoundService(): Promise<RoundService> {
     // Demo builds may pick a market profile, so the compliance checks can drive every market.
     const wanted = params.get('profile');
     const origins = [location.origin, ...(params.get('operatorOrigin') ? [params.get('operatorOrigin')!] : [])];
-    const profile = wanted ? profileFromTemplate(wanted, origins) : undefined;
+    const base = wanted ? profileFromTemplate(wanted, origins) : undefined;
+    // Demo builds only: lets the compliance checks exercise practice rounds on a market that has them
+    // switched off, without inventing a profile the repo does not ship.
+    const profile =
+      params.get('practice') === 'on'
+        ? { ...(base ?? profileFromTemplate('light', origins)), practiceRounds: true }
+        : base;
     const service = new MockRoundService(profile ? { profiles: { defaultProfile: profile } } : {});
     const force = params.get('force');
     if (force) service.forceNext(force as Parameters<typeof service.forceNext>[0]);

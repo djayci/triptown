@@ -30,7 +30,16 @@ const CSS = `
 /** Result in words, never colour alone. */
 export function resultText(r: RoundSummary): string {
   if (r.status === 'void') return 'Void · stake returned';
+  // A practice round staked nothing, so it neither won nor lost money: say what it reached and stop.
+  // Describing it as a win or a loss would put a result on a bet the player never placed.
+  if (r.practice === true) {
+    if (r.status === 'running') return 'Practice · in progress';
+    return `Practice · reached ${formatMultiplier(r.settlement?.multiplier ?? 1)}`;
+  }
   if (r.status === 'running') return 'In progress';
+  // A deferred-reveal round shows where the player went in, never where the hidden crash was: drawing
+  // both side by side is a near-miss reveal (gate-odds-mvp D7).
+  if (r.reveal === 'onCollect' && r.status === 'lost') return `Lost at ${formatMultiplier(r.settlement?.multiplier ?? 1)}`;
   if (r.status === 'lost' && (r.returnMinor ?? 0) === 0) return `Crashed at ${formatMultiplier(r.crashMultiplier ?? r.settlement?.multiplier ?? 1)}`;
   return `Cashed out at ${formatMultiplier(r.settlement?.multiplier ?? 1)}`;
 }
@@ -92,10 +101,10 @@ export class HistoryPanel {
         const sign = net > 0 ? '+' : net < 0 ? '-' : '';
         return `<tr class="row" data-id="${r.roundId}">
           <td>${time(r.startedAt)}</td>
-          <td>${money(r.betMinor)}</td>
+          <td>${r.practice === true ? '—' : money(r.betMinor)}</td>
           <td>${resultText(r)}</td>
-          <td>${money(r.returnMinor)}</td>
-          <td class="${net > 0 ? 'pos' : net < 0 ? 'neg' : ''}">${sign}${formatMinor(Math.abs(net), c)}</td>
+          <td>${r.practice === true ? '—' : money(r.returnMinor)}</td>
+          <td class="${r.practice === true ? '' : net > 0 ? 'pos' : net < 0 ? 'neg' : ''}">${r.practice === true ? '—' : `${sign}${formatMinor(Math.abs(net), c)}`}</td>
         </tr>`;
       })
       .join('');
@@ -129,7 +138,8 @@ export class HistoryPanel {
       ['Result', resultText(r)],
       ['Return', money(r.returnMinor)],
       ['Net', money(r.netMinor)],
-      ['Crash point', crash],
+      // Deferred rounds keep the crash in the seeds for verification, but recall never draws it.
+      ...(r.reveal === 'onCollect' ? [] : ([['Crash point', crash]] as [string, string][])),
       ['Bad moles', r.setbacks.length ? r.setbacks.map((t) => `${t.toFixed(2)}s`).join(', ') : 'none'],
       ['Good moles', r.boosts.length ? r.boosts.map((t) => `${t.toFixed(2)}s`).join(', ') : 'none'],
       ['Game', r.configId],

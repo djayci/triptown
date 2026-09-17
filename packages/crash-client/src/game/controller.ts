@@ -14,6 +14,8 @@ import {
   displayMultiplier,
   formatMoney,
   formatMultiplier,
+  formatRevealChance,
+  HEADING_HOME_MS,
   crossedCheckpoint,
   crossedMini,
   intensity10,
@@ -44,6 +46,16 @@ interface ActiveRound {
   checkpoint: number;
   /** Highest small in-between milestone shown this round. */
   mini: number;
+  /** Deferred reveal (gate-odds-mvp): the result is only made known at the player's reveal. */
+  deferred: boolean;
+  /** Deferred reveal: client time of the collect press, which starts the fixed heading-home state. */
+  pressedAt: number | null;
+  /** Deferred reveal: a settlement arrived during heading home and waits for it to finish. */
+  revealPending: boolean;
+  /** Deferred reveal: the balance from that settlement, held back so it cannot show the result early. */
+  heldBalanceMinor: number | null;
+  /** Deferred reveal: the settlement waiting for heading home to finish. */
+  pendingSettlement?: Settlement;
 }
 
 export interface ControllerHooks {
@@ -115,6 +127,14 @@ export class GameController {
   private slowShown = false;
   /** Round start times (client clock) for the automated timing check. */
   private readonly startLog: number[] = [];
+  /** True while a stake-free practice round is running or showing its result (practice-rounds). */
+  private practiceRound = false;
+  /**
+   * Every money string handed to the view during the current round. The compliance check cannot read
+   * text drawn into the canvas, so a DOM scan for a currency symbol silently proves nothing; this
+   * records what was actually passed, which is the decision the rule is about.
+   */
+  private moneyShown: string[] = [];
   /** What the last settled round was presented as, for the presentation check. */
   private lastResultKind: 'win' | 'even' | 'loss' | 'void' | null = null;
   private lastCelebrated = false;
@@ -130,6 +150,7 @@ export class GameController {
     this.betMinor = hooks.initialBetMinor ?? 10_00;
     this.view = createView(game, frames, {
       onBigButton: () => this.onBigButton(),
+      onPractice: () => this.onPractice(),
       onCollect: () => this.collect(),
       onCountdownDone: () => this.renderBetUi(),
       onStepBet: (dir) => this.editBet(() => stepBet(this.betMinor, dir, this.currency())),
@@ -149,6 +170,7 @@ export class GameController {
       },
     });
     this.view.setDemo(service.mode === 'demo');
+    this.view.setAudioAvailable?.(audio !== null);
     if (audio) {
       this.view.setMuted(audio.current.muted);
       audio.onChange((s) => this.view.setMuted(s.muted));
@@ -160,7 +182,8 @@ export class GameController {
       const onGesture = () => {
         audio.unlock();
         audio.loadMusic();
-        if (this.phase !== 'running') audio.startLobby();
+        // Not while heading home either: a cue with no reason to play there is easiest kept silent.
+        if (this.phase !== 'running' && this.phase !== 'cashing') audio.startLobby();
       };
       for (const type of ['pointerdown', 'touchend', 'click'] as const) {
         document.addEventListener(type, onGesture, { capture: true, passive: true });
@@ -277,9 +300,12 @@ export class GameController {
       intensityEffects: p.intensityEffects && !this.reduceEffectsChoice,
       setbacks: this.config.lambda > 0,
       boosts: this.config.boostRate > 0,
+      practiceRounds: p.practiceRounds === true,
     });
     // Sound default is per market; a player's own choice, once made, is kept by the audio settings.
-    if (p.soundDefault === 'muted' && this.audio && !this.audio.current.touched) this.audio.setMuted(true, false);
+    // Applied both ways until the player chooses: a market default saved in the browser (e.g. muted by an
+    // earlier profile) would otherwise outlive a market that now defaults to sound on.
+    if (this.audio && !this.audio.current.touched) this.audio.setMuted(p.soundDefault === 'muted', false);
   }
 
   /** The bound session, for panels that render the config and profile actually in play. */
@@ -301,12 +327,28 @@ export class GameController {
     const session = this.adoptSession(await this.service.getSession());
     if (this.betMinor !== before) this.renderBetUi();
     this.applyProfile();
+    // An unrevealed deferred round may already be settled on the server; the session's balance and net
+    // position would show its result before the reveal. Hold them until the round resolves.
+    const r = this.round;
+    if (r && r.deferred && !r.resolved) {
+      r.heldBalanceMinor = session.balanceMinor;
+      return;
+    }
     this.renderSessionHud();
     this.balanceMinor = session.balanceMinor;
     this.renderBalance();
   }
 
   // ---------- actions ----------
+
+  /** The secondary result-screen action: start a round with no stake. */
+  private onPractice() {
+    if (performance.now() < this.inputGuardUntil) return;
+    if (!this.view.isArmed) return;
+    if (this.session?.profile?.practiceRounds !== true) return;
+    if (this.phase !== 'won' && this.phase !== 'lost' && this.phase !== 'betting') return;
+    void this.bet({ practice: true });
+  }
 
   private onBigButton() {
     // A late second tap on the collect button must not become a new bet on the result screen.
@@ -353,10 +395,11 @@ export class GameController {
     this.renderBetUi();
   }
 
-  async bet() {
+  async bet(opts: { practice?: boolean } = {}) {
     if (!this.session) return;
+    const practice = opts.practice === true;
     this.markActivity();
-    const reason = this.betBlockReason();
+    const reason = this.betBlockReason(practice);
     if (reason) {
       if (this.phase !== 'betting') this.toBetting();
       return;
@@ -368,10 +411,18 @@ export class GameController {
     this.view.disarm();
     const attemptedAt = performance.now();
     this.view.showStarting();
-    const betMinor = this.betMinor;
+    // A practice round shares this path exactly, so the startLog push below — the evidence the timing
+    // check reads — cannot diverge between the two (practice-rounds D9).
+    this.practiceRound = practice;
+    this.moneyShown = [];
+    const betMinor = practice ? 0 : this.betMinor;
     try {
       const handle = await this.service.startRound(
-        { betMinor, autoCashout: this.autoOn ? this.autoTarget : null },
+        {
+          betMinor,
+          autoCashout: practice ? null : this.autoOn ? this.autoTarget : null,
+          ...(practice && { practice: true as const }),
+        },
         (e) => this.onEvent(e),
       );
       // Recorded only once the host accepted. A refused bet is not a round start: counting it would
@@ -387,6 +438,7 @@ export class GameController {
       const retry = err instanceof RoundServiceError ? Number(err.details?.retryAfterMs ?? 0) : 0;
       if (retry > 0) this.view.setBetCountdown(retry);
       this.view.toast(ERROR_TEXT[code] ?? 'Could not start round');
+      this.practiceRound = false;
       await this.refreshSession().catch(() => {});
       this.toBetting();
     }
@@ -399,12 +451,19 @@ export class GameController {
     r.cashRequested = true;
     this.phase = 'cashing';
     const m = r.lastDisplayed;
-    this.view.showCashing(formatMoney(optimisticPayout(r.betMinor, m, this.config), this.currency()));
+    const payout = formatMoney(optimisticPayout(r.betMinor, m, this.config), this.currency());
+    if (r.deferred && this.view.showHeadingHome) {
+      // The value locks and heading home starts on the press, identically for every outcome.
+      r.pressedAt = performance.now();
+      this.view.showHeadingHome(formatMultiplier(m), payout);
+    } else {
+      this.view.showCashing(payout);
+    }
     this.audio?.playSfx(this.hooks.collectSfx ?? 'collect');
     this.service
       .cashout(r.id)
       .then((res) => {
-        this.balanceMinor = res.balanceMinor;
+        this.setBalanceFor(r, res.balanceMinor);
         this.resolve(r, res.settlement);
       })
       .catch((err: unknown) => {
@@ -412,6 +471,7 @@ export class GameController {
         // A refused cash-out leaves the round running, so the button has to come back.
         if (code === 'below_min_cashout' && !r.resolved && this.round === r) {
           r.cashRequested = false;
+          r.pressedAt = null;
           this.phase = 'running';
           const min = (err as RoundServiceError).details?.minCashout;
           const now = displayMultiplier(this.elapsed(r), r.setbackTimes.size, this.config, r.boostTimes.size);
@@ -432,6 +492,10 @@ export class GameController {
       resultKind: this.lastResultKind,
       confetti: this.lastCelebrated,
       shakes: this.view.shakesShown ?? 0,
+      practice: this.practiceRound,
+      moneyShown: [...this.moneyShown],
+      deferred: r?.deferred ?? false,
+      headingHome: !!r && r.pressedAt !== null && !r.resolved,
       betMinor: r?.betMinor ?? this.betMinor,
       starts: [...this.startLog],
       multiplier: r?.lastDisplayed ?? 0,
@@ -446,6 +510,7 @@ export class GameController {
             minCashout: this.session.profile.minCashout,
             minCycleMs: this.session.profile.minCycleMs,
             skin: this.session.profile.skin,
+            crashReveal: this.session.profile.crashReveal ?? 'live',
           }
         : null,
     };
@@ -472,12 +537,18 @@ export class GameController {
         lastDisplayed: 1,
         checkpoint: 0,
         mini: 0,
+        deferred: e.reveal === 'onCollect',
+        pressedAt: null,
+        revealPending: false,
+        heldBalanceMinor: null,
       };
+      this.view.setRevealMode?.(e.reveal ?? 'live');
+      this.view.setRevealOdds?.(e.reveal === 'onCollect' ? formatRevealChance(this.config.rtp, 1) : null);
       this.balanceMinor -= e.betMinor;
       this.renderBalance();
       this.phase = 'running';
       this.bridge?.roundStarted(e.roundId, e.betMinor);
-      this.view.showRunning(formatMoney(e.betMinor, this.currency()));
+      this.view.showRunning(this.money(this.practiceRound ? '' : formatMoney(e.betMinor, this.currency())));
       this.renderBetUi();
       this.audio?.stopLobby(200);
       this.audio?.startMusic();
@@ -518,7 +589,7 @@ export class GameController {
   }
 
   private onTerminal(r: ActiveRound, e: TerminalEvent) {
-    this.balanceMinor = e.balanceMinor;
+    this.setBalanceFor(r, e.balanceMinor);
     const settlement: Settlement =
       e.type === 'VOID'
         ? { status: 'void', reason: 'system_failure', time: 0, multiplier: 1, payoutMinor: e.refundMinor, crashTime: -1 }
@@ -565,9 +636,37 @@ export class GameController {
     }
   }
 
+  /** A deferred round's balance waits until its reveal is shown; anything else applies at once. */
+  private setBalanceFor(r: ActiveRound, balanceMinor: number) {
+    if (r.deferred && !r.resolved) r.heldBalanceMinor = balanceMinor;
+    else this.balanceMinor = balanceMinor;
+  }
+
   private resolve(r: ActiveRound, s: Settlement) {
     if (r.resolved) return;
+    // Deferred reveal: the result waits for the heading-home state to run its fixed length from the
+    // press, so the reveal time is max(press + fixed, settlement received), never earlier for one
+    // outcome than the other (gate-odds-mvp D6).
+    if (r.deferred && r.pressedAt !== null) {
+      const wait = r.pressedAt + HEADING_HOME_MS - performance.now();
+      if (wait > 0) {
+        if (!r.revealPending) {
+          r.revealPending = true;
+          r.pendingSettlement = s;
+          setTimeout(() => {
+            r.revealPending = false;
+            this.resolve(r, s);
+          }, wait);
+        } else if (r.pendingSettlement && (r.pendingSettlement.status !== s.status || r.pendingSettlement.payoutMinor !== s.payoutMinor)) {
+          // The cash-out response and the stream must agree; if they ever don't, say so rather than
+          // silently showing whichever arrived first.
+          console.error('[crash-client] settlements disagree during heading home', r.id, r.pendingSettlement, s);
+        }
+        return;
+      }
+    }
     r.resolved = true;
+    if (r.heldBalanceMinor !== null) this.balanceMinor = r.heldBalanceMinor;
     this.inputGuardUntil = performance.now() + RESULT_INPUT_GUARD_MS;
     r.handle?.close();
     this.audio?.stopTone();
@@ -575,6 +674,7 @@ export class GameController {
     this.audio?.stopMusic();
     this.audio?.startLobby();
     this.renderBalance();
+    this.view.setRevealOdds?.(null);
     if (s.status === 'void') {
       // System failure: the stake came back; no result to celebrate or mourn.
       this.view.toast('Round voided · stake refunded');
@@ -584,28 +684,33 @@ export class GameController {
     // Void rounds return early above, so this is only a settled win or loss.
     this.bridge?.roundEnded(r.id, r.betMinor, s.status === 'lost' ? 0 : s.payoutMinor);
     void this.refreshSession().catch(() => {});
-    this.view.history.push({ multiplier: s.multiplier, kind: resultKind(r.betMinor, s.status === 'lost' ? 0 : s.payoutMinor) });
+    this.view.history.push({
+      multiplier: s.multiplier,
+      kind: this.practiceRound ? 'even' : resultKind(r.betMinor, s.status === 'lost' ? 0 : s.payoutMinor),
+    });
     if (s.status === 'won') {
       this.phase = 'won';
-      const kind = resultKind(r.betMinor, s.payoutMinor);
+      // Practice is decided before resultKind, not after: resultKind(0, 0) is 'even', which would tell
+      // the player they broke even on a bet they never placed (practice-rounds D3).
+      const kind = this.practiceRound ? ('even' as const) : resultKind(r.betMinor, s.payoutMinor);
       this.lastResultKind = kind;
-      this.lastCelebrated = kind === 'win';
-      const big = kind === 'win' && s.multiplier >= 10;
+      this.lastCelebrated = !this.practiceRound && kind === 'win';
+      const big = !this.practiceRound && kind === 'win' && s.multiplier >= 10;
       const netMinor = Math.abs(s.payoutMinor - r.betMinor);
       this.view.showWin(
         formatMultiplier(s.multiplier),
-        formatMoney(s.payoutMinor, this.currency()),
+        this.money(this.practiceRound ? '' : formatMoney(s.payoutMinor, this.currency())),
         big,
         kind,
-        formatMoney(netMinor, this.currency()),
+        this.money(this.practiceRound ? '' : formatMoney(netMinor, this.currency())),
       );
-      // Only a return above the stake gets a win sound; the rest gets a neutral chime (RTS 14F).
-      this.audio?.playSfx(kind === 'win' ? (big ? 'bigwin' : 'win') : 'return');
+      // Nothing was staked, so nothing was won: a practice round gets the neutral chime either way.
+      this.audio?.playSfx(!this.practiceRound && kind === 'win' ? (big ? 'bigwin' : 'win') : 'return');
     } else {
       this.lastResultKind = 'loss';
       this.lastCelebrated = false;
       this.phase = 'lost';
-      this.view.showCrash(formatMultiplier(s.multiplier), `-${formatMoney(r.betMinor, this.currency())}`, s.crashTime === 0);
+      this.view.showCrash(formatMultiplier(s.multiplier), this.money(this.practiceRound ? '' : `-${formatMoney(r.betMinor, this.currency())}`), s.crashTime === 0);
       this.audio?.playSfx('crash');
     }
     this.renderBetUi();
@@ -636,14 +741,17 @@ export class GameController {
       this.view.miniCheckpoint(formatMultiplier(mini));
     }
     r.lastDisplayed = m;
+    if (r.deferred) this.view.setRevealOdds?.(formatRevealChance(this.config.rtp, m));
     const level = intensity10(t, this.config);
+    // A practice round is fed no money at all rather than being trusted to hide it: a display that
+    // receives nothing cannot leak anything (practice-rounds D5).
     this.view.frame(
       formatMultiplier(m),
-      formatMoney(optimisticPayout(r.betMinor, m, this.config), this.currency()),
+      this.money(this.practiceRound ? '' : formatMoney(optimisticPayout(r.betMinor, m, this.config), this.currency())),
       level,
       intensityName(level),
       pace(t, this.config),
-      optimisticPayout(r.betMinor, m, this.config) < r.betMinor,
+      this.practiceRound ? false : optimisticPayout(r.betMinor, m, this.config) < r.betMinor,
     );
     this.audio?.setToneMultiplier(m);
     this.audio?.setIntensity(intensityAudioLevel(level));
@@ -699,10 +807,19 @@ export class GameController {
     return s ? s.returnedMinor - s.stakedMinor : 0;
   }
 
-  private betBlockReason(): string | null {
+  /** Records a money string on its way to the view, so a check can see what the player was shown. */
+  private money(value: string): string {
+    if (value) this.moneyShown.push(value);
+    return value;
+  }
+
+  private betBlockReason(practice = false): string | null {
     if (!this.session) return t('bet.loading');
     if (this.closed) return t('bet.gameClosed');
     if (this.paused || this.idlePromptOpen) return t('bet.paused');
+    // A practice round stakes nothing, so no stake, loss or balance limit can apply to it. The gates
+    // above still do: a paused or closed game is paused and closed for practice too.
+    if (practice) return null;
     if (this.stakeLimitMinor !== null && this.betMinor > this.stakeLimitMinor) return t('bet.stakeLimit');
     // The loss limit counts this session's net, so a bet that could pass it is refused before the debit.
     if (this.lossLimitMinor !== null && -this.sessionNetMinor() + this.betMinor > this.lossLimitMinor) {
