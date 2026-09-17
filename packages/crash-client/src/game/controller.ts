@@ -196,9 +196,21 @@ export class GameController {
     }
   }
 
+  /**
+   * The one place a session is adopted. Assigning `this.session` directly anywhere else skips the
+   * bet clamp, and the first bet of the session is then refused — which is exactly what happened
+   * when the clamp lived in `refreshSession()` alone and `init()` assigned around it.
+   */
+  private adoptSession(session: SessionInfo): SessionInfo {
+    this.session = session;
+    // A session may be in a currency whose minimum is far above the client's default bet.
+    const clamped = clampBet(this.betMinor, session.currency);
+    if (clamped !== this.betMinor) this.betMinor = clamped;
+    return session;
+  }
+
   async init() {
-    this.session = await this.service.getSession();
-    this.balanceMinor = this.session.balanceMinor;
+    this.balanceMinor = this.adoptSession(await this.service.getSession()).balanceMinor;
     this.applyProfile();
     this.openBridge();
     this.renderBalance();
@@ -275,17 +287,12 @@ export class GameController {
   }
 
   async refreshSession() {
-    this.session = await this.service.getSession();
-    // A session may be in a currency whose minimum is far above the client's default bet, in which
-    // case every start would be rejected until the player noticed and tapped +.
-    const clamped = clampBet(this.betMinor, this.session.currency);
-    if (clamped !== this.betMinor) {
-      this.betMinor = clamped;
-      this.renderBetUi();
-    }
+    const before = this.betMinor;
+    const session = this.adoptSession(await this.service.getSession());
+    if (this.betMinor !== before) this.renderBetUi();
     this.applyProfile();
     this.renderSessionHud();
-    this.balanceMinor = this.session.balanceMinor;
+    this.balanceMinor = session.balanceMinor;
     this.renderBalance();
   }
 
