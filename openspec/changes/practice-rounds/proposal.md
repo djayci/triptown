@@ -1,3 +1,10 @@
+> **Status, 2026-09-17: built, proven, and shipped switched off.** The product decision after seeing it
+> in the game was not to offer a practice control, so no jurisdiction profile enables it and no player
+> can reach one. The server, the records, the profile flag and both compliance checks remain, because
+> the work is finished and re-deleting it would cost more than leaving it dormant. A test asserts that
+> every template keeps the flag absent, so enabling it stays a deliberate decision with legal weight
+> rather than a config tweak.
+
 ## Why
 
 A player who wants to see how the game behaves has only one option today: bet money. The outcome of a round is fixed before it starts and no skill affects it, so there is nothing about a round that has to be paid for in order to be watched. Offering a stake-free round costs the studio nothing in edge, gives a player somewhere to go other than the next bet, and makes the "the outcome is already decided" claim in the rules something a player can see rather than take on trust.

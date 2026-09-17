@@ -1,7 +1,7 @@
 import { verifyRound } from '@triptown/fairness';
 import { describe, expect, it } from 'vitest';
 import { RoundHost } from './host';
-import { profileFromTemplate, type JurisdictionProfile } from './profiles';
+import { PROFILE_TEMPLATES, practiceAllowed, profileFromTemplate, type JurisdictionProfile } from './profiles';
 import { MemoryRoundStore } from './store';
 import { describeRules } from './rules';
 import { DEFAULT_CURRENCY } from './money';
@@ -169,5 +169,19 @@ describe('the rules describe practice rounds only where they exist (2.5)', () =>
     const info = await s.host.createSession(100_00);
     const keys = describeRules(info.config, plainProfile, DEFAULT_CURRENCY).map((i) => i.key);
     expect(keys).not.toContain('practiceRounds');
+  });
+});
+
+describe('practice rounds ship dormant (decision 2026-09-17)', () => {
+  it('no profile enables them, so no player can reach one', () => {
+    // The feature is built and proven but switched off by product decision: the control was dropped
+    // from the game. Absent means off, so this fails the moment a template turns it on — which is the
+    // point. Enabling it for any market is a decision with legal weight (free play is advertising in
+    // regulated markets), not a config tweak someone makes while editing a template.
+    for (const name of Object.keys(PROFILE_TEMPLATES)) {
+      const profile = profileFromTemplate(name, ['https://operator.example']);
+      expect({ name, practiceRounds: profile.practiceRounds }).toEqual({ name, practiceRounds: undefined });
+      expect(practiceAllowed(profile)).toBe(false);
+    }
   });
 });
