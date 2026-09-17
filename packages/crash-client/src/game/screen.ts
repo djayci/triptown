@@ -153,6 +153,11 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     game.onResize(() => this.layout());
     app.ticker.add((ticker) => {
       this.stage.update(ticker.deltaMS / 1000);
+      // The session clock has to advance while a round runs, not only when a round ends. It reads
+      // its own elapsed time from `startedAt`, so ticking it here keeps it honest without telling it
+      // anything about the round (compliance rule 7). Nothing called it before, so the clock only
+      // moved when `setSessionHud` happened to be called — at round boundaries.
+      this.session.tick();
       this.tickCountdown();
     });
     this.installInput(game);
