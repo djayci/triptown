@@ -32,6 +32,10 @@ const COLUMNS: [string, (r: RoundSummary) => unknown][] = [
   ['client_seed', (r) => r.clientSeed],
   ['nonce', (r) => r.nonce],
   ['void', (r) => r.status === 'void'],
+  // A stake-free practice round. An export that cannot tell practice from staked turnover is worse
+  // than no export, because it looks authoritative (practice-rounds D3). Appended last, so an existing
+  // operator integration reading columns by position is unaffected.
+  ['practice', (r) => (r.practice === true ? 'true' : 'false')],
 ];
 
 function iso(ms: number | null): string {

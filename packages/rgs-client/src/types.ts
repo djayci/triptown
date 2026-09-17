@@ -43,6 +43,11 @@ export class RoundServiceError extends Error {
 export interface StartRoundInput {
   betMinor: number;
   autoCashout?: number | null;
+  /**
+   * A stake-free practice round (practice-rounds). `betMinor` must be 0. The server refuses it unless
+   * the session's profile permits practice rounds, whatever the client offered.
+   */
+  practice?: boolean;
 }
 
 export type RoundListener = (event: RoundEvent) => void;

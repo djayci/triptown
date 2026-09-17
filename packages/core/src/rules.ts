@@ -1,6 +1,7 @@
 import type { GameConfig } from '@triptown/fairness';
 import type { CurrencyRules } from './money';
 import type { JurisdictionProfile } from './profiles';
+import { practiceAllowed } from './profiles';
 
 // Rules and help content as structured items (compliance-baseline 6.1, design D9). Values are raw numbers
 // straight from the config, profile and currency; clients format and translate them through a catalogue,
@@ -57,6 +58,8 @@ export function describeRules(config: GameConfig, profile: JurisdictionProfile, 
   add('rounding', { mode: 'halfUpOncePerRound', minStakeMinor: currency.minBetMinor * stakeParts, decimals: currency.decimals });
   if (setbacksOn) add('belowStakeReturns', { possible: true });
   if (profile.minCycleMs > 0) add('minCycle', { ms: profile.minCycleMs });
+  // Only where the market offers them, so the rules never describe a control the player cannot see.
+  if (practiceAllowed(profile)) add('practiceRounds', { stake: 0, payout: 0, sameOdds: true });
   add('latency', { judgedAt: 'serverReceive', graceMs: 0 });
   add('disconnect', { policy: profile.disconnectPolicy });
   add('voidRefund', {});

@@ -50,6 +50,13 @@ export interface CashoutEvidence {
   receivedAt: number;
 }
 
+/**
+ * When a round's result becomes known to the player (gate-odds-mvp). `live`: at the crash, as always.
+ * `onCollect`: at the player's reveal (cash-out, auto target, cap or max duration); nothing observable
+ * happens at the crash time before that.
+ */
+export type RevealMode = 'live' | 'onCollect';
+
 export interface StartEvent {
   type: 'START';
   roundId: string;
@@ -64,9 +71,13 @@ export interface StartEvent {
   clientSeed: string;
   nonce: number;
   configId: string;
+  /** A stake-free practice round (practice-rounds). Absent means a staked round. */
+  practice?: boolean;
   /** Split-stake rounds only: parts in the round and the stake of each. */
   stakeParts?: number;
   partMinor?: number;
+  /** Present only for deferred-reveal rounds. */
+  reveal?: RevealMode;
 }
 
 export interface SetbackEvent {
@@ -144,6 +155,8 @@ export function isTerminal(event: RoundEvent): event is TerminalEvent {
 /** Public view of a round. Never contains the crash time or future setbacks while running. */
 export interface RoundSnapshot {
   roundId: string;
+  /** Present only for deferred-reveal rounds (gate-odds-mvp): recall shows the reveal, not the crash. */
+  reveal?: RevealMode;
   sessionId: string;
   playerId: string;
   gameId: string;
@@ -153,6 +166,8 @@ export interface RoundSnapshot {
   settledAt: number | null;
   serverNow: number;
   elapsed: number;
+  /** A stake-free practice round (practice-rounds). Absent means a staked round. */
+  practice?: boolean;
   betMinor: number;
   currency: string;
   autoCashout: number | null;

@@ -1,4 +1,5 @@
 import { cappedConfigId, resolveConfigId, type GameConfig } from '@triptown/fairness';
+import type { RevealMode } from './events';
 
 // Jurisdiction profiles: per-market settings the server binds to a session. Values come from the
 // 2026-09-15 compliance research (docs/compliance/) and need legal review before production use.
@@ -22,12 +23,14 @@ export type GameId = string;
  * recertify. That is what makes a new game a skin rather than a new product.
  */
 const REGISTERED_GAMES = new Map<GameId, GameId>([['whack-crash', 'whack-crash']]);
+/** Reveal modes a game can present. Every game supports `live`; deferred reveal is opt-in (gate-odds-mvp D4). */
+const GAME_REVEALS = new Map<GameId, readonly RevealMode[]>();
 
 /**
  * Registers a game so profiles may bind to it. `engine` names the game whose configs it plays, and
  * defaults to the game itself (a game bringing its own maths). Idempotent for the same engine.
  */
-export function registerGame(game: GameId, engine: GameId = game): void {
+export function registerGame(game: GameId, engine: GameId = game, opts: { reveal?: readonly RevealMode[] } = {}): void {
   if (!game || game.includes('/')) throw new Error(`Invalid game id: ${JSON.stringify(game)}`);
   if (!engine || engine.includes('/')) throw new Error(`Invalid engine id: ${JSON.stringify(engine)}`);
   const existing = REGISTERED_GAMES.get(game);
@@ -35,6 +38,12 @@ export function registerGame(game: GameId, engine: GameId = game): void {
     throw new Error(`${game} is already registered on engine ${existing}, not ${engine}`);
   }
   REGISTERED_GAMES.set(game, engine);
+  if (opts.reveal) GAME_REVEALS.set(game, [...new Set<RevealMode>(['live', ...opts.reveal])]);
+}
+
+/** Reveal modes the game declared; `live` only unless it opted into more. */
+export function revealModesOf(game: GameId): readonly RevealMode[] {
+  return GAME_REVEALS.get(game) ?? ['live'];
 }
 
 /** Games currently registered, in registration order. */
@@ -98,6 +107,19 @@ export interface JurisdictionProfile {
   withholdingNotice?: boolean;
   /** Show other players' activity. No profile enables it (no fake or social-pressure feeds). */
   liveBetsFeed?: boolean;
+  /**
+   * When the player learns a crash (gate-odds-mvp). `onCollect` hides it until the player's reveal and is
+   * only valid with setbacks and boosts off, where the chance of reaching a value is exactly RTP ÷ value.
+   * Absent means `live`.
+   */
+  crashReveal?: RevealMode;
+  /**
+   * Whether a player may run a round with no stake (practice-rounds). Absent means off, so a new profile
+   * offers none until it says otherwise. Free play is treated as advertising in several markets (UK CAP,
+   * Brazil 1.231), which brings age-gating and content rules a gameplay flag cannot answer, so enabling
+   * it for a market is a legal decision rather than a config change.
+   */
+  practiceRounds?: boolean;
 }
 
 type ProfileTemplate = Omit<JurisdictionProfile, 'operatorOrigins'>;
@@ -189,7 +211,8 @@ export const PROFILE_TEMPLATES: Readonly<Record<string, ProfileTemplate>> = Obje
     quickReplay: false,
     setbacksMode: 'off',
     skin: 'adult',
-    soundDefault: 'muted',
+    // Sound on by default (user decision, 17 Sep 2026); no Nigerian or Ghanaian rule found requiring muted.
+    soundDefault: 'on',
     intensityEffects: true,
     showSessionClock: true,
     showNetPosition: true,
@@ -200,6 +223,9 @@ export const PROFILE_TEMPLATES: Readonly<Record<string, ProfileTemplate>> = Obje
     dataTransferBasis: 'operator-dpa-scc',
     withholdingNotice: true,
     liveBetsFeed: false,
+    // Gate Rush markets: the crash is revealed at the player's IN! (gate-odds-mvp D4). Only games that
+    // opt in play it; every other game on this profile stays live.
+    crashReveal: 'onCollect',
   },
   'gh-draft': {
     ...base,
@@ -211,7 +237,8 @@ export const PROFILE_TEMPLATES: Readonly<Record<string, ProfileTemplate>> = Obje
     quickReplay: false,
     setbacksMode: 'off',
     skin: 'adult',
-    soundDefault: 'muted',
+    // Sound on by default (user decision, 17 Sep 2026); no Nigerian or Ghanaian rule found requiring muted.
+    soundDefault: 'on',
     intensityEffects: true,
     showSessionClock: true,
     showNetPosition: true,
@@ -222,6 +249,7 @@ export const PROFILE_TEMPLATES: Readonly<Record<string, ProfileTemplate>> = Obje
     // Ghana repealed the 10% withholding tax on winnings from 2 Apr 2025 (Act 1129).
     withholdingNotice: false,
     liveBetsFeed: false,
+    crashReveal: 'onCollect',
   },
   'pt-draft': {
     ...base,
@@ -264,6 +292,21 @@ export function baseConfigId(game: GameId, mode: SetbacksMode, boosts: BoostsMod
   if (resolveConfigId(`${engine}/v3${suffix}`)) return `${engine}/v3${suffix}`;
   if (boosts === 'boost' && resolveConfigId(`${engine}/v2${suffix}`)) return `${engine}/v2${suffix}`;
   return `${engine}/v1${suffix}`;
+}
+
+/**
+ * The reveal mode a round plays: deferred only when the game supports it, the profile enables it, and the
+ * config has no setbacks, no boosts and a single stake part. Anything else plays live.
+ */
+/** Whether this profile offers stake-free practice rounds. Absent means off (practice-rounds D4). */
+export function practiceAllowed(profile: Pick<JurisdictionProfile, 'practiceRounds'>): boolean {
+  return profile.practiceRounds === true;
+}
+
+export function effectiveReveal(game: GameId, profile: Pick<JurisdictionProfile, 'crashReveal'>, config: GameConfig): RevealMode {
+  if (profile.crashReveal !== 'onCollect' || !revealModesOf(game).includes('onCollect')) return 'live';
+  const exact = config.lambda === 0 && config.boostRate === 0 && config.stakeParts === 1;
+  return exact ? 'onCollect' : 'live';
 }
 
 /** The exact math config a round uses for this game and profile. */
@@ -327,6 +370,11 @@ export function validateProfile(p: JurisdictionProfile, opts: ProfileValidationO
   if (p.blockedRegions?.some((r) => !/^[A-Z]{2}-[A-Z0-9]{1,3}$/.test(r))) at('blockedRegions', 'must be ISO 3166-2 codes such as NG-KN');
   if (p.hostingRegions?.some((r) => !r.trim())) at('hostingRegions', 'must not contain empty region names');
   if (p.liveBetsFeed === true) at('liveBetsFeed', 'no profile may enable a live bets feed');
+  if (p.crashReveal !== undefined && p.crashReveal !== 'live' && p.crashReveal !== 'onCollect') at('crashReveal', "must be 'live' or 'onCollect'");
+  if (p.practiceRounds !== undefined && typeof p.practiceRounds !== 'boolean') at('practiceRounds', 'must be true or false');
+  if (p.crashReveal === 'onCollect' && (p.setbacksMode !== 'off' || p.boostsMode !== 'off')) {
+    at('crashReveal', 'onCollect needs setbacks and boosts off, or the odds shown would not be exact');
+  }
   // An active profile for a market whose hosting sits outside that market needs a recorded transfer basis (NDPA s.41).
   if (p.status === 'active' && p.marketCountry && p.hostingRegions?.length) {
     const inMarket = p.hostingRegions.some((r) => r.toUpperCase().startsWith(`${p.marketCountry}-`) || r.toUpperCase() === p.marketCountry);

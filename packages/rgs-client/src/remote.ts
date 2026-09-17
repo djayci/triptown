@@ -86,7 +86,11 @@ export class RemoteRoundService implements RoundService {
   }
 
   async startRound(input: StartRoundInput, listener: RoundListener): Promise<RoundHandle> {
-    const res = await this.send('POST', '/v1/rounds', { betMinor: input.betMinor, autoCashout: input.autoCashout ?? null });
+    const res = await this.send('POST', '/v1/rounds', {
+      betMinor: input.betMinor,
+      autoCashout: input.autoCashout ?? null,
+      ...(input.practice === true && { practice: true as const }),
+    });
     return this.attach(res, listener);
   }
 

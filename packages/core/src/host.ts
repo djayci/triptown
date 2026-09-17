@@ -42,6 +42,8 @@ import {
   assertValidProfile,
   checkSessionRegion,
   effectiveConfig,
+  effectiveReveal,
+  practiceAllowed,
   profileFromTemplate,
   type GameId,
   type JurisdictionProfile,
@@ -349,14 +351,24 @@ export class RoundHost {
 
   async startRound(
     sessionId: string,
-    input: { betMinor: number; autoCashout?: number | null },
+    input: { betMinor: number; autoCashout?: number | null; practice?: boolean },
   ): Promise<StartResult> {
     let session = await this.requireSession(sessionId);
     const profile = this.sessionProfile(session);
     const config = this.configFor(profile);
-    const bet = validateBet(input.betMinor, this.currency);
-    if (!bet.ok) throw new HostError(bet.code, bet.message);
-    const stakeParts = profile.partialCashout === 'parts' ? config.stakeParts : 1;
+    const practice = input.practice === true;
+    if (practice) {
+      // The market decides whether a stake-free round exists at all, and the server is the authority:
+      // a client that hides the control is presentation, this is the rule (practice-rounds D4).
+      if (!practiceAllowed(profile)) throw new HostError('bet_limit', 'Practice rounds are not available');
+      // A practice round bypasses validateBet rather than loosening it. validateBet rejects any stake at
+      // or below zero and must keep doing so, or every staked path would accept a free round by omission.
+      if (input.betMinor) throw new HostError('invalid_bet', 'A practice round cannot carry a stake');
+    } else {
+      const bet = validateBet(input.betMinor, this.currency);
+      if (!bet.ok) throw new HostError(bet.code, bet.message);
+    }
+    const stakeParts = practice ? 1 : profile.partialCashout === 'parts' ? config.stakeParts : 1;
     if (stakeParts > 1 && (input.betMinor % stakeParts !== 0 || input.betMinor / stakeParts < this.currency.minBetMinor)) {
       // Each paper is a stake of its own size, so it must be whole and at least the minimum stake (0.20).
       throw new HostError('bet_limit', `The stake must split into ${stakeParts} equal stakeParts of at least ${this.currency.minBetMinor} minor units`);
@@ -381,7 +393,12 @@ export class RoundHost {
       }
       throw new HostError('round_in_progress', 'Finish the current round first');
     }
-    const debit = await this.store.debit(sessionId, input.betMinor);
+    // A practice round skips exactly one step of this path: the debit. Everything after it — the
+    // rotation check, addPending, takeNonce and recordStart — is shared, so the nonce is consumed and
+    // the round recorded by construction rather than by remembering to (practice-rounds D2).
+    const debit = practice
+      ? { ok: true as const, balanceMinor: await this.store.getBalance(sessionId) }
+      : await this.store.debit(sessionId, input.betMinor);
     if (!debit.ok) {
       // No round started, so the pacing clock goes back to the previous start.
       await this.store.releaseActiveRound(playerId, roundId, claim.previousStartAt);
@@ -413,7 +430,7 @@ export class RoundHost {
     roundId: string,
     nonce: number,
     startedAt: number,
-    input: { betMinor: number; autoCashout?: number | null },
+    input: { betMinor: number; autoCashout?: number | null; practice?: boolean },
     balanceAfterDebitMinor: number,
     stakeParts = 1,
   ): Promise<StartResult> {
@@ -424,6 +441,7 @@ export class RoundHost {
       sessionId,
       playerId,
       betMinor: input.betMinor,
+      ...(input.practice === true && { practice: true as const }),
       currency: this.currency.code,
       autoCashout: input.autoCashout ?? null,
       seeds: { serverSeed, clientSeed: session.clientSeed, nonce },
@@ -434,9 +452,10 @@ export class RoundHost {
       startedAt,
       profileName: profile.name,
       clientVersion: session.clientVersion ?? null,
-      balanceBeforeMinor: balanceAfterDebitMinor + input.betMinor,
+      balanceBeforeMinor: balanceAfterDebitMinor + (input.practice === true ? 0 : input.betMinor),
       crypto: this.crypto,
       stakeParts,
+      reveal: effectiveReveal(this.game, profile, config),
     });
     // Only the ciphertext is persisted; the outcome is already derived.
     const round: RoundRecord = { ...derived, seeds: { ...derived.seeds, serverSeed: session.serverSeed } };

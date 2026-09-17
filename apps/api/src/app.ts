@@ -87,7 +87,7 @@ export function createApp(opts: AppOptions) {
   // committed RTP reports, nothing to recertify. The Lift plays the Whack Crash engine.
   registerGame('the-lift', 'whack-crash');
   // Beat the Gate plays the same engine (beat-the-gate-mvp D1).
-  registerGame('beat-the-gate', 'whack-crash');
+  registerGame('beat-the-gate', 'whack-crash', { reveal: ['onCollect'] });
 
   const makeHost = (game: GameId) =>
     new RoundHost({
@@ -303,10 +303,16 @@ export function createApp(opts: AppOptions) {
 
   app.post('/v1/rounds', async (c) => {
     const sid = await sessionId(c);
-    const body = (await c.req.json().catch(() => ({}))) as { betMinor?: number; autoCashout?: number | null };
+    const body = (await c.req.json().catch(() => ({}))) as { betMinor?: number; autoCashout?: number | null; practice?: boolean };
     // Validation and debit happen before the stream opens, so errors come back as JSON.
     const h = await hostFor(sid);
-    const { round } = await h.startRound(sid, { betMinor: Number(body.betMinor), autoCashout: body.autoCashout ?? null });
+    const practice = body.practice === true;
+    const { round } = await h.startRound(sid, {
+      // A practice round carries no stake; the host refuses one that does rather than coercing it.
+      betMinor: practice ? 0 : Number(body.betMinor),
+      autoCashout: body.autoCashout ?? null,
+      ...(practice && { practice: true as const }),
+    });
     return sse(c, h, sid, round.id);
   });
 

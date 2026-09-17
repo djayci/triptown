@@ -1,5 +1,6 @@
 import { deriveRound, type CryptoProvider, type GameConfig, type RoundOutcome, type RoundSeeds } from '@triptown/fairness';
 import type {
+  RevealMode,
   SetbackEvent,
   BoostEvent,
   CashoutEntry,
@@ -40,10 +41,14 @@ export interface RoundRecord {
   startedAt: number;
   outcome: RoundOutcome;
   settlement: Settlement | null;
+  /** A stake-free practice round (practice-rounds). Absent means a staked round. */
+  practice?: boolean;
   /** Papers the stake is split into (partial cash-out games); absent or 1 = single cash-out. */
   stakeParts?: number;
   /** Papers thrown so far, in order (partial cash-out games). Stored atomically by the round store. */
   settledParts?: PartEntry[];
+  /** Deferred reveal (gate-odds-mvp): absent means `live`. */
+  reveal?: RevealMode;
 }
 
 export interface NewRound {
@@ -64,8 +69,12 @@ export interface NewRound {
   profileName?: string;
   clientVersion?: string | null;
   balanceBeforeMinor?: number;
+  /** A stake-free practice round (practice-rounds). Absent means a staked round. */
+  practice?: boolean;
   /** Split stake: number of parts (the bet must divide evenly). */
   stakeParts?: number;
+  /** Deferred reveal (gate-odds-mvp); defaults to `live`. */
+  reveal?: RevealMode;
 }
 
 /** A player counts as disconnected this long after their last heartbeat or stream poll. */
@@ -112,6 +121,27 @@ export function createRound(input: NewRound): RoundRecord {
     outcome: deriveRound(input.seeds, input.config, input.crypto),
     settlement: null,
     ...((input.stakeParts ?? 1) > 1 && { stakeParts: input.stakeParts, settledParts: [] }),
+    ...(input.practice === true && { practice: true as const }),
+    ...(input.reveal === 'onCollect' && { reveal: 'onCollect' as const }),
+  };
+}
+
+/** A deferred-reveal round: the crash is only made known at the player's reveal. */
+export const isDeferredReveal = (round: Pick<RoundRecord, 'reveal' | 'stakeParts'>): boolean =>
+  round.reveal === 'onCollect' && stakePartCount(round) === 1;
+
+/**
+ * The loss a deferred round reveals at `time`: the value shown is the value at the reveal, never the
+ * crash value, which stays in `crashTime` for verification only (gate-odds-mvp D1, D7).
+ */
+function revealedLoss(round: RoundRecord, time: number): Settlement {
+  return {
+    status: 'lost',
+    reason: 'crash',
+    time,
+    multiplier: Math.min(multiplierAt(time, modifiersOfOutcome(round.outcome, round.config), round.config), round.config.maxWinMultiplier),
+    payoutMinor: 0,
+    crashTime: round.outcome.crashTime,
   };
 }
 
@@ -292,6 +322,8 @@ export function scheduledSettlement(round: RoundRecord): Settlement {
     return first.time < outcome.crashTime ? paperSettlementAt(round, first.time, first.reason) : paperCrashSettlement(round);
   }
   if (first.time < outcome.crashTime) return wonAt(round, first.time, first.reason);
+  // Deferred reveal: an unrevealed crash settles nothing until the first automatic reveal point.
+  if (isDeferredReveal(round)) return revealedLoss(round, first.time);
   return {
     status: 'lost',
     reason: 'crash',
@@ -331,10 +363,14 @@ export function cashout(round: RoundRecord, nowMs: number): CashoutResult {
       ? { kind: 'crashed', settlement: due }
       : { kind: 'already_settled', settlement: due };
   }
-  const settlement = wonAt(round, elapsedSeconds(round, nowMs), 'manual');
+  const elapsed = elapsedSeconds(round, nowMs);
+  const settlement = wonAt(round, elapsed, 'manual');
   const min = round.minCashout ?? 0;
   // Refused, not settled: the round keeps running until the player tries again at or above the minimum.
+  // Checked before the hidden crash so a refusal looks the same whatever the outcome.
   if (settlement.multiplier < min) return { kind: 'below_min_cashout', multiplier: settlement.multiplier, minCashout: min };
+  // Deferred reveal: a cash-out at or after the hidden crash reveals the loss now instead of being refused.
+  if (isDeferredReveal(round) && elapsed >= round.outcome.crashTime) return { kind: 'crashed', settlement: revealedLoss(round, elapsed) };
   return { kind: 'won', settlement };
 }
 
@@ -356,6 +392,8 @@ export function startEvent(round: RoundRecord, serverNow: number): StartEvent {
     nonce: round.seeds.nonce,
     configId: round.config.id,
     ...(isSplitRound(round) && { stakeParts: stakePartCount(round), partMinor: partMinorOf(round) }),
+    ...(round.practice === true && { practice: true as const }),
+    ...(isDeferredReveal(round) && { reveal: 'onCollect' as const }),
   };
 }
 
@@ -444,7 +482,9 @@ export function snapshot(round: RoundRecord, nowMs: number): RoundSnapshot {
   const returnMinor = settlement ? settlement.payoutMinor : null;
   const readable = !!round.outcome;
   return {
+    ...(round.practice === true && { practice: true as const }),
     roundId: round.id,
+    ...(isDeferredReveal(round) && { reveal: 'onCollect' as const }),
     sessionId: round.sessionId,
     playerId: round.playerId ?? round.sessionId,
     gameId: round.config.id.split('/')[0]!,
