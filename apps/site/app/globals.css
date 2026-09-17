@@ -538,9 +538,12 @@ a:hover {
   }
   /* Locked and live differ only in filter and opacity, so the change between them fades rather than snaps. */
   .row > * {
-    transition:
-      filter 1.4s cubic-bezier(0.4, 0, 0.2, 1),
-      opacity 1.4s cubic-bezier(0.4, 0, 0.2, 1);
+    --fade: filter 1.6s cubic-bezier(0.4, 0, 0.2, 1) var(--fade-delay, 0s),
+      opacity 1.6s cubic-bezier(0.4, 0, 0.2, 1) var(--fade-delay, 0s);
+    transition: var(--fade);
+  }
+  .row-locked > * {
+    --fade-delay: 0s;
   }
   .row-locked:hover > * {
     opacity: 0.6;
@@ -573,10 +576,10 @@ a:hover {
     transform: scaleX(1);
   }
   .row-live .spine {
-    transition: filter 0.5s var(--ease-out);
+    transition: var(--fade), box-shadow 0.5s var(--ease-out);
   }
   .row-live:hover .spine {
-    filter: brightness(1.25);
+    box-shadow: inset 0 0 0 100px rgba(255, 255, 255, 0.18);
   }
 
   /* The sticker lifts and tilts a touch further, like a sticker being peeled. */
@@ -604,7 +607,11 @@ a:hover {
     position: relative;
     overflow: hidden;
     isolation: isolate;
-    transition: color 0.45s var(--ease-out);
+    transition: var(--fade), color 0.45s var(--ease-out);
+  }
+  /* The Play link replaces the locked label as a new element, so it fades in rather than transitions. */
+  .row-live a.row-play {
+    animation: tt-fade-in 1.6s cubic-bezier(0.4, 0, 0.2, 1) var(--fade-delay, 0s) both;
   }
   .row-live .row-play::before {
     content: '';
@@ -632,11 +639,6 @@ a:hover {
     transform: translateX(5px);
   }
 
-  /* Right after YES: each row fades from greyscale into colour, one after the other. */
-  .row-unlock > * {
-    animation: tt-colour-in 1.6s cubic-bezier(0.4, 0, 0.2, 1) both;
-    animation-delay: var(--unlock-delay);
-  }
 }
 
 @property --ray {
@@ -660,6 +662,16 @@ a:hover {
   to {
     opacity: 1;
     transform: none;
+    filter: none;
+  }
+}
+@keyframes tt-fade-in {
+  from {
+    opacity: 0.45;
+    filter: grayscale(1);
+  }
+  to {
+    opacity: 1;
     filter: none;
   }
 }
@@ -693,16 +705,6 @@ a:hover {
 @keyframes tt-rays {
   to {
     --ray: 360deg;
-  }
-}
-@keyframes tt-colour-in {
-  from {
-    filter: grayscale(1);
-    opacity: 0.45;
-  }
-  to {
-    filter: grayscale(0);
-    opacity: 1;
   }
 }
 

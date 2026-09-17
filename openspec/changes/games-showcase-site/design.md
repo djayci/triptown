@@ -127,7 +127,7 @@ Sizes use container query units, so the tile scales from the 300 px desktop colu
   - **Gate buttons:** a glow on YES; a press scale on both.
   - **Hovering a greyed-out game** lifts it slightly and lights the 18+ bar it is waiting on (CSS `:has`).
   - **Live rows:** on hover, the border brightens and an accent line draws along the bottom; the sticker lifts and tilts with a spring; the Play column fills with a light panel as its arrow nudges forward. Each tile's sunburst turns slowly (90 s a turn, 30 s on hover), through an animated `@property` angle.
-  - **Right after YES** (`?unlocked=1`, set by `confirmAge`, so it plays once and not on later visits), each row fades smoothly from greyscale into colour, staggered. The flicker first built here was replaced at the user's request. Locked and live rows differ only in `filter` and `opacity`, which also transition, so the change fades even when Next swaps the classes in place after the server action.
+  - **Right after YES** each row fades smoothly from greyscale into colour, staggered by `--fade-delay`. `confirmAge` redirects to `/#games`; Next re-renders the page in place, so locked and live rows (which differ only in `filter` and `opacity`) transition rather than snap. A no-JavaScript full reload shows the colour directly. The flicker first built here, and a `?unlocked=1` flag that replayed the effect after a reload, were both removed at the user's request.
 
 ### D9. Deployment on Vercel
 - The Vercel project has Root Directory `apps/site`, framework Next.js, and "Include source files outside of the Root Directory" enabled.

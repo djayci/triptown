@@ -23,7 +23,7 @@ describe('confirmAge', () => {
   });
 
   it('sets a session cookie, with no maxAge or expires', async () => {
-    await expect(confirmAge(form())).rejects.toThrow('REDIRECT /?unlocked=1#games');
+    await expect(confirmAge(form())).rejects.toThrow('REDIRECT /#games');
     expect(set).toHaveBeenCalledTimes(1);
     const [name, value, options] = set.mock.calls[0]!;
     expect([name, value]).toEqual(['tt_age', '1']);
@@ -39,8 +39,8 @@ describe('confirmAge', () => {
   });
 
   it('never redirects off the demos', async () => {
-    await expect(confirmAge(form('https://evil.com/'))).rejects.toThrow('REDIRECT /?unlocked=1#games');
-    await expect(confirmAge(form('//evil.com'))).rejects.toThrow('REDIRECT /?unlocked=1#games');
+    await expect(confirmAge(form('https://evil.com/'))).rejects.toThrow('REDIRECT /#games');
+    await expect(confirmAge(form('//evil.com'))).rejects.toThrow('REDIRECT /#games');
   });
 });
 

@@ -16,7 +16,6 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
     <Home
       state={state}
       next={safeNext(params.next)}
-      justUnlocked={params.unlocked === '1'}
       confirmAction={confirmAge}
       declineAction={declineAge}
     />

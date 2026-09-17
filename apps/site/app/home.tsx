@@ -7,8 +7,6 @@ export type GateState = 'ask' | 'declined' | 'confirmed';
 type Props = {
   state: GateState;
   next: string | null;
-  /** The visitor has just tapped YES: the rows fade into colour once instead of simply appearing unlocked. */
-  justUnlocked?: boolean;
   entries?: readonly Entry[];
   confirmAction: (formData: FormData) => void | Promise<void>;
   declineAction: () => void | Promise<void>;
@@ -19,7 +17,7 @@ type Props = {
  * greyed out with no links: nothing on the page leads to /play/ (spec: No play without the 18+
  * confirmation), and the server refuses /play/ anyway.
  */
-export function Home({ state, next, justUnlocked = false, entries = catalogue, confirmAction, declineAction }: Props) {
+export function Home({ state, next, entries = catalogue, confirmAction, declineAction }: Props) {
   return (
     <div className="page">
       <div className="scanlines" aria-hidden="true" />
@@ -92,7 +90,6 @@ export function Home({ state, next, justUnlocked = false, entries = catalogue, c
                 entry={entry}
                 index={i}
                 locked={state !== 'confirmed'}
-                unlocking={state === 'confirmed' && justUnlocked}
               />
             ))}
           </div>
@@ -130,17 +127,18 @@ function Wordmark() {
   );
 }
 
-type RowProps = { entry: Entry; index: number; locked: boolean; unlocking: boolean };
+type RowProps = { entry: Entry; index: number; locked: boolean };
 
-function GameRow({ entry, index, locked, unlocking }: RowProps) {
+function GameRow({ entry, index, locked }: RowProps) {
   // Locked rows carry no href at all, so there is nothing to click, tab to or copy.
   const href = locked ? null : playUrl(entry);
   const soon = entry.status !== 'live';
-  const state = soon ? 'row-soon' : locked ? 'row-locked' : unlocking ? 'row-live row-unlock' : 'row-live';
+  const state = soon ? 'row-soon' : locked ? 'row-locked' : 'row-live';
   const style = {
     '--accent': entry.accent,
     animationDelay: `${0.65 + index * 0.1}s`,
-    '--unlock-delay': `${0.25 + index * 0.18}s`,
+    // Staggers the grey-to-colour fade when the visitor confirms.
+    '--fade-delay': `${0.15 + index * 0.18}s`,
   } as CSSProperties;
   return (
     <article className={`row reveal ${state}`} style={style} aria-disabled={locked && !soon ? true : undefined}>

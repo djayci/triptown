@@ -8,8 +8,9 @@ import { GATE_COOKIE, GATE_COOKIE_OPTIONS, safeNext } from '../src/gate';
 export async function confirmAge(formData: FormData) {
   const store = await cookies();
   store.set(GATE_COOKIE, '1', GATE_COOKIE_OPTIONS);
-  // Back to the list lands with ?unlocked=1 so the rows fade into colour once, not on every later visit.
-  redirect(safeNext(formData.get('next')) ?? '/?unlocked=1#games');
+  // Next re-renders the page in place, so the rows fade from grey into colour through their CSS
+  // transitions; #games brings the list into view.
+  redirect(safeNext(formData.get('next')) ?? '/#games');
 }
 
 /** "NO": grants nothing and stores nothing. */

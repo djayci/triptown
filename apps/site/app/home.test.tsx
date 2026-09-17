@@ -55,23 +55,11 @@ describe('Home', () => {
     expect(html).not.toContain('/play/cable-car');
     expect(html).toContain(copy.games.comingSoon);
     expect(html).not.toContain('row-locked');
-    expect(html).not.toContain('row-unlock');
     expect(html).not.toContain(copy.games.locked);
     // Rows in catalogue order, after the play-money statement.
     const positions = catalogue.map((e) => html.indexOf(e.name));
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
     expect(html.indexOf(copy.games.playMoney)).toBeLessThan(positions[0]!);
-  });
-
-  it('powers the rows on only right after confirming', () => {
-    const html = renderToStaticMarkup(
-      <Home state="confirmed" next={null} justUnlocked confirmAction={noop} declineAction={noop} />,
-    );
-    expect(html.match(/row-live row-unlock/g)).toHaveLength(2);
-    const locked = renderToStaticMarkup(
-      <Home state="ask" next={null} justUnlocked confirmAction={noop} declineAction={noop} />,
-    );
-    expect(locked).not.toContain('row-unlock');
   });
 
   it.each<GateState>(['ask', 'declined', 'confirmed'])('credits Triptych in the %s state', (state) => {
