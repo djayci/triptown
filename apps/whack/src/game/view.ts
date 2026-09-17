@@ -613,11 +613,18 @@ export class GameView extends CrashViewBase implements CrashView {
         const hole = this.holeRect();
         // Sits across the mole's shoulder like a ribbon, overlapping it, rather than floating in the
         // space beside the hole where it read as unrelated to the hit it is marking.
+        // Revealed by the blow, from the point of the blow: same contact the head just struck, popped
+        // out of nothing rather than placed somewhere nearby.
+        const hit = this.hammerContact(hole);
         const bonk = new Burst(this.frames('burst-sky'), Math.max(78, hole.w * 0.34), t('result.bonk'), 20);
-        bonk.position.set(hole.x + hole.w * 0.24, hole.y + hole.h * 0.46);
-        bonk.rotation = 0.34;
+        // Starts at the point of impact and bursts outward, so it reads as thrown off by the blow. It
+        // ends clear of the head rather than on top of it — the hammer is what the frame is about.
+        bonk.position.set(hit.x, hit.y);
+        bonk.rotation = -0.22;
+        bonk.scale.set(0.12);
         this.fx.addChild(bonk);
-        this.trackFx(pop(bonk, 1.3, 0.3));
+        this.trackFx(gsap.to(bonk.scale, { x: 1, y: 1, duration: 0.24, ease: 'back.out(3)' }));
+        this.trackFx(gsap.to(bonk, { x: hit.x + hole.w * 0.2, y: hit.y - hole.h * 0.13, duration: 0.24, ease: 'power2.out' }));
         if (this.intensityEffects) {
           this.confetti.burst({ x: this.stage.size.width / 2, y: this.stage.size.height * 0.75, count: big ? 120 : 60, speed: big ? 1300 : 950 });
         }
@@ -1084,6 +1091,15 @@ export class GameView extends CrashViewBase implements CrashView {
    * AGCO 2.20). A swing that connects before the result is known would also land on a cash-out the
    * server goes on to refuse.
    */
+  /**
+   * Where the hammer head lands: the right side of the mole's head. One definition, because anything
+   * the blow reveals has to sit exactly where the blow was — BONK was a separate hand-tuned constant
+   * and drifted every time the swing moved.
+   */
+  private hammerContact(hole: { x: number; y: number; w: number; h: number }) {
+    return { x: hole.x + hole.w * 0.63, y: hole.y + hole.h * 0.24 };
+  }
+
   private swingHammer(impact = false, onContact?: () => void) {
     const hole = this.holeRect();
     // Swung from the player's own side: the grip sits off the bottom-right of the stage, where the hand
@@ -1095,9 +1111,7 @@ export class GameView extends CrashViewBase implements CrashView {
     // rather than poking up at it from below. Head above, handle angling down towards the viewer, which
     // is what a mallet swing looks like from behind it.
     const grip = { x: hole.x + hole.w * 1.35, y: hole.y + hole.h * 1.7 };
-    // The head's centre lands exactly here, so this is the mole's crown, not the top of the hole box.
-    // Aiming at the box top left the hammer hovering clear of the mole with nothing to hit.
-    const contact = { x: hole.x + hole.w * 0.5, y: hole.y + hole.h * 0.22 };
+    const contact = this.hammerContact(hole);
     const dx = contact.x - grip.x;
     const dy = contact.y - grip.y;
     const reach = Math.hypot(dx, dy);
