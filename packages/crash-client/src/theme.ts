@@ -86,6 +86,22 @@ export function contrastRatio(a: number, b: number): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
+/**
+ * Ink or cream, whichever reads better on `fill`.
+ *
+ * No single token works on every card: on the candy palette `cream` on the lime winning card is
+ * 1.60:1, and on the adult palette `ink` on the violet card is 2.03:1. Picking from the fill keeps
+ * the settled result legible under both shipped skins and under a game's own recolour, which is the
+ * case that actually broke (a crash-card override sank the result line).
+ */
+function best(a: number, b: number, against: number): number {
+  return contrastRatio(a, against) >= contrastRatio(b, against) ? a : b;
+}
+
+export function readableOn(fill: number): number {
+  return best(COLORS.ink, COLORS.cream, fill);
+}
+
 /** The multiplier and the money must stay legible against the stage they sit on. */
 const MIN_PRIMARY_CONTRAST = 3;
 
@@ -129,16 +145,27 @@ export function useSkin(skin: SkinName, options: SkinOptions = {}) {
           `sit on. Without it their legibility cannot be checked, and it is the thing most easily lost.`,
       );
     }
-    for (const [name, token] of [
-      ['multiplier', next.sun],
-      ['payout', next.lime],
-    ] as const) {
-      const ratio = contrastRatio(token, ground);
+    // Against the stage: the two values a player reads while the round runs.
+    const checks: [string, number, number][] = [
+      ['multiplier', next.sun, ground],
+      ['payout', next.lime, ground],
+      // Against the result card, filled with `violet` on a plain result and `lime` on a win: the
+      // settled amount and the net. That screen is the one a player must be able to read
+      // (AGCO 4.15, UK RTS 7E). Only the unstroked line is checked — the title is drawn with an ink
+      // outline, so its legibility comes from the stroke rather than from fill contrast.
+      // The result line picks ink or cream per card fill (readableOn), so no single fill can hide
+      // it — but only while those two tokens stay far apart. Checking them against each other is
+      // the assertion with teeth: a recolour that darkens cream or lightens ink leaves readableOn
+      // with nothing readable to pick, and the settled result goes dim on every card at once.
+      ['pair the result line chooses between (ink vs cream)', next.ink, next.cream],
+    ];
+    for (const [name, token, against] of checks) {
+      const ratio = contrastRatio(token, against);
       if (ratio < MIN_PRIMARY_CONTRAST) {
         throw new Error(
-          `useSkin(${skin}): the ${name} colour has ${ratio.toFixed(2)}:1 contrast against the ground, ` +
-            `below the ${MIN_PRIMARY_CONTRAST}:1 floor. The multiplier and the money must be plainly ` +
-            `visible (BR Annex I 14(c), AGCO 4.15, UK RTS 7E).`,
+          `useSkin(${skin}): the ${name} has ${ratio.toFixed(2)}:1 contrast, below the ` +
+            `${MIN_PRIMARY_CONTRAST}:1 floor. The multiplier, the money and the settled result must ` +
+            `all be plainly visible (BR Annex I 14(c), AGCO 4.15, UK RTS 7E).`,
         );
       }
     }

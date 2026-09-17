@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COLORS, SKIN, contrastRatio, useSkin } from './theme';
+import { COLORS, SKIN, contrastRatio, readableOn, useSkin } from './theme';
 
 const NIGHT = 0x0a1020;
 
@@ -38,6 +38,28 @@ describe('skin palette overrides', () => {
     expect(() => useSkin('candy')).not.toThrow();
     expect(() => useSkin('adult')).not.toThrow();
     expect(SKIN).toBe('adult');
+  });
+
+  it('reads the settled result on a card a game recoloured dark', () => {
+    // The real case: a game overrode the crash card to a deep violet and the result line, then
+    // hardcoded to `ink`, vanished into it. The screen now picks its text from the fill, so the
+    // override is legible instead of banned.
+    useSkin('adult', { colors: { sun: 0xffc414, lime: 0x8ce99a, violet: 0x3a1030 }, ground: NIGHT });
+    expect(readableOn(0x3a1030)).toBe(COLORS.cream);
+    expect(readableOn(0x8ce99a)).toBe(COLORS.ink);
+  });
+
+  it('refuses a palette that leaves the result line nothing readable to pick', () => {
+    // readableOn can only save the settled result while ink and cream sit far apart. Collapse them
+    // and every card goes dim at once, which no per-fill choice can fix. Which guard names it first
+    // is not the point — a darkened cream also sinks the multiplier — so this asserts the refusal.
+    expect(() => useSkin('adult', { colors: { cream: 0x1a1c20 }, ground: NIGHT })).toThrow(/useSkin/);
+  });
+
+  it('accepts a card fill with readable text', () => {
+    expect(() =>
+      useSkin('adult', { colors: { sun: 0xffc414, lime: 0x8ce99a, violet: 0xf1a9a0 }, ground: NIGHT }),
+    ).not.toThrow();
   });
 
   it('measures contrast symmetrically', () => {

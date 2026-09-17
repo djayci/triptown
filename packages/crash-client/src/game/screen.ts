@@ -4,7 +4,7 @@ import { prefersReducedMotion, type GameApp } from '@triptown/engine';
 import { t } from '../i18n';
 import { BalancePill, HistoryStrip, Logo, SessionStrip } from '../ui/hud';
 import { StatBox, StickerButton, bodyStyle, displayStyle, drawSticker, labelStyle, text } from '../ui/primitives';
-import { COLORS } from '../theme';
+import { COLORS, readableOn } from '../theme';
 import { CrashViewBase, type ActionControl } from './view-base';
 import type { BetUi, CrashView, CrashViewCallbacks, Frames, SessionHud } from './view-contract';
 
@@ -68,7 +68,8 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
 
   private readonly mult = text('x1.00', displayStyle(88, COLORS.sun, 6, 7), [0.5, 0]);
   private readonly payout = text('', displayStyle(34, COLORS.lime, 4, 4), [0.5, 0]);
-  private readonly payoutLabel = text('', labelStyle(11), [0.5, 0]);
+  // Read on a dark stage at arm's length, and clear of the payout's drop shadow.
+  private readonly payoutLabel = text('', bodyStyle(13, COLORS.cream), [0.5, 0]);
 
   /** Hard rule 7: a demo build must say so on screen, in every game, always. */
   private readonly demoBadge = new Container();
@@ -82,6 +83,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
   private readonly resultBg = new Graphics();
   private readonly resultTitle = text('', displayStyle(34, COLORS.cream, 4, 4), [0.5, 0]);
   private readonly resultLine = text('', bodyStyle(15), [0.5, 0]);
+  // (card fills are contrast-checked against the text tokens in useSkin)
 
   private readonly statBet: StatBox;
   private readonly statAuto: StatBox;
@@ -168,13 +170,14 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     this.history.position.set(PAD, 96);
     this.mult.position.set(W / 2, 150);
     this.payout.position.set(W / 2, 246);
-    this.payoutLabel.position.set(W / 2, 286);
+    this.payoutLabel.position.set(W / 2, 294);
 
-    // Beside the wordmark, so it is present on every screen of the game rather than one of them.
+    // Above the stake row rather than beside the wordmark: a longer two-word logo collided with it
+    // there, and this spot is free on every screen of every game regardless of name length.
     this.demoBg.clear();
     drawSticker(this.demoBg, 62, 24, { fill: COLORS.pink, radius: 8, border: 3, shadow: 3 });
     this.demoBg.position.set(-31, -12);
-    this.demoBadge.position.set(PAD + 128, 26);
+    this.demoBadge.position.set(PAD + 31, H - 196);
 
     this.counter.position.set(W / 2 - 46, 312);
     this.counterBg.clear();
@@ -197,6 +200,9 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
   private card(fill: number): void {
     this.resultBg.clear();
     drawSticker(this.resultBg, W - 56, 118, { fill, radius: 16, border: 5, shadow: 6 });
+    // The line is unstroked, so it needs real contrast against the fill (BR Annex I 14(c),
+    // AGCO 4.15, UK RTS 7E). The title carries an ink outline and reads on either card.
+    this.resultLine.style.fill = readableOn(fill);
   }
 
   // ---------- CrashView ----------

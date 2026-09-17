@@ -1,4 +1,4 @@
-import { formatMinor, payoutMinor, type CurrencyRules } from '@triptown/core';
+import { formatMoney as coreFormatMoney, payoutMinor, type CurrencyRules } from '@triptown/core';
 import { growth, growthRate, type GameConfig } from '@triptown/fairness';
 
 // Pure display math for the client. The server stays the source of truth for payouts.
@@ -13,8 +13,13 @@ export function formatMultiplier(m: number): string {
   return `x${(Math.floor(m * 100 + 1e-7) / 100).toFixed(2)}`;
 }
 
-export function formatMoney(minor: number, currency: Pick<CurrencyRules, 'decimals'>): string {
-  return formatMinor(minor, currency);
+/**
+ * Amounts carry their currency symbol. A bare "149.57" under a large multiplier reads as a score
+ * rather than money, which is the thing Netherlands Rko 3.5(1) ("sufficiently distinguishable"),
+ * Brazil Annex I item 10(b) and AGCO 4.06 (prize value units) each aim at. Core owns the symbols.
+ */
+export function formatMoney(minor: number, currency: Pick<CurrencyRules, 'decimals' | 'code'>): string {
+  return coreFormatMoney(minor, currency);
 }
 
 export function optimisticPayout(betMinor: number, multiplier: number, config: GameConfig): number {
