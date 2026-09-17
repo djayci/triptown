@@ -1,6 +1,6 @@
 import { Container, Graphics, Rectangle, Sprite, Text, type TextStyleOptions, type Texture } from 'pixi.js';
 import { pop } from '@triptown/engine';
-import { COLORS, FONT_BODY, FONT_DISPLAY } from '../theme';
+import { COLORS, FONT_BODY, displayFont } from '../theme';
 
 export interface StickerStyle {
   fill: number;
@@ -25,8 +25,12 @@ export function drawSticker(g: Graphics, w: number, h: number, s: StickerStyle):
 }
 
 export function displayStyle(size: number, fill: number, stroke = 0, shadow = 0): TextStyleOptions {
+  // The skin decides the face: the adult skin sets display text in the heavy body face (no bubbly
+  // lettering), and a game may override it. This used to read FONT_DISPLAY directly, so neither did.
+  const family = displayFont();
   return {
-    fontFamily: FONT_DISPLAY,
+    fontFamily: family,
+    ...(family === FONT_BODY && { fontWeight: '800' as const }),
     fontSize: size,
     fill,
     padding: stroke + shadow + 4,
@@ -179,6 +183,16 @@ export class StickerButton extends Container {
     const { width: w, height: h } = this.opts;
     const iconSize = this.iconSprite?.visible ? (this.opts.iconSize ?? Math.round((this.opts.labelSize ?? 44) * 0.8)) : 0;
     const gap = iconSize ? 14 : 0;
+    // Shrink the label to fit rather than letting it run past the edges. A button that shares its row
+    // is narrower than the label was sized for, and an overflowing label reads as a rendering fault.
+    const room = w - iconSize - gap - 24;
+    const base = this.opts.labelSize ?? 44;
+    if (room > 0 && this.labelText.width > room) {
+      const fitted = Math.max(14, Math.floor((base * room) / this.labelText.width));
+      if (this.labelText.style.fontSize !== fitted) this.labelText.style.fontSize = fitted;
+    } else if (this.labelText.style.fontSize !== base) {
+      this.labelText.style.fontSize = base;
+    }
     const textW = Math.max(this.labelText.width, this.subText?.width ?? 0);
     const total = iconSize + gap + textW;
     let x = (w - total) / 2;

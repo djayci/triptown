@@ -155,6 +155,9 @@ export const PROFILE_TEMPLATES: Readonly<Record<string, ProfileTemplate>> = Obje
     intensityEffects: true,
     showSessionClock: false,
     showNetPosition: false,
+    // Unregulated markets only. Regulated templates leave this absent, because free play is advertising
+    // there (UK CAP, Brazil 1.231) and carries obligations a gameplay flag cannot answer.
+    practiceRounds: true,
   },
   'regulated-uk': {
     ...base,
