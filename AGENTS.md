@@ -18,8 +18,8 @@ Settled decisions are not up for debate while you implement. If code and spec di
 ```
 apps/
   whack/        Vite + PixiJS v8 game client (static build)       @triptown/whack
-  lift/         The Lift: a skin on the Whack Crash engine         @triptown/lift
-  gate/         Beat the Gate: a skin on the Whack Crash engine    @triptown/gate
+  cable-car/    The Cable Car: a deferred-reveal skin on that engine @triptown/cable-car
+  gate/         Gate Rush / Beat the Gate: a Whack Crash skin      @triptown/gate
   sandbox/      fake operator page: iframe embed + verifier       @triptown/sandbox
   api/          Hono on Vercel functions: rounds, SSE, cashout    @triptown/api
 packages/
@@ -37,7 +37,8 @@ Packages export TypeScript source directly (`"exports": "./src/index.ts"`). They
 
 **A new game is a skin, not a product.** It extends `CrashScreen` from `@triptown/crash-client`,
 supplies a `GameStage` and its words, and implements no layout and no compliance logic — those live
-in `CrashViewBase` and hold by construction. `apps/lift` is the worked example: 34 lines of view.
+in `CrashViewBase` and hold by construction. `apps/cable-car` is the worked example: its view is
+under 60 lines, and all of it is words and one scene cue.
 A stage receives the multiplier and nothing else, never the crash time, which is what keeps the
 no-advance-warning rule true rather than merely intended.
 
@@ -45,10 +46,18 @@ no-advance-warning rule true rather than merely intended.
 
 ```ts
 registerGame('skin-game', 'whack-crash');   // a skin on a certified engine
+registerGame('deferred-skin', 'whack-crash', { reveal: ['onCollect'] }); // ...that may also hide the crash until the collect
 registerGame('some-game'); // brings its own maths, needs its own report
 ```
 
 The second argument is the engine whose config ids the game plays, so a skin reuses the certified ids and their committed RTP reports and needs no recertification. That is the point: new games are presentation, not new maths. Adding a game must never mean editing a type in `core` or `fairness`.
+
+**Deferred reveal is an opt-in engine mode, not new maths** (`openspec/changes/gate-odds-mvp/`). A round can keep running past its hidden crash and reveal only at the player's collect, at the auto target, the cap or `tMax`: won if the reveal came before the crash, lost otherwise. Payouts equal the live round's for every cash-out time. It needs three things at once, resolved by `effectiveReveal(game, profile, config)` — never by the profile flag alone:
+- the game registers it: `registerGame('beat-the-gate', 'whack-crash', { reveal: ['onCollect'] })`;
+- the profile sets `crashReveal: 'onCollect'`, which validation rejects with setbacks or boosts on. Only `ng-draft` and `gh-draft` set it: it stays off in Brazil (item 14(d)) and Ontario (AGCO 2.15), and Lagos and Ghana have not answered the lab question yet;
+- the config plays no setbacks and no boosts.
+
+A deferred client shows the live chance (RTP ÷ value, rounded down) and keeps it on screen after the press, restated in a tense that stays true. The value can climb past a round already decided, and the chance is what makes the amount on screen honest. The wait after the press is a fixed `HEADING_HOME_MS` from the press, identical for every outcome, and never tied to scene geometry such as "the next stop": a variable wait turns the press timing into a strategy. The rules show the chance table before any bet.
 
 ## Commands
 
@@ -99,7 +108,8 @@ These games are built to be certified by accredited test labs and licensed to re
 5. **No illusion of skill.** No reflex or skill copy, no decorations that look interactive, no near-miss animations, no "would have reached xN". Source: AGCO 2.15, GLI §4.6.1(a), RTS 7C.
 6. **No child-appealing art in regulated builds or marketing.** Portugal R7c and Kenya Reg 95 apply to the game itself. UK CAP 16.3.12, AGCO 2.03 and Brazil 1.231 cover tiles, demos and ads. Keep an adult skin available.
 7. **Support player-protection hooks:** session clock, net position, and an operator reality-check pause that only takes effect between rounds. Keep per-round history with an operator API, and use a pinned postMessage origin, never `'*'`.
-8. **Record per-market differences as jurisdiction profile flags, not forks.** Examples: `minCycleMs`, `maxMultiplier`, `minCashout`, `setbacksMode`, `skin`, `showNetPosition`, `hostingRegion`.
+8. **Record per-market differences as jurisdiction profile flags, not forks.** Examples: `minCycleMs`, `maxMultiplier`, `minCashout`, `setbacksMode`, `skin`, `showNetPosition`, `hostingRegion`, `crashReveal`.
+8a. **A deferred reveal (`crashReveal: 'onCollect'`) owes the player the live win chance.** The multiplier keeps climbing past a crash they cannot see, so the screen can display money that is no longer winnable — which Ontario forbids. Show `RTP / value` for as long as the round runs, and never let the wait between the collect and the reveal vary with the outcome, or with anything drawn on screen: a wait that ended on arrival at a station would make one stopping point safer than another for the same payout, which is a strategy edge.
 9. **Free play is advertising, not just gameplay.** `practiceRounds` defaults off and is absent from every template. Enabling it for a market is a legal decision — UK CAP and Brazil 1.231 bring age-gating and content rules a gameplay flag cannot answer — not a config change. The server refuses a practice round the profile forbids whatever the client offered: "the button was hidden in that build" is not a defence. A practice round never shows money and never states what a stake would have returned (AGCO 2.15, UK RTS 7C near-miss).
 10. **Publish the RTP band measured at the stake the market actually sells.** Half-up rounding costs most at the smallest stake and almost nothing above it: `whack-crash/v3-rising` measures 96.35%-97.18% at a 0.20 stake but 97.00%-97.01% at 1.00. A band measured at 0.20 is therefore both wrong and pessimistic for Nigeria, whose minimum is 100.00 (500x larger), while a flat 97% would breach GLI-19 4.7.1(a) in any market that does allow 0.20. `reports/bands.json` holds one band per config id *per stake level* and `bandForStake()` picks the largest measurement at or below the market's `minBetMinor` — never above it, which would understate the spread. A config with no measured band must fail the build (`scripts/check-bands.mjs`), never fall back to the headline figure: the rules screen drops the band silently when one is missing.
 11. **Rounding must not be one-way or break the published RTP.** GLI-19 §4.7.1(a) requires the minimum RTP at any single bet level. A game with several credits per round accrues exact values and rounds once per round, sets a minimum value per credit, and publishes RTP at the minimum bet. Nevada Notice 2026-14 bans "only round down" (by analogy).

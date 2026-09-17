@@ -1,5 +1,6 @@
 import type { RoundService } from '@triptown/rgs-client';
 
+export const GAME_ID = 'cable-car';
 export const DEMO = import.meta.env.VITE_DEMO === 'true';
 
 /**
@@ -19,24 +20,20 @@ export async function createRoundService(): Promise<RoundService> {
     const { MockRoundService } = await import('@triptown/rgs-client/mock');
     const { GHS_CURRENCY, NGN_CURRENCY, profileFromTemplate, registerGame } = await import('@triptown/core');
     const params = new URLSearchParams(location.search);
-    // The demo must play under this game's own id, as the API already does, or its rounds and recall
-    // records are filed against the engine instead. The id resolves to the engine's certified config
-    // ids, so this adds no maths and needs no report of its own.
-    registerGame('the-lift', 'whack-crash');
-    // Demo builds may pick a market profile, so the compliance checks can drive every market.
+    // Registered with its reveal modes so the host resolves this game's rounds, not the engine's.
+    // The reveal is opt-in per game AND per market: a profile that permits a deferred reveal does
+    // not make a game deferred, and a game that supports one is still live on a market that does not.
+    registerGame(GAME_ID, 'whack-crash', { reveal: ['onCollect'] });
     const wanted = params.get('profile');
     const origins = [location.origin, ...(params.get('operatorOrigin') ? [params.get('operatorOrigin')!] : [])];
     const profile = wanted ? profileFromTemplate(wanted, origins) : undefined;
     const service = new MockRoundService({
-      game: 'the-lift',
-      // `allowOverride` is what lets a draft profile run at all. Without it the Nigeria and Ghana
-      // profiles threw at boot, so the compliance checks could never reach them — the checks read
-      // that as a client with no rounds rather than as a client that never started.
+      game: GAME_ID,
+      // `allowOverride` is what lets a draft profile run at all, and `playerRegion` is what stops
+      // Nigeria refusing every round. The Lift shipped without either, so no compliance check ever
+      // reached a regulated market for it, and the checks read that as a client with no rounds.
       ...(profile && { profiles: { defaultProfile: profile, allowOverride: true } }),
-      // Nigeria gates play by region, and the operator is the one that supplies it. Without this the
-      // session refuses every round with "the operator must send the player region for this market".
       playerRegion: params.get('region') ?? 'NG-LA',
-      // A player in the market the profile describes, so its stakes and balance are the real ones.
       ...(wanted === 'ng-draft' && { currency: NGN_CURRENCY, initialBalanceMinor: 100_000_00 }),
       ...(wanted === 'gh-draft' && { currency: GHS_CURRENCY, initialBalanceMinor: 5_000_00 }),
     });

@@ -77,7 +77,11 @@ let starts = await page.evaluate(() => window.__triptownView?.().starts ?? []);
 // This measures rather than asserts a refusal. The gap runs from one START to the next, so after a
 // round that lasts longer than the gap it has already elapsed and a refusal would be the wrong thing
 // to expect. Any practice start that came too soon shows up in the gaps computed below.
-if (await page.evaluate(() => typeof window.__triptownPractice === 'function')) {
+// Gate on the market, not on the hook. The demo hook ships in every demo build, so testing for it
+// drove a practice round on markets that forbid one, the host correctly refused it, and the refusal
+// was reported as "never reached the start log" — a FAIL for behaving properly.
+const practiceAllowedHere = await page.evaluate(() => window.__triptownView?.().profile?.practiceRounds === true);
+if (practiceAllowedHere && (await page.evaluate(() => typeof window.__triptownPractice === 'function'))) {
   const ready = await page
     .waitForFunction(() => ['betting', 'won', 'lost'].includes(window.__triptownView?.().phase), null, { timeout: 30_000 })
     .then(() => true)

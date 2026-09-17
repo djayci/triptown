@@ -80,7 +80,7 @@ export class GameView extends CrashViewBase implements CrashView {
   private readonly meter = new Meter(326);
   private readonly resultCard = new Container();
   private readonly resultMult: BitmapText;
-  private readonly resultPayout = text('', bodyStyle(28));
+  private readonly resultPayout = text('', bodyStyle(28), [0.5, 0]);
   private readonly resultTitle = text(t('result.cashedOut'), labelStyle(13), [0.5, 0]);
   private readonly resultCardBg = new Graphics();
   private readonly escaped: StickerLabel;
@@ -795,11 +795,10 @@ export class GameView extends CrashViewBase implements CrashView {
       this.lockedLabel.position.set(x, 130);
       this.lockedLabel.alpha = 0.6;
       this.placeBetControls(x, 160, w, true);
-      this.statBet.visible = this.statAuto.visible = true;
-      this.statBet.resize((w - 8) / 2, 44);
-      this.statAuto.resize((w - 8) / 2, 44);
+      this.statBet.visible = this.phase !== 'running' && this.phase !== 'cashing';
+      this.statAuto.visible = false;
+      this.statBet.resize(w, 44);
       this.statBet.position.set(x, 676);
-      this.statAuto.position.set(x + (w - 8) / 2 + 8, 676);
       this.bigButton.resize(w, 116);
       this.bigButton.position.set(x, 738);
       const showPracticeDesktop = this.practiceRounds && (this.phase === 'won' || this.phase === 'lost');
@@ -821,7 +820,9 @@ export class GameView extends CrashViewBase implements CrashView {
       // so a short phone loses stage height instead of shrinking the whole layout.
       if (betting) {
         const btnY = H - 100;
-        const controlsY = btnY - 186;
+        // The bet controls are the amount row plus the chips (112 tall) and a 12 gap. They used to
+        // reserve room for the auto row underneath; without it that was dead space above the button.
+        const controlsY = btnY - 124;
         this.setStageSize(CONTENT, Math.max(280, controlsY - 12 - top), animate);
         this.placeBetControls(PAD, controlsY, CONTENT, true);
         this.statBet.visible = this.statAuto.visible = false;
@@ -839,14 +840,18 @@ export class GameView extends CrashViewBase implements CrashView {
           this.practiceButton.resize(CONTENT, 46);
           this.practiceButton.position.set(PAD, statY - practiceH);
         }
-        this.setStageSize(CONTENT, Math.max(240, statY - practiceH - 10 - top), animate);
         this.placeBetControls(PAD, statY, CONTENT, false);
-        this.statBet.visible = this.statAuto.visible = true;
-        const half = (CONTENT - 10) / 2;
-        this.statBet.resize(half, 44);
-        this.statAuto.resize(half, 44);
+        // The stake is on screen while betting; during a round it is neither editable nor useful.
+        const showStats = this.phase !== 'running' && this.phase !== 'cashing';
+        this.statBet.visible = showStats;
+        this.statAuto.visible = false;
+        // With the stat row hidden the stage takes the space back, rather than leaving a gap where it
+        // used to be. That is also the moment the player most wants the stage large.
+        const stageBottom = showStats ? statY - 10 : btnY - 12;
+        this.setStageSize(CONTENT, Math.max(240, stageBottom - practiceH - top), animate);
+        // BET spans the row now that AUTO is gone, rather than leaving a gap where it used to sit.
+        this.statBet.resize(CONTENT, 44);
         this.statBet.position.set(PAD, statY);
-        this.statAuto.position.set(PAD + half + 10, statY);
         this.bigButton.resize(CONTENT, 96);
         this.bigButton.position.set(PAD, btnY);
       }
@@ -868,7 +873,10 @@ export class GameView extends CrashViewBase implements CrashView {
   }
 
   private placeBetControls(x: number, y: number, w: number, visible: boolean) {
-    const controls = [this.minus, this.plus, this.amountBox, this.autoRow, ...this.chips];
+    // AUTO is withdrawn from the interface for now, so the row is never shown. The engine still
+    // supports auto cash-out; nothing in the client offers it.
+    const controls = [this.minus, this.plus, this.amountBox, ...this.chips];
+    this.autoRow.visible = false;
     controls.forEach((c) => (c.visible = visible));
     if (!visible) return;
     this.minus.position.set(x, y);
@@ -1025,12 +1033,16 @@ export class GameView extends CrashViewBase implements CrashView {
     fit(this.resultMult, desktop ? 110 : 72, 30);
     fit(this.resultPayout, desktop ? 36 : 28, 14);
     const cw = Math.min(Math.max(this.resultMult.width, this.resultPayout.width) + 60, maxCard);
-    const ch = 22 + this.resultTitle.height + this.resultMult.height + this.resultPayout.height + 12;
+    // Lay the three lines out first, then size the card around them, so the padding above the title and
+    // below the payout is the same. Deriving the height from a separate sum of the parts drifted from
+    // where they actually sat, because a BitmapText's height is its line box, not its glyphs.
+    const padY = 16;
+    this.resultTitle.position.set(0, padY);
+    this.resultMult.position.set(0, this.resultTitle.y + this.resultTitle.height + 8);
+    this.resultPayout.position.set(0, this.resultMult.y + this.resultMult.height + 4);
+    const ch = this.resultPayout.y + this.resultPayout.height + padY;
     drawSticker(this.resultCardBg, cw, ch, { fill: COLORS.cream, radius: 24, border: 5, shadow: 7 });
     this.resultCardBg.position.set(-cw / 2, 0);
-    this.resultTitle.position.set(0, 14);
-    this.resultMult.position.set(0, 14 + this.resultTitle.height + 4);
-    this.resultPayout.position.set(0, this.resultMult.y + this.resultMult.height + 2);
     this.resultCard.position.set(w / 2, (desktop ? 40 : 24) + this.hudOffset);
     this.resultCard.rotation = -0.05;
   }

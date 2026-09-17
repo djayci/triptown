@@ -63,15 +63,22 @@
 - [x] 7.1 Register the horse game with deferred-reveal support and choose Gate Rush or Beat the Gate from the session's effective reveal mode. Verify under `ng-draft` and a live profile in the demo.
   - Done 2026-09-17: `registerGame('beat-the-gate', 'whack-crash', { reveal: ['onCollect'] })` in `apps/api` and the gate demo. `GateView` takes the presentation from the profile (GATE RUSH wordmark and words under ng-draft, BEAT THE GATE otherwise) and follows START's reveal mode. Checked in the demo under ng-draft and `light`.
 - [ ] 7.2 Build the Gate Rush scene and screens from the canvas:
-  - while out: no gate, fog to the left;
+  - at the start: the horse beside the open gate; riding out: through the gate, which drops out of view (changed from "no gate, fog" at the user's request, 17 Sep 2026);
   - heading home: the turn for home, fixed length;
   - revealed open: gate open, horse through;
   - revealed shut: gate shut, horse stopped out in the field facing away.
 
   Verify headless screenshots at 390x844 for each state, reviewed with the user.
   - In progress 2026-09-17: Gate Rush states captured from the demo under ng-draft (betting, riding with odds, heading home, gate open, gate shut). Waiting for the user's review.
-- [ ] 7.3 Add the catalogue: odds labels, heading-home copy, reveal titles, and the rules with the odds table and fixed-result and decoration statements. Verify `pnpm check:copy` passes and a fixture with "almost" or "just missed" fails.
+  - 17 Sep 2026, later: Candy Paddock look (the user switched from Adult Sticker; adult kept at `?skin=adult`). The gate shows at the start and slides back in at the reveal with the same motion for both outcomes. The result card sits above the field (`resultCardTop`) so the gate is seen, not covered. No auto IN! control (`hasAutoCashout` false). After IN! the chance line is restated as "OPEN ON 74.4% OF RIDES IN AT x1.30" rather than hidden (shared with The Cable Car, its D5). Still waiting for the user's review.
+- [x] 7.3 Add the catalogue: odds labels, heading-home copy, reveal titles, and the rules with the odds table and fixed-result and decoration statements. Verify `pnpm check:copy` passes and a fixture with "almost" or "just missed" fails.
   - In progress 2026-09-17: catalogue keys for odds, heading home and reveal titles are added and copy-check passes. Still missing: the odds table and Gate Rush wording in the shared RulesPanel. The rules must also say the chance comes from the nominal RTP, while the published figure is the measured band at the minimum stake (raised in triptown-games-82's review), so a lab doesn't read the two as inconsistent.
+  - Done 2026-09-17:
+    - `RulesPanel` takes `game` and shows the chance section only when `effectiveReveal` says this game's rounds reveal at collect (`showsChances`). It adds the deferred intro and fixed-result text (`rules.introDeferred`, `rules.outcomeFixedDeferred`).
+    - The table covers x1.01 to x100, capped at max win, with the chance and the return at the selected stake (never below the market minimum). No row is highlighted, and the text says chance × value is the RTP on every row.
+    - It also says the chance comes from the theoretical RTP while the measured band includes rounding, and why the chance stays on screen: the value keeps rising after a round is decided (AGCO 2.15).
+    - "Odds" is on the horse game's banned list, so every key and label says "chance".
+    - Verified: `rules-panel.test.ts` (3); rules rendered in the ng-draft demo; `check:copy` passes; a probe file with "So close! You just missed it." fails it.
 - [x] 7.4 Run the shared checks on the Gate Rush demo. Verify timing-check and presentation-check pass under `ng-draft`, with evidence under `docs/compliance/evidence/<date>/`.
   - Done 2026-09-17: under ng-draft, timing-check worst gap was 5,152 ms against a 5,000 ms minimum, and hold-to-repeat did not start a round (`gate-rush-timing-check.json`). presentation-check passed (`gate-rush-presentation-check.json`). Both runs used the strict argument parser, with `--profile` as its own argument.
 

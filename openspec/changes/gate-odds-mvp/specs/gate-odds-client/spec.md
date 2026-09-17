@@ -9,7 +9,7 @@ The horse game client SHALL present Gate Rush when the session's effective revea
 
 #### Scenario: Deferred market
 - **WHEN** a session under `ng-draft` starts the horse game
-- **THEN** the client shows Gate Rush, with no gate drawn while the horse is out
+- **THEN** the client shows Gate Rush: the horse starts beside the open gate, rides out through it, and no gate is in view while the horse is out
 
 #### Scenario: Live market
 - **WHEN** a session under a profile with `crashReveal: live` starts the horse game
@@ -34,7 +34,7 @@ Pressing IN! SHALL lock the displayed value immediately, send exactly one cash-o
 - **THEN** every frame and sound before the settlement arrives is identical in both
 
 ### Requirement: The reveal is not a near miss
-A won reveal SHALL show the gate open and celebrate only when the return is strictly greater than the stake. A lost reveal SHALL show the gate shut with the horse stopped out in the field, facing away and not moving towards the gate, and SHALL state the stake lost. No state, copy, history row or recall screen SHALL show the hidden crash value or describe how close the round came.
+At the reveal the gate SHALL come back into view with the same motion for both outcomes. A won reveal SHALL show the gate open and celebrate only when the return is strictly greater than the stake. A lost reveal SHALL show the gate shut with the horse stopped out in the field, facing away and not moving towards the gate, and SHALL state the stake lost. No state, copy, history row or recall screen SHALL show the hidden crash value or describe how close the round came.
 
 #### Scenario: Shut gate
 - **WHEN** a round reveals as lost at x5.00
@@ -49,7 +49,7 @@ The rules SHALL be reachable before any bet and SHALL explain:
 - that the chance the gate is open is RTP divided by the value, with a table of values from x1.01 to x100 showing chance and return on the current stake;
 - that the result of each round is fixed when it starts;
 - that the horse, field and crowd are decoration;
-- the max win, max duration, auto IN! and latency policy.
+- the max win, max duration and latency policy, and auto IN! only where the game offers it.
 
 When the profile enables the withholding notice, the rules SHALL show it.
 
