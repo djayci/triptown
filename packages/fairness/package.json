@@ -5,13 +5,15 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./reports/index.json": "./reports/index.json"
+    "./reports/index.json": "./reports/index.json",
+    "./reports/bands.json": "./reports/bands.json"
   },
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
     "test": "vitest run --passWithNoTests",
-    "simulate": "tsx scripts/simulate-rtp.ts"
+    "simulate": "tsx scripts/simulate-rtp.ts",
+    "bands": "node scripts/build-bands.mjs"
   },
   "dependencies": {},
   "devDependencies": {

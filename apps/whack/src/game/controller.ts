@@ -1,5 +1,6 @@
 import { resultKind, type Settlement, type TerminalEvent } from '@triptown/core';
-import type { AudioManager, GameApp } from '@triptown/engine';
+import { t } from '../i18n/en';
+import { OperatorBridge, type AudioManager, type GameApp } from '@triptown/engine';
 import type { GameConfig } from '@triptown/fairness';
 import {
   RoundServiceError,
@@ -46,6 +47,14 @@ interface ActiveRound {
 
 export interface ControllerHooks {
   onFairness?: () => void;
+  onRules?: () => void;
+  onHistory?: () => void;
+  /** Player-protection prompts, rendered as DOM overlays by main.ts. */
+  onPause?: (message?: string) => void;
+  onOverlayClose?: () => void;
+  onClosed?: () => void;
+  onOperatorMessage?: (text: string) => void;
+  onIdlePrompt?: (done: () => void) => void;
 }
 
 /** Taps on the big button are ignored this long after a round ends. */
@@ -67,6 +76,8 @@ const ERROR_TEXT: Partial<Record<RoundServiceError['code'], string>> = {
 export class GameController {
   readonly view: GameView;
   private session: SessionInfo | null = null;
+  /** Player's own "reduce effects" choice, on top of the profile's `intensityEffects`. */
+  private reduceEffectsChoice = false;
   private phase: Phase = 'betting';
   private betMinor = 10_00;
   private autoOn = false;
@@ -76,6 +87,18 @@ export class GameController {
   private inputGuardUntil = 0;
   /** Client clock of the last round start, for the local minimum-cycle countdown. */
   private lastStartAt = 0;
+  /** Operator bridge, created once the profile's allowed origins are known. */
+  private bridge: OperatorBridge | null = null;
+  /** Player-protection state driven by the operator and the profile. */
+  private paused = false;
+  private closed = false;
+  private stakeLimitMinor: number | null = null;
+  private lossLimitMinor: number | null = null;
+  private idleSince = performance.now();
+  private idlePromptOpen = false;
+  /** Smoothed round-trip time, and whether the slow-connection notice is showing (design D20). */
+  private rttMs = 0;
+  private slowShown = false;
   /** Round start times (client clock) for the automated timing check. */
   private readonly startLog: number[] = [];
   /** What the last settled round was presented as, for the presentation check. */
@@ -103,6 +126,8 @@ export class GameController {
         this.audio.setMuted(!this.audio.current.muted);
       },
       onFairness: () => this.hooks.onFairness?.(),
+      onRules: () => this.hooks.onRules?.(),
+      onHistory: () => this.hooks.onHistory?.(),
       onEditBet: () => {
         if (this.phase === 'won' || this.phase === 'lost') this.toBetting();
       },
@@ -113,11 +138,17 @@ export class GameController {
       audio.onChange((s) => this.view.setMuted(s.muted));
       game.onVisibility((visible) => audio.setVisible(visible));
       // Any first touch unlocks audio (browsers block it until a gesture) and starts the lobby bed.
-      game.app.canvas.addEventListener('pointerdown', () => {
+      // Listen on the document in the capture phase, not just the canvas: a tap that lands on a DOM
+      // panel or the accessibility layer is still the gesture iOS wants, and missing it leaves the
+      // context suspended for the rest of the session.
+      const onGesture = () => {
         audio.unlock();
         audio.loadMusic();
         if (this.phase !== 'running') audio.startLobby();
-      });
+      };
+      for (const type of ['pointerdown', 'touchend', 'click'] as const) {
+        document.addEventListener(type, onGesture, { capture: true, passive: true });
+      }
     }
     game.app.ticker.add(() => this.tick());
   }
@@ -131,17 +162,115 @@ export class GameController {
     return this.phase;
   }
 
+  /** Measures the round trip every 10 s while the page is visible, plus on every cash-out. */
+  private startLatencyProbe() {
+    const probe = async () => {
+      const started = performance.now();
+      try {
+        await this.service.ping();
+        this.noteRtt(performance.now() - started);
+      } catch {
+        // A failed probe says nothing about latency; the reconnect path handles real outages.
+      }
+    };
+    void probe();
+    setInterval(() => {
+      if (!document.hidden) void probe();
+    }, 10_000);
+  }
+
+  private noteRtt(sample: number) {
+    // EWMA: recent samples dominate without a single spike flipping the notice.
+    this.rttMs = this.rttMs === 0 ? sample : this.rttMs * 0.7 + sample * 0.3;
+    const slow = this.rttMs > 300;
+    if (slow !== this.slowShown) {
+      this.slowShown = slow;
+      if (slow) this.view.toast(t('error.slowConnection'));
+    }
+  }
+
   async init() {
     this.session = await this.service.getSession();
     this.balanceMinor = this.session.balanceMinor;
+    this.applyProfile();
+    this.openBridge();
     this.renderBalance();
+    this.renderSessionHud();
     const past = await this.service.history(20).catch(() => []);
-    this.view.history.setAll(past.filter((r) => r.settlement).map((r) => r.settlement!.multiplier));
+    this.view.history.setAll(
+      past
+        .filter((r) => r.settlement)
+        .map((r) => ({
+          multiplier: r.settlement!.multiplier,
+          kind: r.status === 'void' ? ('void' as const) : resultKind(r.betMinor, r.returnMinor ?? 0),
+        })),
+    );
+    this.startLatencyProbe();
     this.toBetting();
+  }
+
+  /** Opens the operator bridge against the profile's allowed origins, and announces the game. */
+  private openBridge() {
+    const p = this.session?.profile;
+    if (!p || this.bridge) return;
+    this.bridge = new OperatorBridge({
+      allowedOrigins: p.operatorOrigins,
+      handlers: {
+        // A reality check may never interrupt a running round; it applies from the next bet.
+        pause: ({ message }) => this.applyPause(message),
+        resume: () => {
+          this.paused = false;
+          this.hooks.onOverlayClose?.();
+          this.renderBetUi();
+        },
+        closeGame: () => {
+          this.closed = true;
+          this.renderBetUi();
+          if (this.phase !== 'running' && this.phase !== 'cashing') this.showClosed();
+        },
+        setLimits: ({ stakeLimitMinor, lossLimitMinor }) => {
+          if (stakeLimitMinor !== undefined) this.stakeLimitMinor = stakeLimitMinor;
+          if (lossLimitMinor !== undefined) this.lossLimitMinor = lossLimitMinor;
+          this.renderBetUi();
+        },
+        showMessage: ({ text }) => this.hooks.onOperatorMessage?.(text),
+      },
+    });
+    this.bridge.gameReady(__APP_VERSION__, this.config.id, p.name);
+  }
+
+  /** Pushes the market profile's presentation rules into the view and the audio defaults. */
+  private applyProfile() {
+    const p = this.session?.profile;
+    if (!p) return;
+    this.view.setPresentation({
+      quickReplay: p.quickReplay,
+      intensityEffects: p.intensityEffects && !this.reduceEffectsChoice,
+      setbacks: this.config.lambda > 0,
+      boosts: this.config.boostRate > 0,
+    });
+    // Sound default is per market; a player's own choice, once made, is kept by the audio settings.
+    if (p.soundDefault === 'muted' && this.audio && !this.audio.current.touched) this.audio.setMuted(true, false);
+  }
+
+  /** The bound session, for panels that render the config and profile actually in play. */
+  get currentSession(): SessionInfo | null {
+    return this.session;
+  }
+
+  get reduceEffects() {
+    return this.reduceEffectsChoice;
+  }
+
+  setReduceEffects(on: boolean) {
+    this.reduceEffectsChoice = on;
+    this.applyProfile();
   }
 
   async refreshSession() {
     this.session = await this.service.getSession();
+    this.applyProfile();
+    this.renderSessionHud();
     this.balanceMinor = this.session.balanceMinor;
     this.renderBalance();
   }
@@ -154,7 +283,11 @@ export class GameController {
     // The control must have been released since the last round started (RTS 14G).
     if (this.phase !== 'running' && !this.view.isArmed) return;
     if (this.phase === 'running') this.whack();
-    else if (this.phase === 'betting' || this.phase === 'won' || this.phase === 'lost') void this.bet();
+    else if (this.phase === 'won' || this.phase === 'lost') {
+      // Markets without quick replay go back to the betting screen first (one deliberate bet each round).
+      if (this.session?.profile?.quickReplay === false) this.toBetting();
+      else void this.bet();
+    } else if (this.phase === 'betting') void this.bet();
   }
 
   private editBet(change: () => number) {
@@ -162,6 +295,25 @@ export class GameController {
     this.betMinor = change();
     this.audio?.playSfx('tick');
     this.renderBetUi();
+  }
+
+  /** Called on every player action; the idle prompt only fires after real inactivity. */
+  markActivity() {
+    this.idleSince = performance.now();
+  }
+
+  /** Runs each frame: prompts the player after the profile's idle time with no bet. */
+  private checkIdle() {
+    const ms = this.session?.profile?.idlePromptMs ?? null;
+    if (!ms || this.idlePromptOpen || this.phase === 'running' || this.phase === 'cashing' || this.closed) return;
+    if (performance.now() - this.idleSince < ms) return;
+    this.idlePromptOpen = true;
+    this.renderBetUi();
+    this.hooks.onIdlePrompt?.(() => {
+      this.idlePromptOpen = false;
+      this.markActivity();
+      this.renderBetUi();
+    });
   }
 
   private toBetting() {
@@ -172,6 +324,7 @@ export class GameController {
 
   async bet() {
     if (!this.session) return;
+    this.markActivity();
     const reason = this.betBlockReason();
     if (reason) {
       if (this.phase !== 'betting') this.toBetting();
@@ -205,6 +358,7 @@ export class GameController {
   }
 
   whack() {
+    this.markActivity();
     const r = this.round;
     if (this.phase !== 'running' || !r || r.cashRequested || r.resolved) return;
     r.cashRequested = true;
@@ -275,6 +429,7 @@ export class GameController {
       this.balanceMinor -= e.betMinor;
       this.renderBalance();
       this.phase = 'running';
+      this.bridge?.roundStarted(e.roundId, e.betMinor);
       this.view.showRunning(formatMoney(e.betMinor, this.currency()));
       this.renderBetUi();
       this.audio?.stopLobby(200);
@@ -379,7 +534,10 @@ export class GameController {
       this.toBetting();
       return;
     }
-    this.view.history.push(s.multiplier);
+    // Void rounds return early above, so this is only a settled win or loss.
+    this.bridge?.roundEnded(r.id, r.betMinor, s.status === 'lost' ? 0 : s.payoutMinor);
+    void this.refreshSession().catch(() => {});
+    this.view.history.push({ multiplier: s.multiplier, kind: resultKind(r.betMinor, s.status === 'lost' ? 0 : s.payoutMinor) });
     if (s.status === 'won') {
       this.phase = 'won';
       const kind = resultKind(r.betMinor, s.payoutMinor);
@@ -404,11 +562,15 @@ export class GameController {
       this.audio?.playSfx('crash');
     }
     this.renderBetUi();
+    // A pause or close asked for mid-round applies now that the round has settled.
+    if (this.closed) this.showClosed();
+    else if (this.paused) this.hooks.onPause?.();
   }
 
   // ---------- per frame ----------
 
   private tick() {
+    this.checkIdle();
     const r = this.round;
     if (!r || r.resolved || (this.phase !== 'running' && this.phase !== 'cashing')) return;
     if (this.phase === 'cashing') return;
@@ -454,15 +616,53 @@ export class GameController {
   private renderBalance() {
     if (!this.session) return;
     this.view.setBalance(formatMoney(this.balanceMinor, this.currency()), this.currency().code);
-    // Minimal operator bridge: the embedding page can mirror the balance.
-    if (window.parent !== window) {
-      window.parent.postMessage({ type: 'triptown:balance', balanceMinor: this.balanceMinor, currency: this.currency().code }, '*');
-    }
+    // Versioned, origin-pinned operator bridge. Never posts to '*' (own hard rule 7, GLI-19 §3).
+    this.bridge?.balance(this.balanceMinor, this.currency().code);
+  }
+
+  /** Session clock and net position for the HUD (UK RTS 7/8, AGCO 2.07-2.10). */
+  private renderSessionHud() {
+    const s = this.session;
+    if (!s) return;
+    const p = s.profile;
+    this.view.setSessionHud({
+      showClock: p.showSessionClock,
+      showNet: p.showNetPosition,
+      startedAt: s.sessionStartedAt,
+      netMinor: s.returnedMinor - s.stakedMinor,
+      currency: this.currency(),
+    });
+  }
+
+  /** Shows the operator's reality-check pause, after the current round if one is running. */
+  private applyPause(message?: string) {
+    this.paused = true;
+    this.renderBetUi();
+    if (this.phase === 'running' || this.phase === 'cashing') return;
+    this.hooks.onPause?.(message);
+  }
+
+  private showClosed() {
+    this.hooks.onClosed?.();
+  }
+
+  /** Session net position, used for the operator's loss limit. */
+  private sessionNetMinor(): number {
+    const s = this.session;
+    return s ? s.returnedMinor - s.stakedMinor : 0;
   }
 
   private betBlockReason(): string | null {
-    if (!this.session) return 'LOADING';
-    if (this.betMinor > this.balanceMinor) return 'INSUFFICIENT BALANCE';
+    if (!this.session) return t('bet.loading');
+    if (this.closed) return t('bet.gameClosed');
+    if (this.paused || this.idlePromptOpen) return t('bet.paused');
+    if (this.stakeLimitMinor !== null && this.betMinor > this.stakeLimitMinor) return t('bet.stakeLimit');
+    // The loss limit counts this session's net, so a bet that could pass it is refused before the debit.
+    if (this.lossLimitMinor !== null && -this.sessionNetMinor() + this.betMinor > this.lossLimitMinor) {
+      this.bridge?.error('loss_limit', 'Session loss limit reached');
+      return t('bet.lossLimit');
+    }
+    if (this.betMinor > this.balanceMinor) return t('bet.insufficient');
     return null;
   }
 

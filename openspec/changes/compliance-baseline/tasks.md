@@ -37,36 +37,36 @@
 
 - [x] 5.1 Split the result screen by `resultKind`: neutral "RETURNED x · NET −y" / "CRASHED" with no confetti, BONK or win sound, and win showing net gain. Switch the live label between RETURN NOW and WIN NOW. Add a neutral `return` sfx to the synth and audio build. Verify with `scripts/presentation-check.mjs` for forced below-stake, even and win rounds: the audio log and view state show no win effects on the first two.
 - [x] 5.2 Add a BET countdown from `cycle_too_soon` and the local `minCycleMs`, and an `InputArm` that requires release before re-arming (pointer, Space, no auto-repeat). Verify with `scripts/timing-check.mjs`: 50 fastest rounds under `regulated-uk` all have ≥5000 ms start intervals, under `regulated-on` ≥2500 ms, and holding Space starts no new round.
-- [ ] 5.3 Implement `quickReplay: false`: the result screen shows Continue back to betting, with change-bet and exit at least as prominent. Keep one-tap replay only for `light`. Verify with screenshots of both profiles' result screens checked against the spec scenario.
-- [ ] 5.4 Apply `intensityEffects` and `soundDefault` from the profile, and add a "Reduce effects" toggle to the sound panel. Verify in the headless check under `regulated-uk`: starts muted, no stems or tone after unmute, and no shake or tilt.
-- [ ] 5.5 Make decoys non-interactive with a fixed pop rate independent of intensity, rename the meter to SPEED, move all copy into the catalogue with neutral wording, and never show the crash point on result screens. Verify with a headless test (tapping a decoy changes nothing) and a copy review listing every string checked against the no-skill scenario.
+- [x] 5.3 Implement `quickReplay: false`: the result screen shows Continue back to betting, with change-bet and exit at least as prominent. Keep one-tap replay only for `light`. Verify with screenshots of both profiles' result screens checked against the spec scenario.
+- [x] 5.4 Apply `intensityEffects` and `soundDefault` from the profile, and add a "Reduce effects" toggle to the sound panel. Verify in the headless check under `regulated-uk`: starts muted, no stems or tone after unmute, and no shake or tilt.
+- [x] 5.5 Make decoys non-interactive with a fixed pop rate independent of intensity, rename the meter to SPEED, move all copy into the catalogue with neutral wording, and never show the crash point on result screens. Verify with a headless test (tapping a decoy changes nothing) and a copy review listing every string checked against the no-skill scenario.
 
 ## 6. Game information (packages/core, apps/whack)
 
 - [x] 6.1 Add `describeRules(config, profile, currency)` to `core`, returning structured items with message keys and params. Verify with unit tests: the rising profile has no setback or below-stake items, the halve profile includes the rate and x0.5, the numbers come from config, and `maxMultiplier` 100 is reflected.
-- [ ] 6.2 Add a message catalogue (`i18n/en.ts`) with English fallback and dev warnings for missing keys, and move every player-facing string of the whack client into it. Verify with a lint/grep check that no display strings are left in `view.ts`/`controller.ts` and a test for the fallback warning.
-- [ ] 6.3 Build the rules panel (DOM dialog) opened from a "?" button in every state without betting, showing version, build hash, config id and profile. Show RTP on the betting screen when `showRtpInGame`. Verify with headless screenshots under `light` and `regulated-br`, and confirm the balance is unchanged after opening the rules.
-- [ ] 6.4 Add RTT measurement (`GET /v1/ping` every 10 s plus cash-out timings, EWMA) and a slow-connection notice above 300 ms. Verify with a headless test using route delay injection: the notice appears above 300 ms and clears when latency recovers.
+- [x] 6.2 Add a message catalogue (`i18n/en.ts`) with English fallback and dev warnings for missing keys, and move every player-facing string of the whack client into it. Verify with a lint/grep check that no display strings are left in `view.ts`/`controller.ts` and a test for the fallback warning.
+- [x] 6.3 Build the rules panel (DOM dialog) opened from a "?" button in every state without betting, showing version, build hash, config id and profile. Show RTP on the betting screen when `showRtpInGame`. Verify with headless screenshots under `light` and `regulated-br`, and confirm the balance is unchanged after opening the rules.
+- [x] 6.4 Add RTT measurement (`GET /v1/ping` every 10 s plus cash-out timings, EWMA) and a slow-connection notice above 300 ms. Verify with a headless test using route delay injection: the notice appears above 300 ms and clears when latency recovers.
 
 ## 7. History view (apps/whack)
 
-- [ ] 7.1 Build the in-game history dialog: last 50 rounds with time, stake, result text, return, net and crash point, and a detail view labelled "Past round". Verify with a headless test after 3 forced rounds showing 3 correct entries.
-- [ ] 7.2 Add text or icon result markers to history strip chips (cashed out, crashed, void) and a net sign. Verify with a greyscale screenshot where results are still distinguishable.
+- [x] 7.1 Build the in-game history dialog: last 50 rounds with time, stake, result text, return, net and crash point, and a detail view labelled "Past round". Verify with a headless test after 3 forced rounds showing 3 correct entries.
+- [x] 7.2 Add text or icon result markers to history strip chips (cashed out, crashed, void) and a net sign. Verify with a greyscale screenshot where results are still distinguishable.
 
 ## 8. Player protection and operator bridge (packages/engine, apps/whack, apps/sandbox)
 
-- [ ] 8.1 Add the session clock and net-position HUD strip, driven by session counters and profile flags. Verify with a headless test under `regulated-uk`: net shows +4.00 after stakes of 10.00×2 with returns 24.00 and 0.00, and the clock ticks during a round.
-- [ ] 8.2 Implement `packages/engine/src/bridge.ts` (versioned envelope, origin allow-list, explicit targetOrigin) and remove the `'*'` post. Emit gameReady, balance, roundStarted, roundEnded and error. Verify with a sandbox test: events arrive in order with correct net, and a page from a non-listed origin gets nothing and its commands are ignored.
-- [ ] 8.3 Handle inbound `pause`/`resume` (reality check after the current round), `closeGame`, `setLimits` (stake and loss limits with `loss_limit` error) and `showMessage`. Verify with sandbox tests for each scenario in the operator-bridge spec.
-- [ ] 8.4 Add the idle prompt from `idlePromptMs`, blocking BET until Continue or Exit (Exit sends closeGame). Verify with a headless test under `pt-draft` using a shortened timer.
-- [ ] 8.5 Update the sandbox: operator controls (pause, resume, close, limits, message) and a profile picker using the dev override. Verify by playing a round per profile in the sandbox with no console errors.
+- [x] 8.1 Add the session clock and net-position HUD strip, driven by session counters and profile flags. Verify with a headless test under `regulated-uk`: net shows +4.00 after stakes of 10.00×2 with returns 24.00 and 0.00, and the clock ticks during a round.
+- [x] 8.2 Implement `packages/engine/src/bridge.ts` (versioned envelope, origin allow-list, explicit targetOrigin) and remove the `'*'` post. Emit gameReady, balance, roundStarted, roundEnded and error. Verify with a sandbox test: events arrive in order with correct net, and a page from a non-listed origin gets nothing and its commands are ignored.
+- [x] 8.3 Handle inbound `pause`/`resume` (reality check after the current round), `closeGame`, `setLimits` (stake and loss limits with `loss_limit` error) and `showMessage`. Verify with sandbox tests for each scenario in the operator-bridge spec.
+- [x] 8.4 Add the idle prompt from `idlePromptMs`, blocking BET until Continue or Exit (Exit sends closeGame). Verify with a headless test under `pt-draft` using a shortened timer.
+- [x] 8.5 Update the sandbox: operator controls (pause, resume, close, limits, message) and a profile picker using the dev override. Verify by playing a round per profile in the sandbox with no console errors.
 
 ## 9. Adult skin (apps/whack)
 
-- [ ] 9.1 Split the art into `art/skins/candy.mjs` and `art/skins/adult.mjs`, build `atlas-candy`/`atlas-adult`, and move the theme into skin modules. Adult skin: charcoal, teal and brass; natural mole proportions without crown, blush or buck teeth; no rays, confetti or BONK. Verify with an atlas build for both skins and a checklist header in `adult.mjs` reviewed against audit item F1.
-- [ ] 9.2 Load only the profile's skin atlas and theme at boot. Verify with a headless network log under `regulated-uk` showing no `atlas-candy` request, plus screenshots of betting, running, result and rules screens for the adult skin.
+- [x] 9.1 Split the art into `art/skins/candy.mjs` and `art/skins/adult.mjs`, build `atlas-candy`/`atlas-adult`, and move the theme into skin modules. Adult skin: charcoal, teal and brass; natural mole proportions without crown, blush or buck teeth; no rays, confetti or BONK. Verify with an atlas build for both skins and a checklist header in `adult.mjs` reviewed against audit item F1.
+- [x] 9.2 Load only the profile's skin atlas and theme at boot. Verify with a headless network log under `regulated-uk` showing no `atlas-candy` request, plus screenshots of betting, running, result and rules screens for the adult skin.
 
 ## 10. End-to-end verification and audit refresh
 
-- [ ] 10.1 Run the full monorepo `lint typecheck test build`, the timing and presentation checks for every active profile, and the RTP simulator for every referenced config id. Verify that all pass and outputs are saved under `docs/compliance/evidence/<date>/`.
-- [ ] 10.2 Re-run the `game-compliance-audit` skill on Whack Crash for the `regulated-uk`, `regulated-on`, `regulated-br` and `light` profiles, and update `AGENTS.md` and the report. Verify that the new report shows the audit's critical fixes #1–#3 and #5–#10 as PASS, with #4 PASS for regulated profiles, and lists the remaining legal and hosting items.
+- [x] 10.1 Run the full monorepo `lint typecheck test build`, the timing and presentation checks for every active profile, and the RTP simulator for every referenced config id. Verify that all pass and outputs are saved under `docs/compliance/evidence/<date>/`.
+- [x] 10.2 Re-run the `game-compliance-audit` skill on Whack Crash for the `regulated-uk`, `regulated-on`, `regulated-br` and `light` profiles, and update `AGENTS.md` and the report. Verify that the new report shows the audit's critical fixes #1–#3 and #5–#10 as PASS, with #4 PASS for regulated profiles, and lists the remaining legal and hosting items.

@@ -1,5 +1,7 @@
 import { Container, Graphics, Rectangle, Text } from 'pixi.js';
+import { t } from '../i18n/en';
 import { gsap, pop } from '@triptown/engine';
+import { formatMinor, type CurrencyRules } from '@triptown/core';
 import { formatMultiplier } from '../game/display';
 import { bandColors, COLORS } from '../theme';
 import { bodyStyle, displayStyle, drawSticker, labelStyle, text } from './primitives';
@@ -8,8 +10,8 @@ export class Logo extends Container {
   constructor(size = 22) {
     super();
     const bg = new Graphics();
-    const a = text('WHACK', displayStyle(size, COLORS.cream, 3));
-    const b = text('CRASH', displayStyle(size, COLORS.sun, 3));
+    const a = text(t('logo.whack'), displayStyle(size, COLORS.cream, 3));
+    const b = text(t('logo.crash'), displayStyle(size, COLORS.sun, 3));
     const padX = size * 0.55;
     const padY = size * 0.34;
     a.position.set(padX, padY);
@@ -22,7 +24,7 @@ export class Logo extends Container {
 
 export class BalancePill extends Container {
   private readonly bg = new Graphics();
-  private readonly key = text('BALANCE', labelStyle(10), [1, 0]);
+  private readonly key = text(t('label.balance'), labelStyle(10), [1, 0]);
   private readonly value: Text;
   private readonly unit: Text;
 
@@ -52,19 +54,84 @@ export class BalancePill extends Container {
 }
 
 /** Strip of recent results, newest first. */
+/**
+ * Session clock and net position, shown where the market requires them (UK RTS 7/8, AGCO 2.07-2.10).
+ * Net is the player's own position: returns minus stakes, this session.
+ */
+export class SessionStrip extends Container {
+  private readonly bg = new Graphics();
+  private readonly clock = text('', labelStyle(11), [0, 0.5]);
+  private readonly net = text('', labelStyle(11), [1, 0.5]);
+  private startedAt = 0;
+  private netMinor = 0;
+  private currency: Pick<CurrencyRules, 'decimals'> = { decimals: 2 };
+  private showClock = false;
+  private showNet = false;
+
+  constructor(private w = 358) {
+    super();
+    this.addChild(this.bg, this.clock, this.net);
+    this.visible = false;
+  }
+
+  set(opts: { showClock: boolean; showNet: boolean; startedAt: number; netMinor: number; currency: Pick<CurrencyRules, 'decimals'> }) {
+    this.showClock = opts.showClock;
+    this.showNet = opts.showNet;
+    this.startedAt = opts.startedAt;
+    this.netMinor = opts.netMinor;
+    this.currency = opts.currency;
+    this.visible = opts.showClock || opts.showNet;
+    this.redraw();
+  }
+
+  resize(w: number) {
+    this.w = w;
+    this.redraw();
+  }
+
+  /** Called every frame by the view so the clock ticks during a round. */
+  tick() {
+    if (this.visible) this.redraw();
+  }
+
+  private redraw() {
+    if (!this.visible) return;
+    const seconds = Math.max(0, Math.floor((Date.now() - this.startedAt) / 1000));
+    const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
+    const ss = String(seconds % 60).padStart(2, '0');
+    this.clock.text = this.showClock ? `SESSION ${mm}:${ss}` : '';
+    const sign = this.netMinor > 0 ? '+' : this.netMinor < 0 ? '-' : '';
+    this.net.text = this.showNet ? `NET ${sign}${formatMinor(Math.abs(this.netMinor), this.currency)}` : '';
+    this.net.style.fill = this.netMinor < 0 ? COLORS.red : COLORS.ink;
+    this.bg.clear().roundRect(0, 0, this.w, 26, 10).fill({ color: COLORS.cream, alpha: 0.92 }).stroke({ width: 3, color: COLORS.ink });
+    this.clock.position.set(12, 13);
+    this.net.position.set(this.w - 12, 13);
+  }
+}
+
+/** One past round on the strip: its multiplier and how it ended. */
+export interface HistoryChip {
+  multiplier: number;
+  kind: 'win' | 'even' | 'loss' | 'void';
+}
+
 export class HistoryStrip extends Container {
   private readonly chips = new Container();
   private readonly clip = new Graphics();
-  private values: number[] = [];
+  private values: HistoryChip[] = [];
   private contentWidth = 0;
   private dragFrom: { pointer: number; chips: number } | null = null;
+  private dragged = false;
+  /** Set by the view: opens the full history dialog. */
+  onOpen: (() => void) | null = null;
 
   constructor(private w: number) {
     super();
     this.addChild(this.chips, this.clip);
     this.chips.mask = this.clip;
     this.resize(w);
-    // Older rounds run off the right edge, so the strip scrolls by dragging.
+    // Older rounds run off the right edge, so the strip scrolls by dragging; a tap opens the full
+    // history, which is where stake, return, net and crash point live (GLI-19 4.14).
     this.eventMode = 'static';
     this.cursor = 'grab';
     this.on('pointerdown', (e) => {
@@ -72,13 +139,19 @@ export class HistoryStrip extends Container {
     });
     this.on('globalpointermove', (e) => {
       if (!this.dragFrom) return;
-      this.chips.x = this.clampScroll(this.dragFrom.chips + (e.global.x - this.dragFrom.pointer));
+      const dx = e.global.x - this.dragFrom.pointer;
+      if (Math.abs(dx) > 4) this.dragged = true;
+      this.chips.x = this.clampScroll(this.dragFrom.chips + dx);
     });
     for (const end of ['pointerup', 'pointerupoutside', 'pointercancel'] as const) {
       this.on(end, () => {
         this.dragFrom = null;
       });
     }
+    this.on('pointertap', () => {
+      if (!this.dragged) this.onOpen?.();
+      this.dragged = false;
+    });
   }
 
   resize(w: number) {
@@ -93,12 +166,12 @@ export class HistoryStrip extends Container {
     return Math.max(Math.min(0, this.w - this.contentWidth), Math.min(0, x));
   }
 
-  setAll(values: number[]) {
+  setAll(values: HistoryChip[]) {
     this.values = values.slice(0, 20);
     this.rebuild();
   }
 
-  push(value: number) {
+  push(value: HistoryChip) {
     this.values = [value, ...this.values].slice(0, 20);
     this.rebuild();
     const first = this.chips.children[0];
@@ -113,8 +186,10 @@ export class HistoryStrip extends Container {
     this.chips.x = 0;
     let x = 0;
     for (const v of this.values) {
-      const { fill, text: tc } = bandColors(v);
-      const label = text(formatMultiplier(v), bodyStyle(13, tc), [0.5, 0.5]);
+      const { fill, text: tc } = bandColors(v.multiplier);
+      // A marker and a sign, so the result survives greyscale and colour blindness (GLI-19 4.14).
+      const mark = v.kind === 'win' ? '✓' : v.kind === 'void' ? '•' : '✕';
+      const label = text(`${mark} ${formatMultiplier(v.multiplier)}`, bodyStyle(13, tc), [0.5, 0.5]);
       const cw = label.width + 20;
       const chip = new Container();
       const bg = drawSticker(new Graphics(), cw, 30, { fill, radius: 10, border: 3, shadow: 3 });

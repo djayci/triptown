@@ -16,13 +16,19 @@ const memory = (): StorageLike & { data: Map<string, string> } => {
 
 describe('audio settings', () => {
   it('defaults to sound on, music 60%, effects 90%', () => {
-    expect(loadAudioSettings(null)).toEqual({ muted: false, music: 0.6, sfx: 0.9 });
+    expect(loadAudioSettings(null)).toEqual({ muted: false, music: 0.6, sfx: 0.9, touched: false });
   });
 
   it('round-trips through storage (mute remembered)', () => {
     const s = memory();
     saveAudioSettings(s, { muted: true, music: 0, sfx: 0.5 });
-    expect(loadAudioSettings(s)).toEqual({ muted: true, music: 0, sfx: 0.5 });
+    expect(loadAudioSettings(s)).toEqual({ muted: true, music: 0, sfx: 0.5, touched: false });
+  });
+
+  it('remembers that the player chose, so a market default cannot re-apply after a reload', () => {
+    const s = memory();
+    saveAudioSettings(s, { muted: false, music: 0.6, sfx: 0.9, touched: true });
+    expect(loadAudioSettings(s).touched).toBe(true);
   });
 
   it('falls back to defaults when storage throws or holds garbage', () => {
@@ -35,7 +41,7 @@ describe('audio settings', () => {
     s.setItem('triptown.audio.v1', '{nope');
     expect(loadAudioSettings(s)).toEqual(DEFAULT_AUDIO_SETTINGS);
     s.setItem('triptown.audio.v1', JSON.stringify({ muted: 'yes', music: 7, sfx: -1 }));
-    expect(loadAudioSettings(s)).toEqual({ muted: false, music: 1, sfx: 0 });
+    expect(loadAudioSettings(s)).toEqual({ muted: false, music: 1, sfx: 0, touched: false });
   });
 
   it('maps multiplier to tone rate clamp(1 + 0.25*log2(m), 1, 2)', () => {

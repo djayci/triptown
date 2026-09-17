@@ -1,5 +1,6 @@
-// Placeholder vector art for Whack Crash, matching design/whack-crash (Candy Arcade Pop).
-// Each entry is a standalone SVG. scripts/build-atlas.mjs rasterizes and packs them.
+// Vector art builder shared by every skin. A skin supplies the palette and character treatment;
+// the shapes are the same so the atlas frame names never change.
+// scripts/build-atlas.mjs rasterizes and packs one skin at a time.
 
 export const INK = '#1d1424';
 export const CREAM = '#fff4d6';
@@ -12,16 +13,39 @@ export const RED = '#ff3b30';
 const svg = (w, h, body, viewBox = `0 0 ${w} ${h}`) =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${viewBox}">${body}</svg>`;
 
-function mole(kind, face) {
-  const c = {
+/**
+ * The active skin. `candy` is the bright arcade look; `adult` removes the child-appealing cues that
+ * CAP under-18 guidance (Oct 2025), Kenya reg 95(1)(d), Portugal R7c and Brazil 1.231 art. 12 XVIII
+ * treat as high risk: no crown, no blush, no buck teeth, muted palette, natural proportions.
+ */
+let SKIN = {
+  name: 'candy',
+  crown: true,
+  blush: true,
+  teeth: true,
+  grass: '#6fd14a',
+  tuft: '#4fbf3a',
+  holeBack: '#3b2032',
+  holeShadow: '#24121f',
+  moles: {
     gold: { body: '#ffb627', snout: '#ffe08a', shine: '#fff1b8' },
     decoy: { body: '#c98a55', snout: '#f3cf9f', shine: '#e2ac7c' },
     bad: { body: VIOLET, snout: '#c9b8ff', shine: '#b39bff' },
-    // Good mole: mint body with a lime shine, so it reads as the friendly opposite of the bad mole.
     good: { body: '#49c46a', snout: '#d6f5c9', shine: '#9be86d' },
-  }[kind];
+  },
+};
+
+export function useSkin(skin) {
+  SKIN = { ...SKIN, ...skin, moles: { ...SKIN.moles, ...(skin.moles ?? {}) } };
+}
+
+function mole(kind, face) {
+  const c = SKIN.moles[kind];
   let eyes = '';
-  let mouth = `<rect x="92" y="144" width="16" height="13" rx="2" fill="#fff" stroke="${INK}" stroke-width="4"/>`;
+  // Buck teeth and blush are cartoon cues; the adult skin drops both.
+  let mouth = SKIN.teeth
+    ? `<rect x="92" y="144" width="16" height="13" rx="2" fill="#fff" stroke="${INK}" stroke-width="4"/>`
+    : `<path d="M90 148 q10 7 20 0" fill="none" stroke="${INK}" stroke-width="4" stroke-linecap="round"/>`;
   if (face === 'happy') {
     eyes = `<circle cx="78" cy="100" r="9" fill="${INK}"/><circle cx="122" cy="100" r="9" fill="${INK}"/><circle cx="81" cy="97" r="3" fill="#fff"/><circle cx="125" cy="97" r="3" fill="#fff"/>`;
   } else if (face === 'sleep') {
@@ -43,30 +67,32 @@ function mole(kind, face) {
     mouth = `<path d="M84 146 l6 8 l5 -8 l5 8 l5 -8 l5 8 l6 -8" fill="#fff" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/>`;
   }
   const crown =
-    kind === 'gold'
+    kind === 'gold' && SKIN.crown
       ? `<path d="M68 42 L76 10 L100 30 L124 10 L132 42 Z" fill="#ffe14d" stroke="${INK}" stroke-width="6" stroke-linejoin="round"/><circle cx="100" cy="30" r="5" fill="${PINK}" stroke="${INK}" stroke-width="3"/>`
       : '';
   const ears = `<circle cx="42" cy="66" r="14" fill="${c.body}" stroke="${INK}" stroke-width="6"/><circle cx="158" cy="66" r="14" fill="${c.body}" stroke="${INK}" stroke-width="6"/>`;
   return svg(
     200,
     300,
-    `${ears}<path d="M30 303 L30 110 C30 58 62 34 100 34 C138 34 170 58 170 110 L170 303 Z" fill="${c.body}" stroke="${INK}" stroke-width="6"/>${crown}<ellipse cx="62" cy="80" rx="8" ry="16" fill="${c.shine}"/>${eyes}<ellipse cx="56" cy="126" rx="11" ry="7" fill="#ff7eb6" opacity="0.9"/><ellipse cx="144" cy="126" rx="11" ry="7" fill="#ff7eb6" opacity="0.9"/><ellipse cx="100" cy="130" rx="26" ry="18" fill="${c.snout}" stroke="${INK}" stroke-width="5"/><ellipse cx="100" cy="121" rx="10" ry="7" fill="${PINK}" stroke="${INK}" stroke-width="4"/>${mouth}`,
+    `${ears}<path d="M30 303 L30 110 C30 58 62 34 100 34 C138 34 170 58 170 110 L170 303 Z" fill="${c.body}" stroke="${INK}" stroke-width="6"/>${crown}<ellipse cx="62" cy="80" rx="8" ry="16" fill="${c.shine}"/>${eyes}${SKIN.blush ? '<ellipse cx="56" cy="126" rx="11" ry="7" fill="#ff7eb6" opacity="0.9"/><ellipse cx="144" cy="126" rx="11" ry="7" fill="#ff7eb6" opacity="0.9"/>' : ''}<ellipse cx="100" cy="130" rx="26" ry="18" fill="${c.snout}" stroke="${INK}" stroke-width="5"/><ellipse cx="100" cy="121" rx="10" ry="7" fill="${PINK}" stroke="${INK}" stroke-width="4"/>${mouth}`,
   );
 }
 
-const holeBack = svg(
+const holeBack = () =>
+  svg(
   272,
   56,
-  `<ellipse cx="136" cy="28" rx="133.5" ry="25.5" fill="#3b2032" stroke="${INK}" stroke-width="5"/><path d="M8 26 A128 22 0 0 1 264 26 A128 16 0 0 0 8 26 Z" fill="#24121f"/>`,
+  `<ellipse cx="136" cy="28" rx="133.5" ry="25.5" fill="${SKIN.holeBack}" stroke="${INK}" stroke-width="5"/><path d="M8 26 A128 22 0 0 1 264 26 A128 16 0 0 0 8 26 Z" fill="${SKIN.holeShadow}"/>`,
 );
 
 const tuft = (x, flip) =>
-  `<path d="M${x} 34 l${flip * 6} -22 l${flip * 6} 16 l${flip * 7} -26 l${flip * 5} 30 Z" fill="#4fbf3a" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/>`;
+  `<path d="M${x} 34 l${flip * 6} -22 l${flip * 6} 16 l${flip * 7} -26 l${flip * 5} 30 Z" fill="${SKIN.tuft}" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/>`;
 // Lip is drawn in the hole's 280-wide coordinate space, padded so the tufts don't clip.
-const holeLip = svg(
+const holeLip = () =>
+  svg(
   304,
   80,
-  `<path d="M4 28 A136 28 0 0 0 276 28 A136 44 0 0 1 4 28 Z" fill="#6fd14a" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>${tuft(-6, 1)}${tuft(286, -1)}`,
+  `<path d="M4 28 A136 28 0 0 0 276 28 A136 44 0 0 1 4 28 Z" fill="${SKIN.grass}" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>${tuft(-6, 1)}${tuft(286, -1)}`,
   '-12 0 304 80',
 );
 
@@ -82,6 +108,7 @@ const ICONS = {
   sound: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/>',
   mute: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l5 6M22 9l-5 6"/>',
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M9.2 9.3a2.9 2.9 0 1 1 3.6 2.8c-.5.2-.8.7-.8 1.2v.5"/><path d="M12 17.2h.01"/>',
   sliders: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/>',
 };
 
@@ -107,28 +134,31 @@ function starburst(fill) {
   return svg(200, 200, `<polygon points="${pts.join(' ')}" fill="${fill}" stroke="${INK}" stroke-width="3.5" stroke-linejoin="round"/>`, '0 0 100 100');
 }
 
-export const SPRITES = {
-  'mole-gold-happy': mole('gold', 'happy'),
-  'mole-gold-shock': mole('gold', 'shock'),
-  'mole-gold-dizzy': mole('gold', 'dizzy'),
-  'mole-gold-sleep': mole('gold', 'sleep'),
-  'mole-gold-smug': mole('gold', 'smug'),
-  'mole-bad-angry': mole('bad', 'angry'),
-  'mole-good-happy': mole('good', 'happy'),
-  'mole-decoy-happy': mole('decoy', 'happy'),
-  'mole-decoy-shock': mole('decoy', 'shock'),
-  'mole-decoy-sleep': mole('decoy', 'sleep'),
-  'hole-back': holeBack,
-  'hole-lip': holeLip,
-  coin,
-  puff,
-  'star-gold': star('#ffe14d'),
-  'star-sky': star(SKY),
-  'star-pink': star(PINK),
-  'burst-red': starburst(RED),
-  'burst-sky': starburst(SKY),
-  'burst-gold': starburst('#ffe14d'),
-  'burst-lime': starburst(LIME),
-  ...Object.fromEntries(Object.entries(ICONS).map(([k, p]) => [`icon-${k}`, icon(p)])),
-  ...Object.fromEntries(Object.entries(ICONS).map(([k, p]) => [`icon-${k}-cream`, icon(p, 48, CREAM, 2.8)])),
-};
+/** Builds every frame with the active skin. Call `useSkin` first. */
+export function buildSprites() {
+  return {
+    'mole-gold-happy': mole('gold', 'happy'),
+    'mole-gold-shock': mole('gold', 'shock'),
+    'mole-gold-dizzy': mole('gold', 'dizzy'),
+    'mole-gold-sleep': mole('gold', 'sleep'),
+    'mole-gold-smug': mole('gold', 'smug'),
+    'mole-bad-angry': mole('bad', 'angry'),
+    'mole-good-happy': mole('good', 'happy'),
+    'mole-decoy-happy': mole('decoy', 'happy'),
+    'mole-decoy-shock': mole('decoy', 'shock'),
+    'mole-decoy-sleep': mole('decoy', 'sleep'),
+    'hole-back': holeBack(),
+    'hole-lip': holeLip(),
+    coin,
+    puff,
+    'star-gold': star('#ffe14d'),
+    'star-sky': star(SKY),
+    'star-pink': star(PINK),
+    'burst-red': starburst(RED),
+    'burst-sky': starburst(SKY),
+    'burst-gold': starburst('#ffe14d'),
+    'burst-lime': starburst(LIME),
+    ...Object.fromEntries(Object.entries(ICONS).map(([k, p]) => [`icon-${k}`, icon(p)])),
+    ...Object.fromEntries(Object.entries(ICONS).map(([k, p]) => [`icon-${k}-cream`, icon(p, 48, CREAM, 2.8)])),
+  };
+}

@@ -1,7 +1,8 @@
 import { BitmapFont, BitmapText, Container, Graphics, Rectangle, Sprite, TilingSprite, type Ticker } from 'pixi.js';
 import { Confetti, gsap, pop, prefersReducedMotion, shake, tilt, type GameApp } from '@triptown/engine';
 import type { ResultKind } from '@triptown/core';
-import { COLORS, FONT_DISPLAY } from '../theme';
+import { t } from '../i18n/en';
+import { COLORS, FONT_DISPLAY, SKIN } from '../theme';
 import {
   Burst,
   Chip,
@@ -14,7 +15,7 @@ import {
   labelStyle,
   text,
 } from '../ui/primitives';
-import { BalancePill, HistoryStrip, Logo, StickerLabel } from '../ui/hud';
+import { BalancePill, HistoryStrip, Logo, SessionStrip, StickerLabel } from '../ui/hud';
 import { Hole, Meter, RISE_FULL, RISE_HIDDEN, Stage, type Frames, type MoleFrame } from '../ui/stage';
 import { BET_CHIPS } from './display';
 
@@ -28,6 +29,8 @@ export interface ViewHandlers {
   onCycleAuto(): void;
   onSound(): void;
   onFairness(): void;
+  onRules(): void;
+  onHistory(): void;
   onEditBet(): void;
 }
 
@@ -47,6 +50,9 @@ type Layout = 'portrait' | 'desktop';
 
 const PORTRAIT = { w: 390, h: 844 };
 const DESKTOP = { w: 1440, h: 900 };
+/** Side gutter in portrait, and the content width it leaves. */
+const PAD = 10;
+const CONTENT = PORTRAIT.w - PAD * 2;
 
 /** Everything the player sees. Knows nothing about rounds or money rules; the controller drives it. */
 /** Bright colours the flying in-between numbers cycle through. */
@@ -70,6 +76,8 @@ export class GameView {
   private readonly bgDots: TilingSprite;
   private readonly bgFill = new Graphics();
   private layout: Layout = 'portrait';
+  /** Portrait design height for the current viewport; desktop keeps its fixed frame. */
+  private designH = PORTRAIT.h;
   private phase: Phase = 'betting';
 
   // Header
@@ -78,6 +86,7 @@ export class GameView {
   private balance = new BalancePill(false);
   private balanceBig = new BalancePill(true);
   readonly history = new HistoryStrip(358);
+  readonly sessionStrip = new SessionStrip(358);
 
   // Stage
   readonly stage: Stage;
@@ -96,7 +105,7 @@ export class GameView {
   private readonly resultCard = new Container();
   private readonly resultMult: BitmapText;
   private readonly resultPayout = text('', bodyStyle(28));
-  private readonly resultTitle = text('CASHED OUT', labelStyle(13), [0.5, 0]);
+  private readonly resultTitle = text(t('result.cashedOut'), labelStyle(13), [0.5, 0]);
   private readonly resultCardBg = new Graphics();
   private readonly escaped: StickerLabel;
   private readonly lostChip: StickerLabel;
@@ -104,10 +113,11 @@ export class GameView {
   private readonly demo: StickerLabel;
   private readonly soundBtn: IconButton;
   private readonly shieldBtn: IconButton;
+  private readonly helpBtn: IconButton;
 
   // Controls
   private readonly panel = new Graphics();
-  private readonly lockedLabel = text('BET LOCKED DURING ROUND', labelStyle(12));
+  private readonly lockedLabel = text(t('label.betLocked'), labelStyle(12));
   private readonly minus: IconButton;
   private readonly plus: IconButton;
   private readonly amountBox = new Container();
@@ -118,7 +128,7 @@ export class GameView {
   private readonly autoRow = new Container();
   private readonly autoBg = new Graphics();
   private readonly autoToggle = new Graphics();
-  private readonly autoLabel = text('AUTO CASH OUT', labelStyle(12));
+  private readonly autoLabel = text(t('label.autoCashOut'), labelStyle(12));
   private readonly autoField = new Container();
   private readonly autoFieldBg = new Graphics();
   private readonly autoValue = text('x5.00', bodyStyle(18));
@@ -135,6 +145,11 @@ export class GameView {
   /** False from a round start until the control is released again (RTS 14G). */
   private armed = true;
   private countdownUntil = 0;
+  /** Profile-driven presentation: one-tap replay, and whether shake/tilt/confetti are allowed. */
+  private quickReplay = true;
+  private intensityEffects = true;
+  /** Which modifiers this market actually plays, so the standby screen shows only those moles. */
+  private modifiers = { setbacks: true, boosts: true };
   /** What the start control should read once any countdown finishes. */
   private actionButton = { label: 'BET', sub: '', enabled: true };
   /** Which side the bad mole pops from; chosen fresh for every setback. */
@@ -182,7 +197,7 @@ export class GameView {
     this.strike.visible = false;
     this.winNow = new StickerLabel('WIN NOW 0.00', COLORS.cream, () => labelStyle(12));
 
-    const readyTitle = text('READY?', displayStyle(54, COLORS.cream, 5, 5), [0.5, 0]);
+    const readyTitle = text(t('stage.ready'), displayStyle(54, COLORS.cream, 5, 5), [0.5, 0]);
     const readySub = text('Whack the golden mole\nbefore it dives.', { ...bodyStyle(15, COLORS.ink, '700'), align: 'center', lineHeight: 19 }, [0.5, 0]);
     readySub.y = 70;
     this.ready.addChild(readyTitle, readySub);
@@ -194,20 +209,22 @@ export class GameView {
     this.resultCard.addChild(this.resultCardBg, this.resultTitle, this.resultMult, this.resultPayout);
     this.resultCard.visible = false;
 
-    this.escaped = new StickerLabel('MOLE ESCAPED', COLORS.ink, () => displayStyle(24, COLORS.sun), 16, 8, 0);
+    this.escaped = new StickerLabel(t('result.escaped'), COLORS.ink, () => displayStyle(24, COLORS.sun), 16, 8, 0);
     this.lostChip = new StickerLabel('-10.00', COLORS.red, () => displayStyle(30, COLORS.cream, 3), 18, 6, 4);
-    this.bustBurst = new Burst(frames('burst-red'), 150, 'BUST!', 30);
+    this.bustBurst = new Burst(frames('burst-red'), 150, t('stage.instantBust'), 30);
     this.escaped.visible = this.lostChip.visible = this.bustBurst.visible = false;
 
-    this.demo = new StickerLabel('DEMO', COLORS.pink, () => displayStyle(16, COLORS.cream, 2), 10, 4, 3);
+    this.demo = new StickerLabel(t('label.demo'), COLORS.pink, () => displayStyle(16, COLORS.cream, 2), 10, 4, 3);
     this.demo.rotation = -0.08;
     this.demo.visible = false;
 
     this.soundBtn = new IconButton(frames('icon-sound'), 44, COLORS.cream, () => this.handlers.onSound(), 'Mute sound');
     this.shieldBtn = new IconButton(frames('icon-shield'), 44, COLORS.sky, () => this.handlers.onFairness(), 'Provably fair');
+    // Rules must be reachable in every state, including before the first bet (GLI-19 4.4.1, RTS 3/4).
+    this.helpBtn = new IconButton(frames('icon-help'), 44, COLORS.cream, () => this.handlers.onRules(), 'How this game works');
 
     this.confetti = new Confetti(app.ticker);
-    c.addChild(...this.decoys, this.mainHole, this.ready, this.resultCard, this.oldMult, this.strike, this.mult, this.winNow, this.meter, this.escaped, this.lostChip, this.bustBurst, this.fx, this.confetti, this.demo, this.soundBtn, this.shieldBtn);
+    c.addChild(this.sessionStrip, ...this.decoys, this.mainHole, this.ready, this.resultCard, this.oldMult, this.strike, this.mult, this.winNow, this.meter, this.escaped, this.lostChip, this.bustBurst, this.fx, this.confetti, this.demo, this.soundBtn, this.shieldBtn, this.helpBtn);
 
     // Controls
     this.minus = new IconButton(frames('icon-minus'), 56, COLORS.sky, () => this.handlers.onStepBet(-1), 'Decrease bet', 0.5);
@@ -258,6 +275,7 @@ export class GameView {
       onTap: () => this.handlers.onBigButton(),
     });
 
+    this.history.onOpen = () => this.handlers.onHistory();
     this.root.addChild(this.panel, this.logo, this.logoBig, this.balance, this.balanceBig, this.history, this.stage, this.lockedLabel, this.minus, this.amountBox, this.plus, ...this.chips, this.autoRow, this.statBet, this.statAuto, this.bigButton);
 
     app.ticker.add(this.tick);
@@ -306,7 +324,7 @@ export class GameView {
     this.drawAuto(ui.autoOn, ui.auto);
     this.statBet.set('Bet', ui.bet);
     this.statAuto.set('Auto', ui.autoOn ? ui.auto : 'OFF');
-    this.actionButton = { label: ui.reason ?? `BET ${ui.bet}`, sub: '', enabled: ui.canBet };
+    if (this.phase === 'betting') this.actionButton = { label: ui.reason ?? `BET ${ui.bet}`, sub: '', enabled: ui.canBet };
     if (this.phase === 'betting' && !this.countdownUntil) {
       this.bigButton.setFill(COLORS.lime);
       this.bigButton.setIcon(null);
@@ -328,12 +346,42 @@ export class GameView {
     this.mainHole.riseTo(140, 0.5, 'power2.out');
     // Background moles look out while the player is choosing a bet; they duck away once a round starts.
     this.decoys.forEach((d, i) => {
-      // Both modifiers are introduced before the round: good mole on the left, bad mole on the right.
-      d.setFrame(this.frames, i === 1 ? 'mole-bad-angry' : i === 0 ? 'mole-good-happy' : 'mole-decoy-happy');
+      // Only the modifiers this market plays are introduced: good mole left, bad mole right.
+      const frame =
+        i === 1 && this.modifiers.setbacks ? 'mole-bad-angry' : i === 0 && this.modifiers.boosts ? 'mole-good-happy' : 'mole-decoy-happy';
+      d.setFrame(this.frames, frame);
       d.riseTo(DECOY_PEEK, 0.45 + i * 0.08, 'back.out(1.4)');
     });
     this.bigButton.setEnabled(true);
     this.relayout(true);
+  }
+
+  /** Session clock and net position, per the market profile. */
+  setSessionHud(opts: Parameters<SessionStrip['set']>[0]) {
+    this.sessionStrip.set(opts);
+    this.layoutSessionStrip();
+  }
+
+  private layoutSessionStrip() {
+    if (!this.sessionStrip.visible) return;
+    const { width: w } = this.stage.size;
+    // A band across the top of the stage; the round display shifts down to make room for it.
+    // Clear of the DEMO badge on the left and the side buttons on the right.
+    const left = this.demo.visible ? 100 : 12;
+    this.sessionStrip.resize(Math.max(150, w - left - (this.layout === 'desktop' ? 12 : 72)));
+    this.sessionStrip.position.set(left, 8);
+  }
+
+  /** Vertical room the session band takes from the round display. */
+  private get hudOffset() {
+    return this.sessionStrip.visible ? 34 : 0;
+  }
+
+  /** Applies the market profile's presentation flags. */
+  setPresentation(opts: { quickReplay: boolean; intensityEffects: boolean; setbacks: boolean; boosts: boolean }) {
+    this.quickReplay = opts.quickReplay;
+    this.intensityEffects = opts.intensityEffects;
+    this.modifiers = { setbacks: opts.setbacks, boosts: opts.boosts };
   }
 
   /** Called on every round start: the next start needs a fresh press. */
@@ -394,7 +442,7 @@ export class GameView {
     this.mainHole.riseTo(RISE_FULL, 0.45, 'back.out(1.8)');
     this.bigButton.setFill(COLORS.pink);
     this.bigButton.setIcon(this.frames('icon-hammer-cream'));
-    this.bigButton.setLabel('WHACK!', `Cash out ${cashout}`);
+    this.bigButton.setLabel(t('button.whack'), `Cash out ${cashout}`);
     this.bigButton.setEnabled(true);
     this.relayout(true);
   }
@@ -403,12 +451,12 @@ export class GameView {
   frame(multiplier: string, cashout: string, level10: number, levelName: string, pace: number, belowStake = false) {
     this.mult.text = multiplier;
     this.fitMult();
-    this.winNow.set(`${belowStake ? 'RETURN NOW' : 'WIN NOW'} ${cashout}`);
+    this.winNow.set(t(belowStake ? 'label.returnNow' : 'label.winNow', { amount: cashout }));
     this.layoutWinNow();
     this.meter.set(level10, levelName);
     this.level = level10;
     this.stage.speed = pace;
-    if (this.phase === 'running') this.bigButton.setLabel('WHACK!', `Cash out ${cashout}`);
+    if (this.phase === 'running') this.bigButton.setLabel(t('button.whack'), `Cash out ${cashout}`);
   }
 
   /**
@@ -459,7 +507,7 @@ export class GameView {
   boost(percent: number, to: string, cashout: string) {
     this.mult.text = to;
     this.fitMult();
-    if (this.phase === 'running') this.bigButton.setLabel('WHACK!', `Cash out ${cashout}`);
+    if (this.phase === 'running') this.bigButton.setLabel(t('button.whack'), `Cash out ${cashout}`);
     pop(this.mult, 1.12, 0.2);
     if (prefersReducedMotion()) return;
 
@@ -555,9 +603,11 @@ export class GameView {
       .to(this.mainHole, { rise: RISE_FULL, duration: 0.5, delay: 0.6, ease: 'back.out(1.5)', onStart: () => this.mainHole.setFrame(this.frames, 'mole-gold-happy') });
     this.flyCoins(bad);
     this.stage.flashHazard();
-    tilt(this.stage, -1.4, 0.6);
-    shake(this.root, 8, 0.3);
-    this.bigButton.setLabel('WHACK!', `Cash out ${cashout}`);
+    if (this.intensityEffects) {
+      tilt(this.stage, -1.4, 0.6);
+      shake(this.root, 8, 0.3);
+    }
+    this.bigButton.setLabel(t('button.whack'), `Cash out ${cashout}`);
   }
 
   /** The cash-out was refused and the round continues: the button goes back to live. */
@@ -565,14 +615,14 @@ export class GameView {
     this.phase = 'running';
     this.showSideButtons(false);
     this.bigButton.setEnabled(true);
-    this.bigButton.setLabel('WHACK!', `Cash out ${cashout}`);
+    this.bigButton.setLabel(t('button.whack'), `Cash out ${cashout}`);
   }
 
   /** Optimistic whack before the server answers. */
   showCashing(cashout: string) {
     this.phase = 'cashing';
     this.bigButton.setEnabled(false);
-    this.bigButton.setLabel('WHACK!', `Cashing out ${cashout}…`);
+    this.bigButton.setLabel(t('button.whack'), `Cashing out ${cashout}…`);
     this.swingHammer();
   }
 
@@ -590,28 +640,36 @@ export class GameView {
     this.mult.visible = this.winNow.visible = this.meter.visible = false;
     this.mainHole.setFrame(this.frames, 'mole-gold-dizzy');
     this.mainHole.riseTo(50, 0.3, 'power2.out');
-    this.resultTitle.text = 'CASHED OUT';
+    this.resultTitle.text = t('result.cashedOut');
     this.resultMult.text = multiplier;
     // Net, not the gross return: "+4.20" only when the player is actually up.
-    this.resultPayout.text = celebrate ? `+${net}` : kind === 'even' ? `RETURNED ${payout} · NET 0.00` : `RETURNED ${payout} · NET -${net}`;
+    this.resultPayout.text = celebrate
+      ? t('result.net', { amount: net })
+      : kind === 'even'
+        ? t('result.returnedEven', { amount: payout })
+        : t('result.returnedBelow', { amount: payout, net });
     this.layoutResultCard();
     this.resultCard.visible = true;
     this.resultCard.scale.set(0.3);
     gsap.to(this.resultCard.scale, { x: 1, y: 1, duration: 0.4, ease: 'back.out(2.2)' });
-    if (celebrate) {
+    // Confetti and the BONK sticker are part of the arcade look; the adult skin has neither.
+    if (celebrate && SKIN !== 'adult') {
       this.stars();
       const hole = this.holeRect();
-      const bonk = new Burst(this.frames('burst-sky'), 92, 'BONK!', 20);
+      const bonk = new Burst(this.frames('burst-sky'), 92, t('result.bonk'), 20);
       bonk.position.set(hole.x + hole.w * 0.82, hole.y + hole.h * 0.2);
       bonk.rotation = -0.25;
       this.fx.addChild(bonk);
       this.trackFx(pop(bonk, 1.3, 0.3));
-      this.confetti.burst({ x: this.stage.size.width / 2, y: this.stage.size.height * 0.75, count: big ? 120 : 60, speed: big ? 1300 : 950 });
+      if (this.intensityEffects) {
+        this.confetti.burst({ x: this.stage.size.width / 2, y: this.stage.size.height * 0.75, count: big ? 120 : 60, speed: big ? 1300 : 950 });
+      }
     }
     this.bigButton.setFill(celebrate ? COLORS.lime : COLORS.sky);
     this.bigButton.setIcon(this.frames('icon-replay-cream'));
-    this.bigButton.setLabel('PLAY AGAIN', 'Same bet');
-    this.actionButton = { label: 'PLAY AGAIN', sub: 'Same bet', enabled: true };
+    const replay = this.quickReplay ? { label: t('button.playAgain'), sub: t('button.playAgainSub') } : { label: t('button.continue'), sub: t('button.continueSub') };
+    this.bigButton.setLabel(replay.label, replay.sub);
+    this.actionButton = { ...replay, enabled: true };
     this.bigButton.setEnabled(true);
     this.relayout(false);
   }
@@ -635,25 +693,25 @@ export class GameView {
       this.bustBurst.position.set(w / 2, hole.y + hole.h * 0.55);
       this.bustBurst.scale.set(0.2);
       gsap.to(this.bustBurst.scale, { x: 1, y: 1, duration: 0.35, ease: 'back.out(3)' });
-      this.escaped.set('INSTANT BUST');
+      this.escaped.set(t('result.instantBust'));
     } else {
       // The mole got away, so it looks pleased with itself rather than startled.
       this.mainHole.setFrame(this.frames, 'mole-gold-smug');
       this.mainHole.riseTo(222, 0.22, 'power3.in');
-      this.escaped.set('MOLE ESCAPED');
+      this.escaped.set(t('result.escaped'));
       this.puffs(hole);
     }
     this.escaped.visible = true;
-    this.escaped.position.set(w / 2, this.layout === 'desktop' ? 230 : 140);
+    this.escaped.position.set(w / 2, (this.layout === 'desktop' ? 230 : 140) + this.hudOffset);
     this.escaped.rotation = 0.05;
     pop(this.escaped, 1.2, 0.3);
     this.lostChip.set(lost);
     this.lostChip.visible = true;
     this.lostChip.position.set(w / 2, h - 44);
-    shake(this.root, 6, 0.25);
+    if (this.intensityEffects) shake(this.root, 6, 0.25);
     this.bigButton.setFill(COLORS.pink);
     this.bigButton.setIcon(this.frames('icon-replay-cream'));
-    this.bigButton.setLabel('BET AGAIN', 'Same bet');
+    this.bigButton.setLabel(t('button.betAgain'), t('button.playAgainSub'));
     this.bigButton.setEnabled(true);
     this.relayout(false);
   }
@@ -679,6 +737,7 @@ export class GameView {
 
   private update(dt: number) {
     if (this.countdownUntil) this.updateCountdown();
+    this.sessionStrip.tick();
     if (this.phase === 'betting' || this.phase === 'starting') {
       // Idle breathing so the holding screen is alive: the gold mole and the background moles bob.
       this.bob += dt;
@@ -720,9 +779,14 @@ export class GameView {
     const desktop = width / height > 1.15 && width >= 820;
     this.layout = desktop ? 'desktop' : 'portrait';
     const design = desktop ? DESKTOP : PORTRAIT;
-    const scale = Math.min(width / design.w, height / design.h);
+    // Portrait fills the width rather than letterboxing to a fixed 390x844 frame. A phone's usable
+    // height changes with the browser chrome, so a uniform fit-both scale shrank everything to match
+    // the height and left wide empty margins down both sides. The design height follows the viewport
+    // instead, clamped so the stage cannot collapse or stretch absurdly, and the layout absorbs it.
+    const scale = desktop ? Math.min(width / design.w, height / design.h) : width / design.w;
+    this.designH = desktop ? design.h : Math.min(1000, Math.max(680, Math.round(height / scale)));
     this.root.scale.set(scale);
-    this.root.position.set((width - design.w * scale) / 2, (height - design.h * scale) / 2);
+    this.root.position.set((width - design.w * scale) / 2, (height - this.designH * scale) / 2);
     this.relayout(false);
   }
 
@@ -754,27 +818,37 @@ export class GameView {
       this.bigButton.resize(w, 116);
       this.bigButton.position.set(x, 738);
     } else {
-      this.logo.position.set(16, 22);
-      this.history.position.set(16, 78);
-      this.history.resize(358);
-      this.stage.position.set(16, 122);
+      const H = this.designH;
+      const top = 122;
+      this.logo.position.set(PAD, 22);
+      this.history.position.set(PAD, 78);
+      this.history.resize(CONTENT);
+      this.layoutSessionStrip();
+      this.stage.position.set(PAD, top);
       this.lockedLabel.visible = false;
+      // The bottom block is anchored to the viewport's bottom and the stage takes whatever is left,
+      // so a short phone loses stage height instead of shrinking the whole layout.
       if (betting) {
-        this.setStageSize(358, 424, animate);
-        this.placeBetControls(16, 558, 358, true);
+        const btnY = H - 100;
+        const controlsY = btnY - 186;
+        this.setStageSize(CONTENT, Math.max(280, controlsY - 12 - top), animate);
+        this.placeBetControls(PAD, controlsY, CONTENT, true);
         this.statBet.visible = this.statAuto.visible = false;
-        this.bigButton.resize(358, 80);
-        this.bigButton.position.set(16, 744);
+        this.bigButton.resize(CONTENT, 80);
+        this.bigButton.position.set(PAD, btnY);
       } else {
-        this.setStageSize(358, 542, animate);
-        this.placeBetControls(16, 558, 358, false);
+        const btnY = H - 112;
+        const statY = btnY - 58;
+        this.setStageSize(CONTENT, Math.max(280, statY - 10 - top), animate);
+        this.placeBetControls(PAD, statY, CONTENT, false);
         this.statBet.visible = this.statAuto.visible = true;
-        this.statBet.resize(174, 44);
-        this.statAuto.resize(174, 44);
-        this.statBet.position.set(16, 674);
-        this.statAuto.position.set(200, 674);
-        this.bigButton.resize(358, 96);
-        this.bigButton.position.set(16, 732);
+        const half = (CONTENT - 10) / 2;
+        this.statBet.resize(half, 44);
+        this.statAuto.resize(half, 44);
+        this.statBet.position.set(PAD, statY);
+        this.statAuto.position.set(PAD + half + 10, statY);
+        this.bigButton.resize(CONTENT, 96);
+        this.bigButton.position.set(PAD, btnY);
       }
     }
     this.relayoutHeader();
@@ -785,8 +859,9 @@ export class GameView {
       this.balanceBig.position.set(1416, 30);
       const right = 1416 - this.balanceBig.width - 24;
       this.history.resize(Math.max(100, right - this.history.x));
+      this.layoutSessionStrip();
     } else {
-      this.balance.position.set(374, 19);
+      this.balance.position.set(PORTRAIT.w - PAD - 6, 19);
     }
   }
 
@@ -812,7 +887,7 @@ export class GameView {
   }
 
   private layoutAmount() {
-    const w = (this.layout === 'desktop' ? 336 : 358) - 132;
+    const w = (this.layout === 'desktop' ? 336 : CONTENT) - 132;
     const total = this.amountText.width + 8 + this.amountUnit.width;
     this.amountText.position.set((w - total) / 2 + this.amountText.width, 28);
     this.amountUnit.position.set(this.amountText.x + 8, 29);
@@ -842,16 +917,22 @@ export class GameView {
     this.stage.resize(w, h);
     const desktop = this.layout === 'desktop';
     const betting = this.phase === 'betting' || this.phase === 'starting';
-    const s = desktop ? 1.35 : betting ? 0.8 : 1;
+    // Portrait stage height now varies with the phone, so the whole composition scales with it against
+    // the 424 reference. Without this a short screen keeps full-size moles in a short box and the
+    // background holes collide with the main one.
+    const k = desktop ? 1 : Math.min(1, h / 424);
+    const s = (desktop ? 1.35 : betting ? 0.8 : 1) * k;
     const holeW = 280 * s;
     const holeH = 320 * s;
-    const pad = desktop ? 86 : betting ? 22 : 52;
+    const pad = (desktop ? 86 : betting ? 22 : 52) * k;
     this.mainHole.scale.set(s);
     this.mainHole.position.set(w / 2 - holeW / 2, h - holeH - pad);
 
     const decoySpots = desktop
       ? [[50, 210, 0.6], [w - 218, 230, 0.6], [120, 470, 0.55], [w - 268, 480, 0.55]]
-      : [[-18, betting ? 150 : 150, 0.4], [w - 94, betting ? 170 : 176, 0.4]];
+      : // A decoy hole is 280*0.4*k wide. Keep both fully inside the stage: hanging them off the edge
+        // reads as a rendering fault now that the stage runs the full width of the screen.
+        [[8, 150 * k, 0.4 * k], [w - 112 * k - 8, (betting ? 170 : 176) * k, 0.4 * k]];
     this.decoys.forEach((d, i) => {
       const spot = decoySpots[i];
       // The right decoy hole makes way while the bad mole is up.
@@ -863,27 +944,36 @@ export class GameView {
     });
 
     this.fitMult();
-    this.mult.position.set(w / 2, desktop ? 30 : this.oldMult.visible ? 52 : 20);
+    this.mult.position.set(w / 2, (desktop ? 30 : this.oldMult.visible ? 52 : 20) + this.hudOffset);
     this.layoutWinNow();
-    this.ready.position.set(w / 2, desktop ? 60 : 26);
+    this.ready.position.set(w / 2, (desktop ? 60 : 26) + this.hudOffset);
     this.ready.scale.set(desktop ? 1.6 : 1);
-    this.meter.resize(desktop ? 480 : 326);
+    this.meter.resize(desktop ? 480 : CONTENT - 32);
     this.meter.position.set(w / 2 - (desktop ? 240 : 163), h - (desktop ? 66 : 54));
     this.demo.position.set(46, 26);
     this.soundBtn.position.set(w - 56, 12);
     this.shieldBtn.position.set(w - 56, 64);
+    this.helpBtn.position.set(w - 56, 116);
     this.layoutResultCard();
     this.layoutStrike();
+    this.layoutSessionStrip();
   }
 
   /**
    * Bad mole sits behind and beside the main mole, centred in the free space on whichever side it
    * came from. Its mole body spans about x 60..225 in hole space (centre 140) and stays on screen.
    */
-  /** The mute and fairness buttons are hidden during a round, so nothing sits over the multiplier. */
+  /**
+   * All three side buttons are hidden during a round, so nothing sits over the multiplier. The rules
+   * stay reachable before every bet, which is where the information requirement bites (GLI-19 §4.4.1,
+   * UK RTS 3/4, BR Portaria 1.207 art. 11, KE reg 45): a round lasts seconds and cannot be altered
+   * once it starts, so there is no decision left for the rules to inform.
+   */
   private showSideButtons(show: boolean) {
     this.soundBtn.visible = show;
     this.shieldBtn.visible = show;
+    this.helpBtn.visible = show;
+    this.helpBtn.position.set(this.stage.size.width - 56, 116);
   }
 
   /** Keeps the multiplier inside the stage: long values (x1,234.56) shrink instead of running off. */
@@ -908,8 +998,8 @@ export class GameView {
     const { width: w } = this.stage.size;
     const desktop = this.layout === 'desktop';
     this.oldMult.style.fontSize = desktop ? 44 : 30;
-    this.oldMult.position.set(w / 2, desktop ? 4 : 14);
-    this.mult.position.y = desktop ? 30 : this.oldMult.visible ? 52 : 20;
+    this.oldMult.position.set(w / 2, (desktop ? 4 : 14) + this.hudOffset);
+    this.mult.position.y = (desktop ? 30 : this.oldMult.visible ? 52 : 20) + this.hudOffset;
     const bw = this.oldMult.width + 12;
     const y = this.oldMult.y + this.oldMult.height * 0.55;
     this.strike.clear().roundRect(w / 2 - bw / 2, y - 3, bw, 6, 3).fill(COLORS.red);
@@ -920,16 +1010,26 @@ export class GameView {
   private layoutResultCard() {
     const { width: w } = this.stage.size;
     const desktop = this.layout === 'desktop';
-    this.resultMult.style.fontSize = desktop ? 110 : 72;
+    // The card must never outgrow the stage. A neutral result line ("RETURNED 4.87 · NET -5.13") is far
+    // wider than a "+4.20" win, so both texts shrink to fit instead of pushing the card off screen and
+    // under the side buttons. Same rule as fitMult() for the running multiplier.
+    const maxCard = w - (desktop ? 120 : 28);
+    const maxText = maxCard - 60;
+    const fit = (node: { style: { fontSize: number }; width: number }, base: number, min: number) => {
+      node.style.fontSize = base;
+      if (node.width > maxText) node.style.fontSize = Math.max(min, Math.floor((base * maxText) / node.width));
+    };
     this.resultPayout.style = bodyStyle(desktop ? 36 : 28);
-    const cw = Math.max(this.resultMult.width, this.resultPayout.width) + 60;
+    fit(this.resultMult, desktop ? 110 : 72, 30);
+    fit(this.resultPayout, desktop ? 36 : 28, 14);
+    const cw = Math.min(Math.max(this.resultMult.width, this.resultPayout.width) + 60, maxCard);
     const ch = 22 + this.resultTitle.height + this.resultMult.height + this.resultPayout.height + 12;
     drawSticker(this.resultCardBg, cw, ch, { fill: COLORS.cream, radius: 24, border: 5, shadow: 7 });
     this.resultCardBg.position.set(-cw / 2, 0);
     this.resultTitle.position.set(0, 14);
     this.resultMult.position.set(0, 14 + this.resultTitle.height + 4);
     this.resultPayout.position.set(0, this.resultMult.y + this.resultMult.height + 2);
-    this.resultCard.position.set(w / 2, desktop ? 40 : 24);
+    this.resultCard.position.set(w / 2, (desktop ? 40 : 24) + this.hudOffset);
     this.resultCard.rotation = -0.05;
   }
 
@@ -996,7 +1096,7 @@ export class GameView {
       .to(hammer, { rotation: -0.55, duration: 0.09, ease: 'power3.in' })
       .to(hammer, { rotation: -0.3, duration: 0.12, ease: 'power2.out' })
       .to(hammer, { alpha: 0, duration: 0.2, delay: 0.25 });
-    shake(this.root, 5, 0.18);
+    if (this.intensityEffects) shake(this.root, 5, 0.18);
   }
 
   private stars() {

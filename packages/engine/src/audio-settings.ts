@@ -1,12 +1,14 @@
 export interface AudioSettings {
   muted: boolean;
+  /** True once the player has changed a setting themselves, so a market default never overrides them. */
+  touched?: boolean;
   /** 0..1 */
   music: number;
   /** 0..1 */
   sfx: number;
 }
 
-export const DEFAULT_AUDIO_SETTINGS: AudioSettings = Object.freeze({ muted: false, music: 0.6, sfx: 0.9 });
+export const DEFAULT_AUDIO_SETTINGS: AudioSettings = Object.freeze({ muted: false, music: 0.6, sfx: 0.9, touched: false });
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -40,6 +42,9 @@ export function loadAudioSettings(storage: StorageLike | null): AudioSettings {
       muted: typeof parsed.muted === 'boolean' ? parsed.muted : DEFAULT_AUDIO_SETTINGS.muted,
       music: clamp01(parsed.music, DEFAULT_AUDIO_SETTINGS.music),
       sfx: clamp01(parsed.sfx, DEFAULT_AUDIO_SETTINGS.sfx),
+      // Must survive a reload: a profile with soundDefault 'muted' only applies its default until the
+      // player decides for themselves, so dropping this re-mutes them on every load.
+      touched: parsed.touched === true,
     };
   } catch {
     return { ...DEFAULT_AUDIO_SETTINGS };

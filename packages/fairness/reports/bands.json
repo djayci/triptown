@@ -1,0 +1,44 @@
+{
+  "paper-route/v1": {
+    "stakeMinor": 20,
+    "minRtp": 0.9696778737901238,
+    "maxRtp": 0.9699731398476799,
+    "rounds": 4000000,
+    "report": "rtp-paper-route-v1-halfup-20-jitter50.md"
+  },
+  "paper-route/v1-rising": {
+    "stakeMinor": 20,
+    "minRtp": 0.9696644571790367,
+    "maxRtp": 0.9701198839355585,
+    "rounds": 4000000,
+    "report": "rtp-paper-route-v1-rising-halfup-20-jitter50.md"
+  },
+  "whack-crash/v1": {
+    "stakeMinor": 20,
+    "minRtp": 0.9680608580550267,
+    "maxRtp": 0.9705902642238314,
+    "rounds": 4000000,
+    "report": "rtp-whack-crash-v1-halfup-20-jitter50.md"
+  },
+  "whack-crash/v1-rising": {
+    "stakeMinor": 20,
+    "minRtp": 0.9668159710581757,
+    "maxRtp": 0.9700551927787142,
+    "rounds": 4000000,
+    "report": "rtp-whack-crash-v1-rising-halfup-20-jitter50.md"
+  },
+  "whack-crash/v2": {
+    "stakeMinor": 20,
+    "minRtp": 0.9686347554074415,
+    "maxRtp": 0.9700700984691593,
+    "rounds": 4000000,
+    "report": "rtp-whack-crash-v2-halfup-20-jitter50.md"
+  },
+  "whack-crash/v2-rising": {
+    "stakeMinor": 20,
+    "minRtp": 0.9688399454362374,
+    "maxRtp": 0.9699858521567063,
+    "rounds": 4000000,
+    "report": "rtp-whack-crash-v2-rising-halfup-20-jitter50.md"
+  }
+}

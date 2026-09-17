@@ -19,3 +19,9 @@ output p { margin: 8px 0; font-size: 13px; word-break: break-word; }
 .pick select { min-height: 36px; border-radius: 6px; border: 0; padding: 0 8px; }
 .events { margin: 0; padding-left: 18px; font: 12px ui-monospace, monospace; max-height: 240px; overflow: auto; }
 .events li { margin: 3px 0; }
+
+.ops { display: grid; gap: 8px; margin-bottom: 12px; }
+.ops button { font: 700 13px system-ui, sans-serif; color: #1d1424; padding: 8px 10px; border-radius: 8px; border: 2px solid #1d1424; background: #fff; cursor: pointer; }
+.ops label { display: grid; gap: 4px; font-size: 12px; font-weight: 700; color: inherit; }
+.ops input { padding: 6px 8px; border-radius: 8px; border: 2px solid #1d1424; color: #1d1424; background: #fff; font: 600 13px system-ui, sans-serif; }
+.events .out { opacity: .7; font-style: italic; }

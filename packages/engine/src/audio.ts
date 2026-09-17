@@ -104,8 +104,31 @@ export class AudioManager {
     });
   }
 
-  setMuted(muted: boolean) {
-    this.update({ muted });
+  /**
+   * What the audio stack actually thinks its state is. iOS silences Web Audio for reasons the page
+   * cannot see (the ring/silent switch, Low Power Mode), so this reports only what is observable:
+   * whether a gesture arrived, whether the context is running, and which file the codec test chose.
+   */
+  get diagnostics(): Record<string, string> {
+    const ctx = Howler.ctx as AudioContext | undefined;
+    return {
+      unlocked: String(this.interacted),
+      ctx: ctx?.state ?? 'none',
+      sampleRate: ctx ? String(ctx.sampleRate) : '-',
+      muted: String(this.settings.muted),
+      howlerMuted: String((Howler as unknown as { _muted?: boolean })._muted ?? false),
+      volume: String((Howler as unknown as { _volume?: number })._volume ?? 1),
+      webAudio: String((Howler as unknown as { usingWebAudio?: boolean }).usingWebAudio ?? false),
+      audioUnlocked: String((Howler as unknown as { _audioUnlocked?: boolean })._audioUnlocked ?? false),
+      sfxLoaded: this.sfx ? this.sfx.state() : 'null',
+      lobbyLoaded: this.lobby ? this.lobby.state() : 'null',
+      stemsLoaded: this.stems ? this.stems.base.state() : 'null',
+    };
+  }
+
+  /** `byPlayer` marks the choice as the player's, so a profile default never overrides it later. */
+  setMuted(muted: boolean, byPlayer = true) {
+    this.update(byPlayer ? { muted, touched: true } : { muted });
     this.safe(() => Howler.mute(muted));
   }
 

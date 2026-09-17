@@ -38,11 +38,6 @@ const money = (minor: unknown) => (typeof minor === 'number' ? (minor / 100).toF
 window.addEventListener('message', (e: MessageEvent) => {
   if (src.origin !== e.origin) return;
   const data = e.data as { protocol?: string; type?: string; payload?: Record<string, unknown>; balanceMinor?: number; currency?: string };
-  if (data?.type === 'triptown:balance' && typeof data.balanceMinor === 'number') {
-    // Legacy Whack Crash message (until its bridge lands).
-    balanceEl.textContent = `${money(data.balanceMinor)} ${data.currency ?? ''}`;
-    return;
-  }
   if (data?.protocol !== 'triptown' || !data.type) return;
   const p = data.payload ?? {};
   if (data.type === 'balance') balanceEl.textContent = `${money(p.balanceMinor)} ${String(p.currency ?? '')}`;
@@ -52,6 +47,28 @@ window.addEventListener('message', (e: MessageEvent) => {
       ? `roundEnded stake ${money(p.stakeMinor)} return ${money(p.returnMinor)} net ${money(p.netMinor)} (${String(p.kind)})`
       : `${data.type} ${JSON.stringify(p)}`;
   eventsEl.prepend(li);
+});
+
+// Operator commands travel the same versioned envelope, to the game's exact origin (never '*').
+const send = (type: string, payload: Record<string, unknown> = {}) => {
+  iframe.contentWindow?.postMessage({ protocol: 'triptown', version: 1, type, payload }, src.origin);
+  const li = document.createElement('li');
+  li.textContent = `→ ${type} ${JSON.stringify(payload)}`;
+  li.className = 'out';
+  eventsEl.prepend(li);
+};
+const minor = (id: string) => {
+  const v = document.querySelector<HTMLInputElement>(id)!.value;
+  return v === '' ? undefined : Math.round(Number(v) * 100);
+};
+document.querySelectorAll<HTMLButtonElement>('.ops [data-op]').forEach((b) => {
+  b.addEventListener('click', () => {
+    const op = b.dataset.op!;
+    if (op === 'showMessage') send('showMessage', { text: 'Your operator says hello.' });
+    else if (op === 'setLimits') send('setLimits', { stakeLimitMinor: minor('#stake-limit'), lossLimitMinor: minor('#loss-limit') });
+    else if (op === 'pause') send('pause', { message: 'Reality check: you have been playing for a while.' });
+    else send(op);
+  });
 });
 
 const form = document.querySelector<HTMLFormElement>('#verify')!;

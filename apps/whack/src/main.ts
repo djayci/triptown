@@ -4,6 +4,11 @@ import '@fontsource/bricolage-grotesque/700.css';
 import '@fontsource/bricolage-grotesque/800.css';
 import { AudioManager, createGameApp, loadAtlas, loadFonts, type AudioManifest } from '@triptown/engine';
 import { FairnessPanel } from './dom/fairness-panel';
+import { HistoryPanel } from './dom/history-panel';
+import { Overlay } from './dom/overlay';
+import { RulesPanel } from './dom/rules-panel';
+import { useSkin } from './theme';
+import bands from '@triptown/fairness/reports/bands.json';
 import { GameController } from './game/controller';
 import { createRoundService } from './services';
 
@@ -26,26 +31,76 @@ async function loadAudio(): Promise<AudioManager | null> {
   }
 }
 
+/**
+ * `?audiodebug` in a demo build prints the audio stack's own view of itself on screen. A phone has no
+ * console worth reaching, and iOS silences Web Audio for reasons a page cannot detect, so the only way
+ * to tell "never unlocked" from "unlocked and silenced by the device" is to show what the page knows.
+ */
+function showAudioDebug(audio: AudioManager) {
+  const box = document.createElement('pre');
+  box.style.cssText =
+    'position:fixed;left:0;right:0;bottom:0;z-index:99999;margin:0;padding:8px;max-height:45vh;overflow:auto;' +
+    'background:rgba(0,0,0,.85);color:#7CFF7C;font:11px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap';
+  document.body.appendChild(box);
+  const render = () => {
+    const d = audio.diagnostics;
+    box.textContent =
+      Object.entries(d)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join('\n') + `\n\nlast: ${audio.log.slice(-8).join(' ') || '(nothing played yet)'}`;
+  };
+  render();
+  setInterval(render, 500);
+}
+
 async function boot() {
   const parent = document.getElementById('game');
   if (!parent) throw new Error('#game missing');
   await loadFonts(['Lilita One', 'Bricolage Grotesque']);
-  const [game, frames, service, audio] = await Promise.all([
-    createGameApp(parent),
-    loadAtlas(asset('atlas.json')),
-    createRoundService(),
-    loadAudio(),
-  ]);
+  // The session decides the skin, so the service comes first and only that skin's atlas is fetched.
+  const service = await createRoundService();
+  const skin = (await service.getSession().catch(() => null))?.profile?.skin === 'adult' ? 'adult' : 'candy';
+  useSkin(skin);
+  const [game, frames, audio] = await Promise.all([createGameApp(parent), loadAtlas(asset(`atlas-${skin}.json`)), loadAudio()]);
   let fairness: FairnessPanel | null = null;
+  let rules: RulesPanel | null = null;
+  let history: HistoryPanel | null = null;
+  const overlay = new Overlay();
   const controller = new GameController(game, frames, service, audio, {
     onFairness: () => void fairness?.open(),
+    onRules: () => rules?.open(),
+    onHistory: () => void history?.open(),
+    // Player-protection gates: betting stays blocked until the player answers.
+    onPause: (message) =>
+      overlay.show('Take a moment', message ?? 'Your operator has paused play for a reality check.', [
+        { label: 'Continue', primary: true, onPick: () => controller.markActivity() },
+      ]),
+    onOverlayClose: () => overlay.hide(),
+    onClosed: () => overlay.show('Game closed', 'Your operator has closed the game. Any running round has been settled.', []),
+    onOperatorMessage: (text) => overlay.show('Message', text, [{ label: 'OK', primary: true, onPick: () => {} }]),
+    onIdlePrompt: (done) =>
+      overlay.show('Still there?', 'You have not placed a bet for a while. Continue playing, or exit the game.', [
+        { label: 'Continue', primary: true, onPick: done },
+        { label: 'Exit', onPick: () => overlay.show('Game closed', 'You have exited the game.', []) },
+      ]),
   });
   fairness = new FairnessPanel(service, () => controller.refreshSession());
+  // The worst-case rounding band at the minimum stake comes from the committed RTP reports, so the
+  // published figure can never drift from what was actually simulated (GLI-19 4.7.2(a)).
+  history = new HistoryPanel(service, () => controller.currentSession?.currency ?? { code: 'USD', decimals: 2, minBetMinor: 20, maxBetMinor: 100_00 });
+  rules = new RulesPanel(() => controller.currentSession, {
+    bands: bands as Record<string, { minRtp: number; maxRtp: number; stakeMinor: number }>,
+    version: __APP_VERSION__,
+    build: __BUILD_HASH__,
+    reduceEffects: controller.reduceEffects,
+    onReduceEffects: (on) => controller.setReduceEffects(on),
+  });
   // Dev hooks for the automated compliance checks. Demo builds only, never production.
   if (import.meta.env.VITE_DEMO === 'true') {
     const w = window as unknown as Record<string, unknown>;
     if (audio) w.__triptownAudioLog = audio.log;
     w.__triptownView = () => controller.debugState();
+    if (audio && new URL(location.href).searchParams.has('audiodebug')) showAudioDebug(audio);
   }
   await controller.init();
   // Effects load after the first frame so audio never delays startup.

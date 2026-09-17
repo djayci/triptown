@@ -1,15 +1,29 @@
-// Rasterizes art/art.mjs at 2x and packs everything into one Pixi spritesheet.
-// Output: public/assets/atlas.png + public/assets/atlas.json (committed).
+// Rasterizes the art at 2x and packs one skin into a Pixi spritesheet.
+// Usage: node scripts/build-atlas.mjs [candy|adult]  (no argument builds both)
+// Output: public/assets/atlas-<skin>.png + .json (committed), plus atlas.json for the default skin.
 import { Resvg } from '@resvg/resvg-js';
 import { MaxRectsPacker } from 'maxrects-packer';
 import { PNG } from 'pngjs';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { SPRITES } from '../art/art.mjs';
+import { buildSprites, useSkin } from '../art/art.mjs';
+import { CANDY } from '../art/skins/candy.mjs';
+import { ADULT } from '../art/skins/adult.mjs';
 
 const SCALE = 2;
 const PADDING = 4;
 const OUT = 'public/assets';
 
+const SKINS = { candy: CANDY, adult: ADULT };
+const wanted = process.argv[2] ? [process.argv[2]] : Object.keys(SKINS);
+
+for (const skinName of wanted) {
+  const skin = SKINS[skinName];
+  if (!skin) throw new Error(`Unknown skin: ${skinName}`);
+  useSkin(skin);
+  buildAtlas(skinName, buildSprites());
+}
+
+function buildAtlas(skinName, SPRITES) {
 const images = Object.entries(SPRITES).map(([name, svg]) => {
   const w = Number(/width="(\d+)"/.exec(svg)[1]);
   const rendered = new Resvg(svg, { fitTo: { mode: 'width', value: w * SCALE } }).render();
@@ -37,9 +51,14 @@ for (const rect of bin.rects) {
 }
 
 mkdirSync(OUT, { recursive: true });
-writeFileSync(`${OUT}/atlas.png`, PNG.sync.write(sheet));
+writeFileSync(`${OUT}/atlas-${skinName}.png`, PNG.sync.write(sheet));
 writeFileSync(
-  `${OUT}/atlas.json`,
-  JSON.stringify({ frames, meta: { image: 'atlas.png', format: 'RGBA8888', size: { w: bin.width, h: bin.height }, scale: String(SCALE) } }, null, 1),
+  `${OUT}/atlas-${skinName}.json`,
+  JSON.stringify(
+    { frames, meta: { image: `atlas-${skinName}.png`, format: 'RGBA8888', size: { w: bin.width, h: bin.height }, scale: String(SCALE) } },
+    null,
+    1,
+  ),
 );
-console.info(`atlas ${bin.width}x${bin.height}, ${images.length} frames`);
+console.info(`atlas-${skinName} ${bin.width}x${bin.height}, ${images.length} frames`);
+}

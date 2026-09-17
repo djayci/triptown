@@ -560,7 +560,7 @@
     "h": 96
    }
   },
-  "icon-sliders": {
+  "icon-help": {
    "frame": {
     "x": 1204,
     "y": 1912,
@@ -580,9 +580,29 @@
     "h": 96
    }
   },
-  "icon-hammer-cream": {
+  "icon-sliders": {
    "frame": {
     "x": 404,
+    "y": 328,
+    "w": 96,
+    "h": 96
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 96
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 96
+   }
+  },
+  "icon-hammer-cream": {
+   "frame": {
+    "x": 504,
     "y": 328,
     "w": 96,
     "h": 96
@@ -602,8 +622,8 @@
   },
   "icon-shield-cream": {
    "frame": {
-    "x": 504,
-    "y": 328,
+    "x": 404,
+    "y": 428,
     "w": 96,
     "h": 96
    },
@@ -622,7 +642,7 @@
   },
   "icon-minus-cream": {
    "frame": {
-    "x": 404,
+    "x": 504,
     "y": 428,
     "w": 96,
     "h": 96
@@ -642,8 +662,8 @@
   },
   "icon-plus-cream": {
    "frame": {
-    "x": 504,
-    "y": 428,
+    "x": 1824,
+    "y": 0,
     "w": 96,
     "h": 96
    },
@@ -662,7 +682,7 @@
   },
   "icon-replay-cream": {
    "frame": {
-    "x": 1824,
+    "x": 1924,
     "y": 0,
     "w": 96,
     "h": 96
@@ -682,8 +702,8 @@
   },
   "icon-sound-cream": {
    "frame": {
-    "x": 1924,
-    "y": 0,
+    "x": 1824,
+    "y": 100,
     "w": 96,
     "h": 96
    },
@@ -702,7 +722,7 @@
   },
   "icon-mute-cream": {
    "frame": {
-    "x": 1824,
+    "x": 1924,
     "y": 100,
     "w": 96,
     "h": 96
@@ -722,8 +742,28 @@
   },
   "icon-close-cream": {
    "frame": {
+    "x": 1824,
+    "y": 200,
+    "w": 96,
+    "h": 96
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 96
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 96
+   }
+  },
+  "icon-help-cream": {
+   "frame": {
     "x": 1924,
-    "y": 100,
+    "y": 200,
     "w": 96,
     "h": 96
    },
@@ -743,7 +783,7 @@
   "icon-sliders-cream": {
    "frame": {
     "x": 1824,
-    "y": 200,
+    "y": 300,
     "w": 96,
     "h": 96
    },
@@ -763,7 +803,7 @@
   "coin": {
    "frame": {
     "x": 1924,
-    "y": 200,
+    "y": 300,
     "w": 80,
     "h": 80
    },
@@ -782,7 +822,7 @@
   }
  },
  "meta": {
-  "image": "atlas.png",
+  "image": "atlas-adult.png",
   "format": "RGBA8888",
   "size": {
    "w": 2048,

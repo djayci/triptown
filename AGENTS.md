@@ -51,10 +51,12 @@ pnpm build | lint | test | typecheck
 pnpm format                  # prettier
 pnpm --filter @triptown/whack dev
 pnpm --filter @triptown/whack build:demo      # demo build with the mock service (dist-demo/)
-pnpm --filter @triptown/whack atlas           # rebuild public/assets/atlas.{png,json} from art/art.mjs
+pnpm --filter @triptown/whack atlas           # rebuild public/assets/atlas-{candy,adult}.{png,json} (add a skin name to build one)
 pnpm --filter @triptown/fairness simulate     # Monte Carlo RTP report -> packages/fairness/reports/
 pnpm --filter @triptown/core exec vitest run src/round.test.ts   # single test file
 ```
+
+Client compliance behaviour is verified by driving the real client, never by eye: `node apps/whack/scripts/presentation-check.mjs` (no win cues at or below the stake) and `node apps/whack/scripts/timing-check.mjs --profile <name> --min-ms <gap>` (minimum gap between rounds, and no hold-to-repeat). Both must pass for every active profile before a release.
 
 Before calling work done, run `pnpm lint typecheck test` for the packages you touched (for example `pnpm turbo run lint typecheck test --filter=@triptown/core...`).
 
@@ -73,7 +75,7 @@ These protect real money and certification. Breaking one is a bug, even when the
 
 ## Compliance (certification and licensing)
 
-These games are built to be certified by accredited test labs and licensed to regulated operators. The current Whack Crash audit is **`docs/compliance/whack-crash-2026-09-16.md`** (re-audit; supersedes the 2026-09-15 one). Its open blockers, in order: celebrating a return at or below the stake, no rules screen, the `'*'` postMessage, interactive decoy moles, no clock/net position/reality check, no in-game history view. **`docs/compliance/whack-crash-2026-09-15.md`** remains the platform baseline (GLI-19, the UK, EU/offshore jurisdictions, the Americas and Africa); `night-meet-2026-09-16.md` and `going-viral-2026-09-16.md` are concept-stage audits (Nigeria and Ghana); the latter's game was dropped but its market and display findings stand. Shared fixes land through the `compliance-baseline` OpenSpec change. To audit any game, run the **`game-compliance-audit`** skill (`.claude/skills/game-compliance-audit/`). Its `references/jurisdictions.md` holds the dated rules and the watch list. Everything here is research, not legal advice.
+These games are built to be certified by accredited test labs and licensed to regulated operators. The current Whack Crash audit is **`docs/compliance/whack-crash-2026-09-16.md`**; its section 10 records the fixes verified the same day (result presentation, rules screen, operator bridge, non-interactive decoys, clock and net position, history view, RTP band, adult skin). What remains there is Kenya hosting and the licensing questions for counsel. **`docs/compliance/whack-crash-2026-09-15.md`** is the platform baseline; `night-meet-2026-09-16.md` and `going-viral-2026-09-16.md` are concept-stage audits. Shared fixes land through the `compliance-baseline` OpenSpec change. To audit any game, run the **`game-compliance-audit`** skill (`.claude/skills/game-compliance-audit/`). Its `references/jurisdictions.md` holds the dated rules and the watch list. Everything here is research, not legal advice.
 
 **Rules for every game (from the audits; each is a certification blocker):**
 
@@ -113,7 +115,7 @@ These games are built to be certified by accredited test labs and licensed to re
 - DPR is capped at 2. The ticker pauses when the page is hidden. Check layouts at 390×844 and 1440×900.
 - Respect `prefers-reduced-motion`: no screen shake and no confetti.
 - The client animates `G(t)` locally, applies setbacks as `BAD_MOLE` events arrive, shows the expected payout as soon as the player whacks, then reconciles with the server's settlement. Repeated taps send exactly one cash-out request.
-- Art is vector placeholders in `apps/whack/art/art.mjs`, packed into a committed atlas. After editing the art, run `atlas` and commit both output files.
+- Art is vector placeholders: shapes in `apps/whack/art/art.mjs`, palette and character treatment per skin in `art/skins/{candy,adult}.mjs`. One atlas per skin is committed, and a session loads only its profile's skin. After editing the art, run `atlas` and commit all four output files. The adult skin exists to answer the minors-appeal rules (CAP under-18 guidance §14, Kenya reg 95(1)(d), PT R7c, BR 1.231 art. 12 XVIII); its header lists what it is answering, so read that before changing it.
 - Audio budget is 1.5 MB total (WebM/Opus plus MP3 fallback). Music loads after the first frame. Audio unlocks on the first gesture. Wrap every `localStorage` access in try/catch because sandboxed iframes may block it. Record every audio source and its licence in `apps/whack/assets/audio/SOURCES.md`.
 - Mock rounds can be forced with `?force=` in demo builds (see `MockRoundService.forceNext`).
 

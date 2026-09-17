@@ -1,0 +1,19 @@
+{
+  "url": "http://localhost:5180",
+  "minMs": 2500,
+  "date": "2026-09-16T18:02:08.235Z",
+  "starts": [
+    3090,
+    5750,
+    8412,
+    11067
+  ],
+  "gaps": [
+    2660,
+    2662,
+    2655
+  ],
+  "worst": 2655,
+  "holdStartedARound": false,
+  "pass": true
+}

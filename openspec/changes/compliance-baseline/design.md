@@ -226,6 +226,16 @@ Upstash cost goes up (about 3 more commands per round). This is acceptable at MV
 - **Band, not ±0.1% (user decision, 2026-09-15):** no deterministic cent rounding can keep every cash-out value within ±0.1% at small stakes. At 0.20, x1.02 pays 0.20 (95.1%) and x1.025 pays 0.21 (99.4%). At 1.00 the band is about ±0.5%, and at 10.00 about ±0.05%. Reports publish the worst-case band per stake. Certification gates on the jurisdiction minimum RTP at every stake (GLI-19 §4.7.1a), and the rules disclose the rounding effect. Theoretical (unrounded) reports keep the ±0.1% gate for profile validation.
 - The light profile sets `minCashout` 0 (user decision, revised 2026-09-16): after a bad mole the value can fall under x1.00, and blocking the cash-out there left players stuck watching a round they wanted out of. Regulated profiles keep x1.01. A floor is still a stopping time either way, so RTP is unchanged at 97.0%.
 
+### D24. Client compliance is proven by driving the client, not by reading the code
+
+Three scripts run against a real browser and fail the build rather than reporting:
+
+- `apps/whack/scripts/presentation-check.mjs` plays a forced win, a forced below-stake cash-out and a crash, reads the audio manager's cue log and the view's own result state, and fails if any non-win round produces a win cue. It also fails when a "not a win" case never settles, so it cannot pass by doing nothing.
+- `apps/whack/scripts/timing-check.mjs` hammers the start control, reads the client's own round-start log, and checks the worst gap against the market minimum; it then holds the key down across a full gap and fails if a second round starts.
+- `apps/whack/scripts/copy-check.mjs` fails on any player-facing string outside `src/i18n/en.ts` and on near-miss or skill wording anywhere.
+
+The first two need dev-only hooks (`window.__triptownAudioLog`, `window.__triptownView`), which exist only in demo builds. That is deliberate: the checks drive the same client a player uses, and production bundles carry neither hook nor mock.
+
 ## Risks / Trade-offs
 
 - **[Profile values are unverified legal defaults]** → Each profile carries a `sources` note and `reviewed: false`. The `game-compliance-audit` skill lists them for counsel sign-off before production use.

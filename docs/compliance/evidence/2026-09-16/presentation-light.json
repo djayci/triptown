@@ -1,0 +1,69 @@
+{
+  "url": "http://localhost:5180",
+  "date": "2026-09-16T17:58:59.983Z",
+  "results": [
+    {
+      "case": "win above stake",
+      "expect": "win",
+      "kind": "win",
+      "celebrated": true,
+      "audio": [
+        "lobby:start",
+        "sfx:bet",
+        "lobby:stop",
+        "music:start",
+        "tone:start",
+        "sfx:boost",
+        "sfx:tick",
+        "sfx:whack",
+        "tone:stop",
+        "music:stop",
+        "lobby:start",
+        "sfx:win"
+      ],
+      "pass": true
+    },
+    {
+      "case": "return below stake after a setback",
+      "expect": "not-win",
+      "kind": "loss",
+      "celebrated": false,
+      "audio": [
+        "lobby:start",
+        "sfx:bet",
+        "lobby:stop",
+        "music:start",
+        "tone:start",
+        "sfx:setback",
+        "music:duck",
+        "sfx:whack",
+        "tone:stop",
+        "music:stop",
+        "lobby:start",
+        "sfx:return"
+      ],
+      "pass": true
+    },
+    {
+      "case": "crash",
+      "expect": "not-win",
+      "kind": "loss",
+      "celebrated": false,
+      "audio": [
+        "lobby:start",
+        "sfx:bet",
+        "lobby:stop",
+        "music:start",
+        "tone:start",
+        "sfx:setback",
+        "music:duck",
+        "sfx:boost",
+        "tone:stop",
+        "music:stop",
+        "lobby:start",
+        "sfx:crash"
+      ],
+      "pass": true
+    }
+  ]
+}

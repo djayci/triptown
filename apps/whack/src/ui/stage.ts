@@ -1,6 +1,7 @@
 import { Container, Graphics, Sprite, type Texture, type Ticker } from 'pixi.js';
+import { t } from '../i18n/en';
 import { gsap, prefersReducedMotion } from '@triptown/engine';
-import { COLORS, METER_COLORS } from '../theme';
+import { COLORS, SKIN, meterColors } from '../theme';
 import { drawSticker, labelStyle, text } from './primitives';
 
 export type Frames = (name: string) => Texture;
@@ -83,11 +84,12 @@ export class Hole extends Container {
 
 export type StageMood = 'sun' | 'lime' | 'coral';
 
-const MOODS: Record<StageMood, [number, number]> = {
+/** Read at draw time: the palette is only known once the profile's skin is applied at boot. */
+const moods = (): Record<StageMood, [number, number]> => ({
   sun: [COLORS.sun, COLORS.sun2],
   lime: [COLORS.lime, COLORS.lime2],
   coral: [COLORS.coral, COLORS.coral2],
-};
+});
 
 /** Sticker-framed stage with slowly spinning sunburst rays and a content layer clipped to its shape. */
 export class Stage extends Container {
@@ -192,13 +194,15 @@ export class Stage extends Container {
 
   private redrawRays() {
     const { w, h } = this;
-    const [a, b] = MOODS[this.mood];
+    const [a, b] = moods()[this.mood];
     this.base.clear().rect(0, 0, w, h).fill(a);
     const cx = w / 2;
     const cy = h * 0.42;
     const r = Math.hypot(w, h);
     this.rays.clear();
     this.rays.position.set(cx, cy);
+    // The adult skin has no sunburst: a flat ground, so nothing reads as a cartoon backdrop.
+    if (SKIN === 'adult') return;
     const step = (Math.PI * 2) / 40;
     for (let i = 0; i < 40; i += 2) {
       const a0 = i * step;
@@ -212,8 +216,8 @@ export class Stage extends Container {
 export class Meter extends Container {
   private readonly bg = new Graphics();
   private readonly segs = new Graphics();
-  private readonly left = text('SLOW', labelStyle(10));
-  private readonly right = text('FAST', labelStyle(10, COLORS.pink));
+  private readonly left = text(t('meter.slow'), labelStyle(10));
+  private readonly right = text(t('meter.fast'), labelStyle(10, COLORS.pink));
   private level = -1;
 
   constructor(private w = 326) {
@@ -250,7 +254,7 @@ export class Meter extends Container {
     const gap = 3;
     const segW = (x1 - x0 - gap * 9) / 10;
     this.segs.clear();
-    METER_COLORS.forEach((c, i) => {
+    meterColors().forEach((c, i) => {
       this.segs
         .roundRect(x0 + i * (segW + gap), 13, segW, 14, 4)
         .fill(i < this.level ? c : COLORS.meterOff)

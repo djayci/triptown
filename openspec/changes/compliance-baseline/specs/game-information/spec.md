@@ -1,11 +1,11 @@
 ## Purpose
 
-Gives players complete, accurate game information before and during play: rules, return to player, limits, and the latency and disconnect policies. Test labs and regulators require this (GLI-19 §4.4, UKGC RTS 3/4, MGA PPD art. 7, Brazil Portaria 1.207, Kenya Reg 45).
+Gives players complete, accurate game information before they commit to a bet: rules, return to player, limits, and the latency and disconnect policies. Test labs and regulators require this (GLI-19 §4.4, UKGC RTS 3/4, MGA PPD art. 7, Brazil Portaria 1.207 art. 11, Kenya Reg 45).
 
 ## ADDED Requirements
 
 ### Requirement: Rules available before betting
-The game SHALL provide a rules and help screen that opens from the betting screen without placing a bet, reachable in one tap from every game state. Its content SHALL be generated from the active game config and profile, never hard-coded. It SHALL cover at least:
+The game SHALL provide a rules and help screen that opens from the betting screen without placing a bet, reachable in one tap from every state in which the player can still act: before a bet, between rounds, and on a result. The control MAY be hidden while a round is running, because the wager is already committed, the outcome is fixed before the round starts and the round cannot be altered, so no decision remains for the rules to inform; it SHALL reappear the moment the round settles. Its content SHALL be generated from the active game config and profile, never hard-coded. It SHALL cover at least:
 - how the multiplier grows and speeds up;
 - whether setbacks are on, and if so their average rate, their effect (halving) and that they give no warning;
 - the instant bust probability;
@@ -23,6 +23,10 @@ The game SHALL provide a rules and help screen that opens from the betting scree
 #### Scenario: Open rules without betting
 - **WHEN** a new player opens the game and taps the rules control before any bet
 - **THEN** the full rules open without a wager and without changing the balance
+
+#### Scenario: Rules return as soon as the round settles
+- **WHEN** a round is running and the rules control is hidden, and the round then settles as a win, a below-stake return or a crash
+- **THEN** the rules control is visible again before the player can place the next bet, and opening it shows the same content as before the round
 
 #### Scenario: Rules follow the profile
 - **WHEN** the rules are opened under a profile with `setbacksMode: off` and `maxMultiplier` 100
