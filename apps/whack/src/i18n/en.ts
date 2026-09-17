@@ -21,7 +21,8 @@ export const EN = {
   'button.playAgain': 'PLAY AGAIN',
   'button.betAgain': 'BET AGAIN',
   'button.playAgainSub': 'Same bet',
-  'button.practice': 'WATCH A ROUND',
+  // Two lines: it shares its row with the primary action, so it is narrower than one line needs.
+  'button.practice': 'WATCH\nA ROUND',
   'button.practiceSub': 'No stake',
   'button.continue': 'CONTINUE',
   'button.continueSub': 'Back to betting',

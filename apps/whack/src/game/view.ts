@@ -253,10 +253,12 @@ export class GameView extends CrashViewBase implements CrashView {
     this.practiceButton = new StickerButton({
       width: 358,
       height: 46,
-      fill: COLORS.cream,
+      // Sky, not cream: on a cream face the cream sub-label was invisible, and the button read as a
+      // disabled control rather than a second option. Subordinate is carried by width and label size.
+      fill: COLORS.sky,
       label: t('button.practice'),
-      sub: t('button.practiceSub'),
       labelSize: 20,
+      a11y: `${t('button.practice')} — ${t('button.practiceSub')}`,
       onTap: () => this.handlers.onPractice(),
     });
     this.practiceButton.visible = false;

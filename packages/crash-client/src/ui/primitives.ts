@@ -85,6 +85,13 @@ export class StickerButton extends Container {
     this.opts = opts;
     const size = opts.labelSize ?? 44;
     this.labelText = text(opts.label, displayStyle(size, COLORS.cream, 4, 4), [0, 0.5]);
+    // A label broken over two lines centres its lines against each other; left-aligned, the short line
+    // hangs off to one side and reads as a mistake. The line height has to clear the drop shadow too,
+    // or the descenders of one line sit on top of the next.
+    if (opts.label.includes('\n')) {
+      this.labelText.style.align = 'center';
+      this.labelText.style.lineHeight = Math.round(size * 1.25);
+    }
     this.subText = opts.sub !== undefined ? text(opts.sub.toUpperCase(), labelStyle(12, COLORS.cream), [0, 0.5]) : null;
     this.iconSprite = opts.icon ? new Sprite(opts.icon) : null;
     this.addChild(this.bg, this.face);
@@ -111,6 +118,9 @@ export class StickerButton extends Container {
   }
 
   setLabel(label: string, sub?: string) {
+    const multiline = label.includes('\n');
+    this.labelText.style.align = multiline ? 'center' : 'left';
+    this.labelText.style.lineHeight = multiline ? Math.round((this.opts.labelSize ?? 44) * 1.25) : 0;
     this.labelText.text = label;
     if (this.subText && sub !== undefined) this.subText.text = sub.toUpperCase();
     this.accessibleTitle = sub ? `${label} ${sub}` : label;
@@ -193,9 +203,12 @@ export class StickerButton extends Container {
     } else if (this.labelText.style.fontSize !== base) {
       this.labelText.style.fontSize = base;
     }
+    // The measured width includes the drop shadow, which only extends to the right, so centring on it
+    // pushes the text off-centre by half the shadow. Take it back.
+    const SHADOW = 4;
     const textW = Math.max(this.labelText.width, this.subText?.width ?? 0);
     const total = iconSize + gap + textW;
-    let x = (w - total) / 2;
+    let x = (w - total) / 2 - SHADOW / 2;
     if (this.iconSprite?.visible) {
       this.iconSprite.width = this.iconSprite.height = iconSize;
       this.iconSprite.position.set(x, h / 2 - iconSize / 2);
