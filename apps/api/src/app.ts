@@ -3,6 +3,7 @@ import {
   MemoryRoundStore,
   RoundHost,
   profileFromTemplate,
+  registerGame,
   registeredGames,
   type GameId,
   type HostErrorCode,
@@ -33,9 +34,6 @@ import { roundsCsv } from './round-csv';
 import { aesGcmSeedCipher } from './seed-cipher';
 import { signSession, verifySessionToken } from './session-token';
 import { TimeSource } from './time-source';
-import { MemoryStepRoundStore, type StepRoundStore } from '@triptown/steps';
-import { RedisStepRoundStore } from './steps/redis-step-store';
-import { createStepHost, createStepRoutes } from './steps/routes';
 
 export interface AppOptions {
   store: RoundStore;
@@ -58,12 +56,8 @@ export interface AppOptions {
   operatorKeys?: Record<string, string>;
   /** Software integrity check of the running bundle. */
   integrity?: { dir: string; publicKeyPem: string; cronSecret?: string };
-  /** Step game (Night Gallop) round records; in-memory when unset. */
-  stepStore?: StepRoundStore;
-  /** Step rounds with no action for this long settle on the server (design D5). */
-  stepAbandonAfterMs?: number;
-  /** Dev and test only: enables POST /v1/steps/dev/force. */
-  allowStepForce?: boolean;
+  /** Region this deployment runs in, checked against profiles' `hostingRegions`. */
+  deploymentRegion?: string;
 }
 
 const STATUS: Record<HostErrorCode, ContentfulStatusCode> = {
@@ -83,9 +77,18 @@ const STATUS: Record<HostErrorCode, ContentfulStatusCode> = {
   integrity_blocked: 423,
   round_voided: 503,
   no_parts_left: 409,
+  region_blocked: 403,
+  region_required: 422,
+  profile_unavailable: 503,
 };
 
 export function createApp(opts: AppOptions) {
+  // Games that are skins on an existing engine register here: same certified config ids, same
+  // committed RTP reports, nothing to recertify. The Lift plays the Whack Crash engine.
+  registerGame('the-lift', 'whack-crash');
+  // Beat the Gate plays the same engine (beat-the-gate-mvp D1).
+  registerGame('beat-the-gate', 'whack-crash');
+
   const makeHost = (game: GameId) =>
     new RoundHost({
       store: opts.store,
@@ -115,21 +118,6 @@ export function createApp(opts: AppOptions) {
   };
   const keepAliveMs = opts.keepAliveMs ?? 10_000;
   const app = new Hono();
-  // Step games have their own engine and routes (night-gallop-mvp D6) over the same sessions store.
-  const stepOptions = {
-    store: opts.store,
-    steps: opts.stepStore ?? new MemoryStepRoundStore(),
-    sessionSecret: opts.sessionSecret,
-    clock: opts.timeSource ?? { now: opts.now ?? (() => Date.now()) },
-    ...(opts.profiles && { profiles: opts.profiles }),
-    ...(opts.seedCipher && { seedCipher: opts.seedCipher }),
-    ...(opts.audit && { audit: opts.audit }),
-    crypto: nodeCrypto,
-    ...(opts.initialBalanceMinor !== undefined && { initialBalanceMinor: opts.initialBalanceMinor }),
-    ...(opts.stepAbandonAfterMs !== undefined && { abandonAfterMs: opts.stepAbandonAfterMs }),
-    ...(opts.allowStepForce && { allowForce: true }),
-  };
-  const stepHost = createStepHost(stepOptions);
 
   app.use(
     '*',
@@ -184,6 +172,9 @@ export function createApp(opts: AppOptions) {
       }
     });
 
+  // Latency probe for the client's RTT estimate. Deliberately touches no store (design D20).
+  app.get('/v1/ping', (c) => c.json({ now: host.now() }));
+
   app.get('/health', async (c) => {
     const ok = opts.ping ? await opts.ping().catch(() => false) : true;
     return c.json({ ok, store: opts.store.constructor.name }, ok ? 200 : 503);
@@ -230,7 +221,7 @@ export function createApp(opts: AppOptions) {
   app.get('/v1/admin/reconcile/cron', async (c) => {
     const given = (c.req.header('Authorization') ?? '').replace(/^Bearer\s+/i, '');
     if (!opts.integrity?.cronSecret || !safeEqual(given, opts.integrity.cronSecret)) throw new HostError('forbidden', 'Cron access required');
-    return c.json({ ...(await host.reconcile()), stepsAbandonedSettled: await stepHost.sweepAbandoned() });
+    return c.json(await host.reconcile());
   });
 
   app.post('/v1/admin/reconcile', async (c) => {
@@ -259,8 +250,6 @@ export function createApp(opts: AppOptions) {
     }
   });
 
-  app.route('/v1/steps', createStepRoutes(stepOptions, stepHost));
-
   app.post('/v1/sessions', async (c) => {
     const body = (await c.req.json().catch(() => ({}))) as {
       clientSeed?: string;
@@ -269,6 +258,7 @@ export function createApp(opts: AppOptions) {
       player?: string;
       clientVersion?: string;
       game?: string;
+      region?: string;
     };
     // Binding a player id locks, paces and exposes that player's history, so only the operator may do it.
     if (body.player !== undefined && (!body.operator || operatorFromKey(c.req.header('X-Operator-Key') ?? '') !== body.operator)) {
@@ -283,6 +273,9 @@ export function createApp(opts: AppOptions) {
       playerId: body.player === undefined ? undefined : String(body.player).slice(0, 128),
       profile: body.profile,
       clientVersion: body.clientVersion,
+      // The player region binds market rules, so like the player id it is only taken from the operator.
+      playerRegion: body.operator && operatorFromKey(c.req.header('X-Operator-Key') ?? '') === body.operator ? body.region : undefined,
+      deploymentRegion: opts.deploymentRegion,
     });
     return c.json({ token: await signSession(session.sessionId, opts.sessionSecret), session }, 201);
   });
@@ -395,7 +388,6 @@ export async function appFromEnv(env: Record<string, string | undefined> = proce
   const retentionDays = Number(env.ROUND_RETENTION_DAYS ?? DEFAULT_RETENTION_DAYS);
   if (!Number.isFinite(retentionDays) || retentionDays < 1) throw new Error('ROUND_RETENTION_DAYS must be a positive number of days');
   const store = redis ? new RedisRoundStore(redis, 'wc:', retentionDays) : new MemoryRoundStore();
-  const stepStore = redis ? new RedisStepRoundStore(redis, 'wc:', retentionDays) : new MemoryStepRoundStore();
   const auditRef: { current?: RedisAuditLog } = {};
   const timeSource = redis
     ? new TimeSource({
@@ -410,7 +402,6 @@ export async function appFromEnv(env: Record<string, string | undefined> = proce
   const audit = auditRef.current;
   return createApp({
     store,
-    stepStore,
     timeSource,
     seedCipher,
     audit,
@@ -420,6 +411,7 @@ export async function appFromEnv(env: Record<string, string | undefined> = proce
     integrity: integrityFromEnv(env),
     ping: redis ? () => redisPing(redis) : undefined,
     sessionSecret: secret,
+    deploymentRegion: env.DEPLOYMENT_REGION ?? env.VERCEL_REGION,
     allowedOrigins: env.ALLOWED_ORIGINS?.split(',').map((s) => s.trim()).filter(Boolean),
   });
 }

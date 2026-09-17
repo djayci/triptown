@@ -18,18 +18,27 @@ Settled decisions are not up for debate while you implement. If code and spec di
 ```
 apps/
   whack/        Vite + PixiJS v8 game client (static build)       @triptown/whack
+  lift/         The Lift: a skin on the Whack Crash engine         @triptown/lift
   sandbox/      fake operator page: iframe embed + verifier       @triptown/sandbox
   api/          Hono on Vercel functions: rounds, SSE, cashout    @triptown/api
 packages/
   fairness/     seeds, HMAC streams, crash time, setbacks and boosts, verifier, RTP simulator
   core/         pure round model: path value, state machine, money, RoundHost, RoundStore, game registry
   rgs-client/   RoundService interface, MockRoundService (./mock), shared test suite (./testing)
+  crash-client/ the game-neutral crash client: round controller, CrashScreen layout, HUD, theme,
+                DOM compliance panels (rules, history, fairness, overlay) and the shared checks
   engine/       Pixi helpers: app bootstrap/DPR, assets, tweens, particles, audio, reduced motion
 ```
 
 Dependency direction: `fairness` ← `core` ← `rgs-client` / `api` ← `whack`. `engine` knows nothing about rounds.
 
 Packages export TypeScript source directly (`"exports": "./src/index.ts"`). They have no build step, and apps bundle them.
+
+**A new game is a skin, not a product.** It extends `CrashScreen` from `@triptown/crash-client`,
+supplies a `GameStage` and its words, and implements no layout and no compliance logic — those live
+in `CrashViewBase` and hold by construction. `apps/lift` is the worked example: 34 lines of view.
+A stage receives the multiplier and nothing else, never the crash time, which is what keeps the
+no-advance-warning rule true rather than merely intended.
 
 **Shared packages name the model, never a game.** Events are `SETBACK` / `BOOST` / `PART_SETTLED`; a split stake has `stakeParts` and settles into `parts`. A game is registered at runtime, not listed in a type:
 
@@ -56,7 +65,7 @@ pnpm --filter @triptown/fairness simulate     # Monte Carlo RTP report -> packag
 pnpm --filter @triptown/core exec vitest run src/round.test.ts   # single test file
 ```
 
-Client compliance behaviour is verified by driving the real client, never by eye: `node apps/whack/scripts/presentation-check.mjs` (no win cues at or below the stake) and `node apps/whack/scripts/timing-check.mjs --profile <name> --min-ms <gap>` (minimum gap between rounds, and no hold-to-repeat). Both must pass for every active profile before a release.
+Client compliance behaviour is verified by driving the real client, never by eye: `node packages/crash-client/scripts/presentation-check.mjs` (no win cues at or below the stake) and `node packages/crash-client/scripts/timing-check.mjs --profile <name> --min-ms <gap>` (minimum gap between rounds, and no hold-to-repeat). Both must pass for every active profile before a release.
 
 Before calling work done, run `pnpm lint typecheck test` for the packages you touched (for example `pnpm turbo run lint typecheck test --filter=@triptown/core...`).
 
@@ -65,7 +74,7 @@ Before calling work done, run `pnpm lint typecheck test` for the packages you to
 These protect real money and certification. Breaking one is a bug, even when the tests pass.
 
 1. **`fairness` and `core` stay pure.** No Pixi, GSAP, Howler, DOM globals or `node:*` imports. They must run unchanged in the browser mock, the API and the verifier. ESLint enforces this (`eslint.config.js`). Never weaken that rule to make an import work. Test files and `scripts/` are exempt.
-2. **Payout never depends on skill or strategy.** The payout is a martingale (D4). Crash hazard depends only on elapsed time. Setbacks and boosts are independent of the crash time and of each other. There are no warnings before a crash. Any change to growth, setbacks, boosts, config limits or crash sampling needs a fresh `simulate` run showing RTP at 97% ± 0.1% for every strategy, with the updated report committed. Each modifier combination is its own config id (`v1`/`v2`, `-rising`), and a profile may only use an id that has a committed passing report; boosted ids need their own lab acceptance before any regulated market uses them.
+2. **Payout never depends on skill or strategy.** The payout is a martingale (D4). Crash hazard depends only on elapsed time. Setbacks and boosts are independent of the crash time and of each other. There are no warnings before a crash. Any change to growth, setbacks, boosts, config limits or crash sampling needs a fresh `simulate` run showing RTP at 97% ± 0.1% for every strategy, with the updated report committed. Each modifier combination *and each pace* is its own config id: `v1`/`v2` are the fast family (median round 3.4 s), `v3`/`v4` the slow one (8.4 s), odd numbers unboosted and even boosted, `-rising` meaning no setbacks. A profile may only use an id with a committed passing report of at least `MIN_REPORT_ROUNDS`; boosted ids need their own lab acceptance before any regulated market uses them. Retiring a pace does not delete its ids — a settled round must still verify.
 3. **The client never learns the outcome early.** A running round must not expose crash time `T` or future setbacks or boosts in any response, event or snapshot. `T` arrives only with `CRASH`. The server seed is revealed only on rotation.
 4. **Server time is the truth.** Cash-out time is server receive time minus `t0`. There is no latency grace. Ties resolve setback first. Settlement is idempotent. Debit happens before the round starts. Auto cash-out, max win and `tMax` (60 s) settle on the server whether or not a client is connected.
 5. **Money is integer minor units.** Use `payoutMinor` / `accrueCashout` + `settleAccrual` and `formatMinor` from `core`: exact accrual, rounded half-up once per round (compliance-baseline D23). Minimum stake is 0.20. Never keep balances or payouts as float currency.
@@ -89,7 +98,7 @@ These games are built to be certified by accredited test labs and licensed to re
 6. **No child-appealing art in regulated builds or marketing.** Portugal R7c and Kenya Reg 95 apply to the game itself. UK CAP 16.3.12, AGCO 2.03 and Brazil 1.231 cover tiles, demos and ads. Keep an adult skin available.
 7. **Support player-protection hooks:** session clock, net position, and an operator reality-check pause that only takes effect between rounds. Keep per-round history with an operator API, and use a pinned postMessage origin, never `'*'`.
 8. **Record per-market differences as jurisdiction profile flags, not forks.** Examples: `minCycleMs`, `maxMultiplier`, `minCashout`, `setbacksMode`, `skin`, `showNetPosition`, `hostingRegion`.
-9. **Publish the RTP band, not just the headline.** Half-up rounding at the 0.20 minimum stake moves measured RTP to 96.68%-97.06% depending on strategy, always in the studio's favour at small stakes. GLI-19 4.7.1(a) wants the minimum RTP met at any single bet level and 4.7.2(a) wants the derivation explained, so state the band wherever the RTP appears.
+9. **Publish the RTP band measured at the stake the market actually sells.** Half-up rounding costs most at the smallest stake and almost nothing above it: `whack-crash/v3-rising` measures 96.35%-97.18% at a 0.20 stake but 97.00%-97.01% at 1.00. A band measured at 0.20 is therefore both wrong and pessimistic for Nigeria, whose minimum is 100.00 (500x larger), while a flat 97% would breach GLI-19 4.7.1(a) in any market that does allow 0.20. `reports/bands.json` holds one band per config id *per stake level* and `bandForStake()` picks the largest measurement at or below the market's `minBetMinor` — never above it, which would understate the spread. A config with no measured band must fail the build (`scripts/check-bands.mjs`), never fall back to the headline figure: the rules screen drops the band silently when one is missing.
 10. **Rounding must not be one-way or break the published RTP.** GLI-19 §4.7.1(a) requires the minimum RTP at any single bet level. A game with several credits per round accrues exact values and rounds once per round, sets a minimum value per credit, and publishes RTP at the minimum bet. Nevada Notice 2026-14 bans "only round down" (by analogy).
 11. **No children, cute animals or runner-game looks, in the game or its tiles.** Characters must read as adults (realistic proportions, age cues, work gear). No "cuddly" animals, even as hazards. Source: CAP under-18 guidance (Oct 2025), CAP 16.3.14 ("seems to be under 25"), ASA Videoslots ruling (Jul 2026).
 12. **A split stake stays one game.** One debit, one round id, one cycle record. Celebrate only when the round's total return exceeds the stake, never per partial cash-out. Record every partial cash-out in recall. Portugal allows no partial cash-out (Reg. 308 art. 2 h, R12, R26, R29). Source: RTS 14C/14F, GLI-19 §4.14.2(i)(j).

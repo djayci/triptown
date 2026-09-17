@@ -15,7 +15,7 @@ registerGame('paper-route');
 
 // Good mole (good-mole change): boosts in the path, the stream and the rules.
 
-const BOOSTED = GAME_CONFIGS['whack-crash/v2']!;
+const BOOSTED = GAME_CONFIGS['whack-crash/v4']!;
 const boostedProfile = { ...profileFromTemplate('light'), minCycleMs: 0 };
 
 function setup() {
@@ -45,8 +45,8 @@ async function aim(
 
 describe('good mole rounds (3.1-3.3)', () => {
   it('plays the boosted config under a profile with boostsMode boost', () => {
-    expect(effectiveConfig('whack-crash', boostedProfile).id).toBe('whack-crash/v2');
-    expect(BOOSTED).toMatchObject({ boostFactor: 1.05, boostRate: 0.4 });
+    expect(effectiveConfig('whack-crash', boostedProfile).id).toBe('whack-crash/v4');
+    expect(BOOSTED).toMatchObject({ boostFactor: 1.05, boostRate: 0.4 / 2.5 });
     // A game with no boosted variant registered keeps the unboosted maths.
     expect(effectiveConfig('paper-route', boostedProfile).id).toBe('paper-route/v1');
   });
@@ -107,9 +107,9 @@ describe('good mole rules (3.5)', () => {
     const boosted = describeRules(BOOSTED, boostedProfile, DEFAULT_CURRENCY).map((i) => i.key);
     expect(boosted.indexOf('boosts')).toBe(boosted.indexOf('setbacks') + 1);
     const item = describeRules(BOOSTED, boostedProfile, DEFAULT_CURRENCY).find((i) => i.key === 'boosts');
-    expect(item!.params).toEqual({ ratePerSecond: 0.4, factor: 1.05, warning: false });
+    expect(item!.params).toEqual({ ratePerSecond: 0.4 / 2.5, factor: 1.05, warning: false });
 
-    const plain = describeRules(GAME_CONFIGS['whack-crash/v1']!, { ...boostedProfile, boostsMode: 'off' }, DEFAULT_CURRENCY);
+    const plain = describeRules(GAME_CONFIGS['whack-crash/v3']!, { ...boostedProfile, boostsMode: 'off' }, DEFAULT_CURRENCY);
     expect(plain.some((i) => i.key === 'boosts')).toBe(false);
   });
 });

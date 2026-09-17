@@ -23,7 +23,7 @@ describe('profile binding (1.5)', () => {
     const { host: h } = host({ defaultProfile: profileFromTemplate('regulated-uk', ORIGIN) });
     const info = await h.createSession(100_00);
     expect(info.profile.name).toBe('regulated-uk');
-    expect(info.config.id).toBe('whack-crash/v1-rising');
+    expect(info.config.id).toBe('whack-crash/v3-rising');
   });
 
   it('binds an operator profile by operator id and rejects unknown operators', async () => {
@@ -41,7 +41,7 @@ describe('profile binding (1.5)', () => {
     expect(err).toBeInstanceOf(HostError);
     expect(err).toMatchObject({ code: 'profile_not_allowed' });
     const dev = host({ defaultProfile: profileFromTemplate('light'), allowOverride: true }).host;
-    expect((await dev.createSession(100_00, { profile: 'pt-draft' })).config.id).toBe('whack-crash/v1-rising+cap100');
+    expect((await dev.createSession(100_00, { profile: 'pt-draft' })).config.id).toBe('whack-crash/v3-rising+cap100');
   });
 
   it('refuses draft or origin-less regulated profiles without the override', () => {
@@ -120,9 +120,9 @@ describe('kill switch (1.7)', () => {
     expect(['won', 'crashed']).toContain(result.result);
     await expect(h.startRound(info.sessionId, { betMinor: 1_00 })).rejects.toMatchObject({ code: 'game_disabled' });
     await h.setKillSwitch('game:whack-crash', false);
-    await h.setKillSwitch('config:whack-crash/v2', true);
+    await h.setKillSwitch('config:whack-crash/v4', true);
     await expect(h.startRound(info.sessionId, { betMinor: 1_00 })).rejects.toMatchObject({ code: 'game_disabled' });
-    await h.setKillSwitch('config:whack-crash/v2', false);
+    await h.setKillSwitch('config:whack-crash/v4', false);
     await h.setKillSwitch('profile:light', true);
     await expect(h.startRound(info.sessionId, { betMinor: 1_00 })).rejects.toMatchObject({ code: 'game_disabled' });
     await h.setKillSwitch('profile:light', false);

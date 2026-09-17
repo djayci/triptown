@@ -4,6 +4,7 @@
 // no "would have reached", and never call a return at or below the stake a win (UK RTS 14F).
 
 export const EN = {
+  'rules.rtpBandMissing': 'Measured band unavailable for this configuration \u2014 this figure is incomplete.',
   // Branding and stage
   'logo.whack': 'WHACK',
   'logo.crash': 'CRASH',

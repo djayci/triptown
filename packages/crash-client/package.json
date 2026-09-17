@@ -1,0 +1,22 @@
+{
+  "name": "@triptown/crash-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@triptown/core": "workspace:*",
+    "@triptown/engine": "workspace:*",
+    "@triptown/fairness": "workspace:*",
+    "@triptown/rgs-client": "workspace:*",
+    "pixi.js": "^8.20.1",
+    "gsap": "^3.15.0"
+  }
+}

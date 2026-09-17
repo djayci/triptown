@@ -7,8 +7,8 @@ Stakelogic settlement (25 Jun 2026, £122,835).
 | File | What it proves | Command |
 |---|---|---|
 | `workspace.log` | Lint, typecheck, tests and production builds across the monorepo | `pnpm turbo run lint typecheck test build` |
-| `presentation-<profile>.json/.log` | A return at or below the stake is never celebrated: no win sound, no confetti, and the round is presented as a loss (UK RTS 14F, AGCO 2.20) | `node apps/whack/scripts/presentation-check.mjs --profile <name>` |
-| `timing-<market>.json/.log` | Minimum gap between round starts, measured from the client's own start log, plus proof that a held control starts no second round (UK RTS 14G 5 s, Ontario 2.5 s) | `node apps/whack/scripts/timing-check.mjs --profile <name> --min-ms <gap>` |
+| `presentation-<profile>.json/.log` | A return at or below the stake is never celebrated: no win sound, no confetti, and the round is presented as a loss (UK RTS 14F, AGCO 2.20) | `node packages/crash-client/scripts/presentation-check.mjs --profile <name>` |
+| `timing-<market>.json/.log` | Minimum gap between round starts, measured from the client's own start log, plus proof that a held control starts no second round (UK RTS 14G 5 s, Ontario 2.5 s) | `node packages/crash-client/scripts/timing-check.mjs --profile <name> --min-ms <gap>` |
 
 ## Results of the 2026-09-16 run
 
@@ -32,6 +32,6 @@ RTP evidence is not duplicated here: the committed simulation reports are the re
 `packages/fairness/reports/` (30 reports; 10M rounds per theoretical config id, 4M per rounding band),
 with the published band per config id in `reports/bands.json`.
 
-A copy review runs separately with `node apps/whack/scripts/copy-check.mjs`: every player-facing string
+A copy review runs separately with `node packages/crash-client/scripts/copy-check.mjs`: every player-facing string
 must come from `src/i18n/en.ts`, and near-miss or skill wording fails the check (Spain RD 176/2023
 art. 17.2, AGCO 2.15, GLI-19 §4.6.1(a)).

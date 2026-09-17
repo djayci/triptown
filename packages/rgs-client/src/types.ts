@@ -77,4 +77,6 @@ export interface RoundService {
   rotateSeed(): Promise<SeedRotation>;
   /** Previously used server seeds, revealed on rotation (newest last, at most 20). */
   revealedSeeds(): Promise<RevealedSeed[]>;
+  /** Round-trip probe for the latency notice. Resolves when the server has answered. */
+  ping(): Promise<void>;
 }

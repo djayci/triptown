@@ -60,11 +60,40 @@ export const WHACK_CRASH_BOOST_RISING_CONFIG: GameConfig = Object.freeze({
   boostRate: 0.4,
 });
 
+/**
+ * Slow-pace family (v3/v4). The v1/v2 median round is 3.4 s, which players read as frantic next to the
+ * crash games they know. Dividing every rate by PACE and multiplying the ramp by it plays the same
+ * round in slow motion: the multiplier reached at any given hazard quantile is unchanged, so the
+ * distribution of the crash multiplier — and therefore RTP — is identical by construction. Only the
+ * tMax cut-off could bind differently, and a round still reaches the x10,000 cap well inside 60 s.
+ * Proven, not assumed: every id here has its own committed 10M-round report.
+ */
+const PACE = 2.5;
+const slow = (config: GameConfig, id: string): GameConfig =>
+  Object.freeze({
+    ...config,
+    id,
+    r0: config.r0 / PACE,
+    rmax: config.rmax / PACE,
+    tRamp: config.tRamp * PACE,
+    lambda: config.lambda / PACE,
+    boostRate: config.boostRate / PACE,
+  });
+
+export const WHACK_CRASH_SLOW_CONFIG = slow(DEFAULT_CONFIG, 'whack-crash/v3');
+export const WHACK_CRASH_SLOW_RISING_CONFIG = slow(WHACK_CRASH_RISING_CONFIG, 'whack-crash/v3-rising');
+export const WHACK_CRASH_SLOW_BOOST_CONFIG = slow(WHACK_CRASH_BOOST_CONFIG, 'whack-crash/v4');
+export const WHACK_CRASH_SLOW_BOOST_RISING_CONFIG = slow(WHACK_CRASH_BOOST_RISING_CONFIG, 'whack-crash/v4-rising');
+
 export const GAME_CONFIGS: Readonly<Record<string, GameConfig>> = Object.freeze({
   [DEFAULT_CONFIG.id]: DEFAULT_CONFIG,
   [WHACK_CRASH_RISING_CONFIG.id]: WHACK_CRASH_RISING_CONFIG,
   [WHACK_CRASH_BOOST_CONFIG.id]: WHACK_CRASH_BOOST_CONFIG,
   [WHACK_CRASH_BOOST_RISING_CONFIG.id]: WHACK_CRASH_BOOST_RISING_CONFIG,
+  [WHACK_CRASH_SLOW_CONFIG.id]: WHACK_CRASH_SLOW_CONFIG,
+  [WHACK_CRASH_SLOW_RISING_CONFIG.id]: WHACK_CRASH_SLOW_RISING_CONFIG,
+  [WHACK_CRASH_SLOW_BOOST_CONFIG.id]: WHACK_CRASH_SLOW_BOOST_CONFIG,
+  [WHACK_CRASH_SLOW_BOOST_RISING_CONFIG.id]: WHACK_CRASH_SLOW_BOOST_RISING_CONFIG,
 });
 
 /**

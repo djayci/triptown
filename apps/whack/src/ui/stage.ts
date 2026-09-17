@@ -1,8 +1,8 @@
 import { Container, Graphics, Sprite, type Texture, type Ticker } from 'pixi.js';
 import { t } from '../i18n/en';
 import { gsap, prefersReducedMotion } from '@triptown/engine';
-import { COLORS, SKIN, meterColors } from '../theme';
-import { drawSticker, labelStyle, text } from './primitives';
+import { COLORS, SKIN, meterColors } from '@triptown/crash-client';
+import { drawSticker, labelStyle, text } from '@triptown/crash-client';
 
 export type Frames = (name: string) => Texture;
 

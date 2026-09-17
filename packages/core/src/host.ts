@@ -40,6 +40,7 @@ import {
 } from './round';
 import {
   assertValidProfile,
+  checkSessionRegion,
   effectiveConfig,
   profileFromTemplate,
   type GameId,
@@ -69,7 +70,10 @@ export type HostErrorCode =
   | 'integrity_blocked'
   | 'round_voided'
   | 'profile_not_allowed'
-  | 'no_parts_left';
+  | 'no_parts_left'
+  | 'region_blocked'
+  | 'region_required'
+  | 'profile_unavailable';
 
 export class HostError extends Error {
   constructor(
@@ -157,6 +161,10 @@ export interface CreateSessionOptions {
   operatorId?: string;
   /** Template name; honoured only when `allowOverride` is on. */
   profile?: string;
+  /** Player region from the operator (ISO 3166-2), checked against the profile's blocked regions. */
+  playerRegion?: string;
+  /** Region this deployment runs in, checked against the profile's hosting regions. */
+  deploymentRegion?: string;
 }
 
 export interface RoundHostOptions {
@@ -283,6 +291,8 @@ export class RoundHost {
   async createSession(initialBalanceMinor: number, options: CreateSessionOptions | string = {}): Promise<SessionInfo> {
     const opts = typeof options === 'string' ? { clientSeed: options } : options;
     const profile = this.resolveProfile(opts);
+    const region = checkSessionRegion(profile, opts.playerRegion, opts.deploymentRegion);
+    if (!region.ok) throw new HostError(region.code, region.message);
     const seed = opts.clientSeed ?? generateClientSeed();
     if (!CLIENT_SEED_RE.test(seed)) throw new HostError('invalid_client_seed', 'Client seed must be 1-64 printable characters');
     const serverSeed = generateServerSeed();

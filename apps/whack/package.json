@@ -13,17 +13,21 @@
     "build:demo": "vite build --mode demo --outDir dist-demo",
     "atlas": "node scripts/build-atlas.mjs",
     "audio": "node scripts/build-audio.mjs",
-    "check:audio": "node scripts/check-audio-budget.mjs"
+    "check:audio": "node scripts/check-audio-budget.mjs",
+    "check:presentation": "node ../../packages/crash-client/scripts/presentation-check.mjs",
+    "check:timing": "node ../../packages/crash-client/scripts/timing-check.mjs",
+    "check:copy": "node ../../packages/crash-client/scripts/copy-check.mjs"
   },
   "dependencies": {
+    "@fontsource/bricolage-grotesque": "^5.3.0",
+    "@fontsource/lilita-one": "^5.3.0",
     "@triptown/core": "workspace:*",
+    "@triptown/crash-client": "workspace:*",
     "@triptown/engine": "workspace:*",
     "@triptown/fairness": "workspace:*",
     "@triptown/rgs-client": "workspace:*",
-    "pixi.js": "^8.20.1",
-    "@fontsource/lilita-one": "^5.3.0",
-    "@fontsource/bricolage-grotesque": "^5.3.0",
-    "gsap": "^3.15.0"
+    "gsap": "^3.15.0",
+    "pixi.js": "^8.20.1"
   },
   "devDependencies": {
     "vite": "^8.3.0",

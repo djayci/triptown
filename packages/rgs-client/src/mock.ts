@@ -41,6 +41,8 @@ export interface MockRoundServiceOptions {
   latencyMs?: number;
   /** Build id recorded on the session for recall. */
   clientVersion?: string;
+  /** Player region the fake operator sends (ISO 3166-2), for profiles that block regions. */
+  playerRegion?: string;
   /** Game to run; defaults to Whack Crash. */
   game?: GameId;
   /** Test hooks: a custom store and clock. */
@@ -61,6 +63,7 @@ export class MockRoundService implements RoundService {
   readonly mode = 'demo' as const;
   private readonly store: RoundStore;
   private readonly clientVersion: string | undefined;
+  private readonly playerRegion: string | undefined;
   private readonly host: RoundHost;
   private readonly latencyMs: number;
   private readonly initialBalance: number;
@@ -68,6 +71,7 @@ export class MockRoundService implements RoundService {
   private forced: MockScenario | null = null;
 
   constructor(opts: MockRoundServiceOptions = {}) {
+    this.playerRegion = opts.playerRegion;
     (globalThis as Record<string, unknown>)[MOCK_BUILD_MARKER] = true;
     this.latencyMs = opts.latencyMs ?? 0;
     this.initialBalance = opts.initialBalanceMinor ?? 1_000_00;
@@ -137,6 +141,10 @@ export class MockRoundService implements RoundService {
     return this.call(async (id) => this.host.revealedSeeds(id));
   }
 
+  async ping() {
+    if (this.latencyMs) await sleep(this.latencyMs);
+  }
+
   /** Runs the server's reconciliation pass (settle, credit or void stuck rounds). Dev tooling only. */
   async reconcile() {
     return this.host.reconcile();
@@ -195,7 +203,10 @@ export class MockRoundService implements RoundService {
   private async call<T>(fn: (sessionId: string) => Promise<T>): Promise<T> {
     if (this.latencyMs) await sleep(this.latencyMs);
     try {
-      this.sessionId ??= this.host.createSession(this.initialBalance, { clientVersion: this.clientVersion }).then((s) => s.sessionId);
+      this.sessionId ??= this.host.createSession(this.initialBalance, {
+        clientVersion: this.clientVersion,
+        ...(this.playerRegion && { playerRegion: this.playerRegion }),
+      }).then((s) => s.sessionId);
       return await fn(await this.sessionId);
     } catch (err) {
       if (err instanceof HostError) throw new RoundServiceError(err.code, err.message, err.details);

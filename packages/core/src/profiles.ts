@@ -85,6 +85,19 @@ export interface JurisdictionProfile {
   disconnectPolicy: DisconnectPolicy;
   language: string;
   operatorOrigins: string[];
+  // ---- Market flags (beat-the-gate-mvp market-profile-flags). Optional; absent means no effect. ----
+  /** ISO 3166-1 alpha-2 country the profile licenses, e.g. "NG". */
+  marketCountry?: string;
+  /** Player regions refused at session creation (ISO 3166-2, e.g. "NG-KN"). Non-empty requires the operator to send the region. */
+  blockedRegions?: string[];
+  /** Deployment regions this profile may run in; empty or absent means any. */
+  hostingRegions?: string[];
+  /** Legal basis for moving players' personal data out of the market, when hosting is outside it. */
+  dataTransferBasis?: string | null;
+  /** Rules and results say winnings may be subject to withholding tax applied by the operator. */
+  withholdingNotice?: boolean;
+  /** Show other players' activity. No profile enables it (no fake or social-pressure feeds). */
+  liveBetsFeed?: boolean;
 }
 
 type ProfileTemplate = Omit<JurisdictionProfile, 'operatorOrigins'>;
@@ -164,6 +177,52 @@ export const PROFILE_TEMPLATES: Readonly<Record<string, ProfileTemplate>> = Obje
     showSessionClock: false,
     showNetPosition: true,
   },
+  'ng-draft': {
+    ...base,
+    name: 'ng-draft',
+    status: 'draft',
+    regulated: true,
+    sources: [
+      'docs/compliance/night-meet-2026-09-16.md (Lagos LSLGA Law 2021, RG Regs reg.7, ARCON, NDPA 2023 s.41)',
+    ],
+    minCycleMs: 5000,
+    quickReplay: false,
+    setbacksMode: 'off',
+    skin: 'adult',
+    soundDefault: 'muted',
+    intensityEffects: true,
+    showSessionClock: true,
+    showNetPosition: true,
+    marketCountry: 'NG',
+    // States that apply Sharia criminal law and ban gambling (research M); operators geo-block by state.
+    blockedRegions: ['NG-BA', 'NG-BO', 'NG-GO', 'NG-JI', 'NG-KD', 'NG-KN', 'NG-KT', 'NG-KE', 'NG-NI', 'NG-SO', 'NG-YO', 'NG-ZA'],
+    hostingRegions: [],
+    dataTransferBasis: 'operator-dpa-scc',
+    withholdingNotice: true,
+    liveBetsFeed: false,
+  },
+  'gh-draft': {
+    ...base,
+    name: 'gh-draft',
+    status: 'draft',
+    regulated: true,
+    sources: ['docs/compliance/night-meet-2026-09-16.md (Gaming Act 2006, GCG advertising guidelines, Act 843, Act 1129)'],
+    minCycleMs: 5000,
+    quickReplay: false,
+    setbacksMode: 'off',
+    skin: 'adult',
+    soundDefault: 'muted',
+    intensityEffects: true,
+    showSessionClock: true,
+    showNetPosition: true,
+    marketCountry: 'GH',
+    blockedRegions: [],
+    hostingRegions: [],
+    dataTransferBasis: 'operator-dpa',
+    // Ghana repealed the 10% withholding tax on winnings from 2 Apr 2025 (Act 1129).
+    withholdingNotice: false,
+    liveBetsFeed: false,
+  },
   'pt-draft': {
     ...base,
     name: 'pt-draft',
@@ -196,9 +255,13 @@ export function profileFromTemplate(name: string, operatorOrigins: string[] = []
 export function baseConfigId(game: GameId, mode: SetbacksMode, boosts: BoostsMode = 'off'): string {
   // Config ids belong to the engine, not the game, so a skin plays the certified ids unchanged.
   const engine = isRegisteredGame(game) ? engineOf(game) : game;
-  // Two axes, four ids (good-mole D6): v1 is unboosted, v2 boosted; `-rising` means no setbacks.
+  // Two axes, four ids (good-mole D6): v3 is unboosted, v4 boosted; `-rising` means no setbacks.
+  // v3/v4 are the slow-pace family (median round 8.4 s). v1/v2 stay registered so rounds settled under
+  // them still verify, but no new round starts on one.
   const suffix = mode === 'off' ? '-rising' : '';
   // An engine with no boosted config plays the unboosted maths, whatever the profile asks for.
+  if (boosts === 'boost' && resolveConfigId(`${engine}/v4${suffix}`)) return `${engine}/v4${suffix}`;
+  if (resolveConfigId(`${engine}/v3${suffix}`)) return `${engine}/v3${suffix}`;
   if (boosts === 'boost' && resolveConfigId(`${engine}/v2${suffix}`)) return `${engine}/v2${suffix}`;
   return `${engine}/v1${suffix}`;
 }
@@ -260,6 +323,15 @@ export function validateProfile(p: JurisdictionProfile, opts: ProfileValidationO
   if (!DISCONNECT.includes(p.disconnectPolicy)) at('disconnectPolicy', `must be one of ${DISCONNECT.join(', ')}`);
   if (p.idlePromptMs !== null && !(Number.isFinite(p.idlePromptMs) && p.idlePromptMs > 0)) at('idlePromptMs', 'must be null or positive');
   if (!p.language) at('language', 'is required');
+  if (p.marketCountry !== undefined && !/^[A-Z]{2}$/.test(p.marketCountry)) at('marketCountry', 'must be an ISO 3166-1 alpha-2 code');
+  if (p.blockedRegions?.some((r) => !/^[A-Z]{2}-[A-Z0-9]{1,3}$/.test(r))) at('blockedRegions', 'must be ISO 3166-2 codes such as NG-KN');
+  if (p.hostingRegions?.some((r) => !r.trim())) at('hostingRegions', 'must not contain empty region names');
+  if (p.liveBetsFeed === true) at('liveBetsFeed', 'no profile may enable a live bets feed');
+  // An active profile for a market whose hosting sits outside that market needs a recorded transfer basis (NDPA s.41).
+  if (p.status === 'active' && p.marketCountry && p.hostingRegions?.length) {
+    const inMarket = p.hostingRegions.some((r) => r.toUpperCase().startsWith(`${p.marketCountry}-`) || r.toUpperCase() === p.marketCountry);
+    if (!inMarket && !p.dataTransferBasis) at('dataTransferBasis', `hosting outside ${p.marketCountry} needs a data transfer basis`);
+  }
   if ((opts.requireOrigins ?? true) && p.regulated && p.operatorOrigins.length === 0) {
     at('operatorOrigins', 'regulated profiles need at least one operator origin');
   }
@@ -284,4 +356,21 @@ export function assertValidProfile(p: JurisdictionProfile, opts?: ProfileValidat
   const result = validateProfile(p, opts);
   if (!result.ok) throw new Error(`Invalid profile: ${result.errors.join('; ')}`);
   return p;
+}
+
+export type RegionCheck = { ok: true } | { ok: false; code: 'region_blocked' | 'region_required' | 'profile_unavailable'; message: string };
+
+/**
+ * Session gate for market flags: refuses players from blocked regions (or with no region when a list exists),
+ * and profiles whose allowed hosting regions exclude this deployment.
+ */
+export function checkSessionRegion(p: JurisdictionProfile, playerRegion: string | undefined, deploymentRegion: string | undefined): RegionCheck {
+  if (p.hostingRegions?.length && (!deploymentRegion || !p.hostingRegions.includes(deploymentRegion))) {
+    return { ok: false, code: 'profile_unavailable', message: `Profile ${p.name} is not available in this deployment region` };
+  }
+  if (p.blockedRegions?.length) {
+    if (!playerRegion) return { ok: false, code: 'region_required', message: 'The operator must send the player region for this market' };
+    if (p.blockedRegions.includes(playerRegion.toUpperCase())) return { ok: false, code: 'region_blocked', message: 'This game is not available in the player region' };
+  }
+  return { ok: true };
 }

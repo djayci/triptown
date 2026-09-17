@@ -3,14 +3,19 @@ import '@fontsource/bricolage-grotesque/500.css';
 import '@fontsource/bricolage-grotesque/700.css';
 import '@fontsource/bricolage-grotesque/800.css';
 import { AudioManager, createGameApp, loadAtlas, loadFonts, type AudioManifest } from '@triptown/engine';
-import { FairnessPanel } from './dom/fairness-panel';
-import { HistoryPanel } from './dom/history-panel';
-import { Overlay } from './dom/overlay';
-import { RulesPanel } from './dom/rules-panel';
-import { useSkin } from './theme';
+import { FairnessPanel } from '@triptown/crash-client';
+import { HistoryPanel } from '@triptown/crash-client';
+import { Overlay } from '@triptown/crash-client';
+import { RulesPanel } from '@triptown/crash-client';
+import { GameController, setTranslator, useSkin } from '@triptown/crash-client';
+import { t } from './i18n/en';
 import bands from '@triptown/fairness/reports/bands.json';
-import { GameController } from './game/controller';
+import type { BandsByConfig } from '@triptown/fairness';
 import { createRoundService } from './services';
+import { GameView } from './game/view';
+
+// The shared client renders this game's words through whatever translator it is given.
+setTranslator(t);
 
 const asset = (path: string) => new URL(`assets/${path}`, document.baseURI).href;
 
@@ -66,7 +71,9 @@ async function boot() {
   let rules: RulesPanel | null = null;
   let history: HistoryPanel | null = null;
   const overlay = new Overlay();
-  const controller = new GameController(game, frames, service, audio, {
+  const controller = new GameController(game, frames, service, audio, (app, f, cb) => new GameView(app, f, cb), {
+    collectSfx: 'whack',
+    clientVersion: __APP_VERSION__,
     onFairness: () => void fairness?.open(),
     onRules: () => rules?.open(),
     onHistory: () => void history?.open(),
@@ -89,7 +96,7 @@ async function boot() {
   // published figure can never drift from what was actually simulated (GLI-19 4.7.2(a)).
   history = new HistoryPanel(service, () => controller.currentSession?.currency ?? { code: 'USD', decimals: 2, minBetMinor: 20, maxBetMinor: 100_00 });
   rules = new RulesPanel(() => controller.currentSession, {
-    bands: bands as Record<string, { minRtp: number; maxRtp: number; stakeMinor: number }>,
+    bands: bands as BandsByConfig,
     version: __APP_VERSION__,
     build: __BUILD_HASH__,
     reduceEffects: controller.reduceEffects,

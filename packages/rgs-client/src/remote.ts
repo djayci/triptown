@@ -120,6 +120,10 @@ export class RemoteRoundService implements RoundService {
     return this.json<RoundSummary[]>('GET', `/v1/rounds?limit=${limit}`);
   }
 
+  async ping() {
+    await this.json<{ now: number }>('GET', '/v1/ping');
+  }
+
   revealedSeeds() {
     return this.json<RevealedSeed[]>('GET', '/v1/session/seeds');
   }

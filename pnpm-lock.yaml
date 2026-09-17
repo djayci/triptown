@@ -53,9 +53,6 @@ importers:
       '@triptown/rgs-client':
         specifier: workspace:*
         version: link:../../packages/rgs-client
-      '@triptown/steps':
-        specifier: workspace:*
-        version: link:../../packages/steps
       '@upstash/redis':
         specifier: ^1.38.4
         version: 1.38.4
@@ -79,17 +76,23 @@ importers:
         specifier: ^4.23.13
         version: 4.23.13
 
-  apps/gallop:
+  apps/gate:
     dependencies:
-      '@fontsource/barlow':
+      '@fontsource/bricolage-grotesque':
         specifier: ^5.3.0
         version: 5.3.0
-      '@fontsource/barlow-condensed':
+      '@fontsource/bungee':
+        specifier: ^5.2.0
+        version: 5.3.0
+      '@fontsource/lilita-one':
         specifier: ^5.3.0
         version: 5.3.0
       '@triptown/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@triptown/crash-client':
+        specifier: workspace:*
+        version: link:../../packages/crash-client
       '@triptown/engine':
         specifier: workspace:*
         version: link:../../packages/engine
@@ -99,22 +102,59 @@ importers:
       '@triptown/rgs-client':
         specifier: workspace:*
         version: link:../../packages/rgs-client
-      '@triptown/steps':
-        specifier: workspace:*
-        version: link:../../packages/steps
+      gsap:
+        specifier: ^3.15.0
+        version: 3.15.0
       pixi.js:
         specifier: ^8.20.1
         version: 8.20.1
     devDependencies:
-      '@breezystack/lamejs':
-        specifier: ^1.2.7
-        version: 1.2.7
+      '@resvg/resvg-js':
+        specifier: ^2.6.2
+        version: 2.6.2
+      maxrects-packer:
+        specifier: ^2.7.3
+        version: 2.7.3
+      pngjs:
+        specifier: ^7.0.0
+        version: 7.0.0
       vite:
         specifier: ^8.3.0
         version: 8.3.0(@types/node@22.20.2)(esbuild@0.28.2)(tsx@4.23.13)
-      webm-muxer:
-        specifier: ^5.1.4
-        version: 5.1.4
+
+  apps/lift:
+    dependencies:
+      '@fontsource/bricolage-grotesque':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource/lilita-one':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@triptown/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@triptown/crash-client':
+        specifier: workspace:*
+        version: link:../../packages/crash-client
+      '@triptown/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+      '@triptown/fairness':
+        specifier: workspace:*
+        version: link:../../packages/fairness
+      '@triptown/rgs-client':
+        specifier: workspace:*
+        version: link:../../packages/rgs-client
+      gsap:
+        specifier: ^3.15.0
+        version: 3.15.0
+      pixi.js:
+        specifier: ^8.20.1
+        version: 8.20.1
+    devDependencies:
+      vite:
+        specifier: ^8.3.0
+        version: 8.3.0(@types/node@22.20.2)(esbuild@0.28.2)(tsx@4.23.13)
 
   apps/sandbox:
     dependencies:
@@ -137,6 +177,9 @@ importers:
       '@triptown/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@triptown/crash-client':
+        specifier: workspace:*
+        version: link:../../packages/crash-client
       '@triptown/engine':
         specifier: workspace:*
         version: link:../../packages/engine
@@ -178,6 +221,27 @@ importers:
         specifier: workspace:*
         version: link:../fairness
 
+  packages/crash-client:
+    dependencies:
+      '@triptown/core':
+        specifier: workspace:*
+        version: link:../core
+      '@triptown/engine':
+        specifier: workspace:*
+        version: link:../engine
+      '@triptown/fairness':
+        specifier: workspace:*
+        version: link:../fairness
+      '@triptown/rgs-client':
+        specifier: workspace:*
+        version: link:../rgs-client
+      gsap:
+        specifier: ^3.15.0
+        version: 3.15.0
+      pixi.js:
+        specifier: ^8.20.1
+        version: 8.20.1
+
   packages/engine:
     dependencies:
       gsap:
@@ -211,22 +275,6 @@ importers:
       '@triptown/fairness':
         specifier: workspace:*
         version: link:../fairness
-      '@triptown/steps':
-        specifier: workspace:*
-        version: link:../steps
-
-  packages/steps:
-    dependencies:
-      '@triptown/core':
-        specifier: workspace:*
-        version: link:../core
-      '@triptown/fairness':
-        specifier: workspace:*
-        version: link:../fairness
-    devDependencies:
-      tsx:
-        specifier: ^4.23.13
-        version: 4.23.13
 
 packages:
 
@@ -491,14 +539,11 @@ packages:
       '@noble/hashes':
         optional: true
 
-  '@fontsource/barlow-condensed@5.3.0':
-    resolution: {integrity: sha512-RA7MmIx0v3eQ6Gcf74qLVLOwLB0GpPOzx+eU9iG/AmCnSJGcIWYeU8y6CEMGZ210MGwGg5CZhzLkkvyZdTTk1g==}
-
-  '@fontsource/barlow@5.3.0':
-    resolution: {integrity: sha512-tGR0y6QObRtKv71MOth44222+mdNFM/ZWFWDV1VLzNbG4oK9PNRlyJzmkck4vHAi9ibHBXgt4SlY51amFP55CA==}
-
   '@fontsource/bricolage-grotesque@5.3.0':
     resolution: {integrity: sha512-MdOVb/5in11IfN/IQJOExMuu6AroCIQbirl0yX7NUvKk+h0HYIKfGaVAXRS/gCPil4aFxWhjZnOw28tUwv7tFw==}
+
+  '@fontsource/bungee@5.3.0':
+    resolution: {integrity: sha512-vKwbDE7yMrqfGxgFan+diPLwgWp9j4FGYaLm+OhUoqYO6Pr02QIi/p0KiTW0E/7uiXqfTd6cMj+/E4h2sc3Ocg==}
 
   '@fontsource/lilita-one@5.3.0':
     resolution: {integrity: sha512-bNW3tD+m5pOsAQpW/NvtRbFthFe+B73hDJK2DLLCFCtF+1p+UMBgo7ibxdcb9Sftr06LKAVbt080wiMdSqGbOg==}
@@ -1786,11 +1831,9 @@ snapshots:
 
   '@exodus/bytes@1.15.1': {}
 
-  '@fontsource/barlow-condensed@5.3.0': {}
-
-  '@fontsource/barlow@5.3.0': {}
-
   '@fontsource/bricolage-grotesque@5.3.0': {}
+
+  '@fontsource/bungee@5.3.0': {}
 
   '@fontsource/lilita-one@5.3.0': {}
 

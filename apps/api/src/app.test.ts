@@ -207,7 +207,10 @@ describe.each(stores)('round API (%s)', (_name, makeStore) => {
     await time.advance(Math.ceil(outcome.setbacks[0]! * 1000));
     const res = (await (await call('POST', `/v1/rounds/${r.roundId}/cashout`, token)).json()) as { settlement: { time: number; multiplier: number } };
     const t = res.settlement.time;
-    const growth = Math.exp(DEFAULT_CONFIG.r0 * t + ((DEFAULT_CONFIG.rmax - DEFAULT_CONFIG.r0) * t * t) / (2 * DEFAULT_CONFIG.tRamp));
+    // The session's own config, not DEFAULT_CONFIG: the light profile plays the slow-pace boosted
+    // maths, whose rates differ, so hard-coding v1's growth would assert against a config not in play.
+    const cfg = resolveConfigId(effectiveConfig('whack-crash', (await store.getSession(sessionId))!.profile!).id)!;
+    const growth = Math.exp(cfg.r0 * t + ((cfg.rmax - cfg.r0) * t * t) / (2 * cfg.tRamp));
     expect(res.settlement.multiplier).toBeCloseTo(growth * 0.5, 9);
     await time.advance(1000);
     const events = await r.events;

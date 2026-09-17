@@ -2,7 +2,7 @@ import { BitmapFont, BitmapText, Container, Graphics, Rectangle, Sprite, TilingS
 import { Confetti, gsap, pop, prefersReducedMotion, shake, tilt, type GameApp } from '@triptown/engine';
 import type { ResultKind } from '@triptown/core';
 import { t } from '../i18n/en';
-import { COLORS, FONT_DISPLAY, SKIN } from '../theme';
+import { COLORS, FONT_DISPLAY, SKIN } from '@triptown/crash-client';
 import {
   Burst,
   Chip,
@@ -14,37 +14,14 @@ import {
   drawSticker,
   labelStyle,
   text,
-} from '../ui/primitives';
-import { BalancePill, HistoryStrip, Logo, SessionStrip, StickerLabel } from '../ui/hud';
+} from '@triptown/crash-client';
+import { BalancePill, HistoryStrip, Logo, SessionStrip, StickerLabel } from '@triptown/crash-client';
 import { Hole, Meter, RISE_FULL, RISE_HIDDEN, Stage, type Frames, type MoleFrame } from '../ui/stage';
-import { BET_CHIPS } from './display';
+import { BET_CHIPS, CrashViewBase, type ActionControl, type BetUi, type CrashView, type CrashViewCallbacks, type Phase } from '@triptown/crash-client';
 
-export interface ViewHandlers {
-  onBigButton(): void;
-  onWhack(): void;
-  onCountdownDone(): void;
-  onStepBet(dir: 1 | -1): void;
-  onChip(minor: number): void;
-  onToggleAuto(): void;
-  onCycleAuto(): void;
-  onSound(): void;
-  onFairness(): void;
-  onRules(): void;
-  onHistory(): void;
-  onEditBet(): void;
-}
-
-export type Phase = 'betting' | 'starting' | 'running' | 'cashing' | 'won' | 'lost';
-
-export interface BetUi {
-  bet: string;
-  betMinor: number;
-  autoOn: boolean;
-  auto: string;
-  canBet: boolean;
-  reason: string | null;
-  locked: boolean;
-}
+// The handler shape, the phases and the bet UI are the shared contract now, not this game's.
+export type ViewHandlers = CrashViewCallbacks;
+export type { BetUi, Phase };
 
 type Layout = 'portrait' | 'desktop';
 
@@ -71,18 +48,17 @@ const CHECKPOINT_TINTS: [number, number][] = [
 /** How far the background moles peek out while betting (0 is fully up, RISE_HIDDEN is down). */
 const DECOY_PEEK = 96;
 
-export class GameView {
+export class GameView extends CrashViewBase implements CrashView {
   readonly root = new Container();
   private readonly bgDots: TilingSprite;
   private readonly bgFill = new Graphics();
   private layout: Layout = 'portrait';
   /** Portrait design height for the current viewport; desktop keeps its fixed frame. */
   private designH = PORTRAIT.h;
-  private phase: Phase = 'betting';
 
   // Header
-  private logo = new Logo(22);
-  private logoBig = new Logo(32);
+  private logo = new Logo(t('logo.whack'), t('logo.crash'), 22);
+  private logoBig = new Logo(t('logo.whack'), t('logo.crash'), 32);
   private balance = new BalancePill(false);
   private balanceBig = new BalancePill(true);
   readonly history = new HistoryStrip(358);
@@ -143,15 +119,9 @@ export class GameView {
   private level = 0;
   private bob = 0;
   /** False from a round start until the control is released again (RTS 14G). */
-  private armed = true;
-  private countdownUntil = 0;
   /** Profile-driven presentation: one-tap replay, and whether shake/tilt/confetti are allowed. */
-  private quickReplay = true;
-  private intensityEffects = true;
   /** Which modifiers this market actually plays, so the standby screen shows only those moles. */
-  private modifiers = { setbacks: true, boosts: true };
   /** What the start control should read once any countdown finishes. */
-  private actionButton = { label: 'BET', sub: '', enabled: true };
   /** Which side the bad mole pops from; chosen fresh for every setback. */
   private modSide: 'left' | 'right' = 'right';
   /** Colour of the current checkpoint tier; the multiplier and payout keep it until the next one. */
@@ -162,8 +132,9 @@ export class GameView {
   constructor(
     private readonly game: GameApp,
     private readonly frames: Frames,
-    private readonly handlers: ViewHandlers,
+    handlers: ViewHandlers,
   ) {
+    super(handlers);
     const { app } = game;
     installFonts();
 
@@ -181,7 +152,7 @@ export class GameView {
     this.mainHole.eventMode = 'static';
     this.mainHole.cursor = 'pointer';
     this.mainHole.hitArea = new Rectangle(30, 0, 220, 280);
-    this.mainHole.on('pointertap', () => this.handlers.onWhack());
+    this.mainHole.on('pointertap', () => this.handlers.onCollect());
     this.decoys.forEach((d) => {
       // Decoration only: no input, no response to taps (AGCO 2.15, GLI-19 4.6.1(a), UK RTS 7C,
       // Netherlands Bko art. 4.2(4) bans requiring actions that do not influence the outcome).
@@ -280,23 +251,13 @@ export class GameView {
 
     app.ticker.add(this.tick);
     game.onResize((v) => this.applyViewport(v.width, v.height));
-    // RTS 14G: the start control must be released and pressed again for each round, so a held
-    // pointer or key can never roll into the next one. `armed` is cleared on every start.
-    window.addEventListener('keydown', (e) => {
-      if (e.code !== 'Space' || e.repeat) return;
-      e.preventDefault();
-      if (this.phase === 'running') this.handlers.onWhack();
-      else if (this.armed) this.handlers.onBigButton();
-    });
-    window.addEventListener('keyup', (e) => {
-      if (e.code === 'Space') this.armed = true;
-    });
-    app.canvas.addEventListener('pointerup', () => {
-      this.armed = true;
-    });
-    app.canvas.addEventListener('pointercancel', () => {
-      this.armed = true;
-    });
+    // Release-and-press (RTS 14G) and the minimum-gap countdown live in CrashViewBase, so every
+    // game gets them without reimplementing them.
+    this.installInput(game);
+  }
+
+  protected actionControl(): ActionControl {
+    return this.bigButton;
   }
 
   // ---------- public API ----------
@@ -324,12 +285,12 @@ export class GameView {
     this.drawAuto(ui.autoOn, ui.auto);
     this.statBet.set('Bet', ui.bet);
     this.statAuto.set('Auto', ui.autoOn ? ui.auto : 'OFF');
-    if (this.phase === 'betting') this.actionButton = { label: ui.reason ?? `BET ${ui.bet}`, sub: '', enabled: ui.canBet };
-    if (this.phase === 'betting' && !this.countdownUntil) {
+    if (this.phase === 'betting') this.setActionLabel({ label: ui.reason ?? `BET ${ui.bet}`, sub: '', enabled: ui.canBet });
+    if (this.phase === 'betting' && !this.counting) {
       this.bigButton.setFill(COLORS.lime);
       this.bigButton.setIcon(null);
-      this.bigButton.setLabel(this.actionButton.label, this.actionButton.sub);
-      this.bigButton.setEnabled(this.actionButton.enabled);
+      this.bigButton.setLabel(this.actionLabel.label, this.actionLabel.sub);
+      this.bigButton.setEnabled(this.actionLabel.enabled);
     }
     this.layoutAmount();
   }
@@ -378,44 +339,7 @@ export class GameView {
   }
 
   /** Applies the market profile's presentation flags. */
-  setPresentation(opts: { quickReplay: boolean; intensityEffects: boolean; setbacks: boolean; boosts: boolean }) {
-    this.quickReplay = opts.quickReplay;
-    this.intensityEffects = opts.intensityEffects;
-    this.modifiers = { setbacks: opts.setbacks, boosts: opts.boosts };
-  }
 
-  /** Called on every round start: the next start needs a fresh press. */
-  disarm() {
-    this.armed = false;
-  }
-
-  get isArmed() {
-    return this.armed;
-  }
-
-  /**
-   * Blocks BET until the market's minimum gap between rounds has passed, and shows the wait on the
-   * button so the player knows why (UK 5 s, Ontario 2.5 s).
-   */
-  setBetCountdown(msLeft: number) {
-    this.countdownUntil = msLeft > 0 ? performance.now() + msLeft : 0;
-    this.updateCountdown();
-  }
-
-  private updateCountdown() {
-    if (this.phase === 'running' || this.phase === 'starting' || this.phase === 'cashing') return;
-    const left = this.countdownUntil - performance.now();
-    if (left > 0) {
-      this.bigButton.setEnabled(false);
-      this.bigButton.setLabel(`WAIT ${(left / 1000).toFixed(1)}s`, 'Next round');
-    } else if (this.countdownUntil) {
-      this.countdownUntil = 0;
-      // Put the control back the way the current screen wants it, then let the controller refresh.
-      this.bigButton.setLabel(this.actionButton.label, this.actionButton.sub);
-      this.bigButton.setEnabled(this.actionButton.enabled);
-      this.handlers.onCountdownDone();
-    }
-  }
 
   showStarting() {
     this.phase = 'starting';
@@ -669,7 +593,7 @@ export class GameView {
     this.bigButton.setIcon(this.frames('icon-replay-cream'));
     const replay = this.quickReplay ? { label: t('button.playAgain'), sub: t('button.playAgainSub') } : { label: t('button.continue'), sub: t('button.continueSub') };
     this.bigButton.setLabel(replay.label, replay.sub);
-    this.actionButton = { ...replay, enabled: true };
+    this.setActionLabel({ ...replay, enabled: true });
     this.bigButton.setEnabled(true);
     this.relayout(false);
   }
@@ -736,7 +660,7 @@ export class GameView {
   // ---------- internals ----------
 
   private update(dt: number) {
-    if (this.countdownUntil) this.updateCountdown();
+    this.tickCountdown();
     this.sessionStrip.tick();
     if (this.phase === 'betting' || this.phase === 'starting') {
       // Idle breathing so the holding screen is alive: the gold mole and the background moles bob.

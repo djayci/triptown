@@ -1,3 +1,4 @@
+export * from './bands';
 export * from './bytes';
 export * from './config';
 export * from './model';

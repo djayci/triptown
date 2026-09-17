@@ -14,6 +14,22 @@ export const DEFAULT_CURRENCY: CurrencyRules = Object.freeze({
   maxBetMinor: 100_00, // 100.00
 });
 
+/**
+ * Naira and cedi rules for the Nigeria and Ghana drafts. Stake limits are placeholders pending operators
+ * (beat-the-gate-mvp open question); RTP at the minimum is reported per currency.
+ */
+export const NGN_CURRENCY: CurrencyRules = Object.freeze({ code: 'NGN', decimals: 2, minBetMinor: 100_00, maxBetMinor: 1_000_000_00 });
+export const GHS_CURRENCY: CurrencyRules = Object.freeze({ code: 'GHS', decimals: 2, minBetMinor: 1_00, maxBetMinor: 10_000_00 });
+
+export const CURRENCY_SYMBOLS: Readonly<Record<string, string>> = Object.freeze({ NGN: '₦', GHS: 'GH₵', USD: '$', EUR: '€', GBP: '£' });
+
+/** Amount with the currency symbol, e.g. ₦3,950.00; unknown codes fall back to "XYZ 3,950.00". */
+export function formatMoney(minor: number, currency: Pick<CurrencyRules, 'decimals' | 'code'>): string {
+  const body = formatMinor(Math.abs(minor), currency);
+  const symbol = CURRENCY_SYMBOLS[currency.code];
+  return `${minor < 0 ? '-' : ''}${symbol ?? `${currency.code} `}${body}`;
+}
+
 // Guards against float noise such as 1000 * 4.35 = 4349.999999999999.
 const EPSILON = 1e-7;
 

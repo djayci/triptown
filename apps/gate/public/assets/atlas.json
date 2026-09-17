@@ -1,0 +1,253 @@
+{
+ "frames": {
+  "horse-gallop-0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 800,
+    "h": 600
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 800,
+    "h": 600
+   },
+   "sourceSize": {
+    "w": 800,
+    "h": 600
+   }
+  },
+  "horse-gallop-1": {
+   "frame": {
+    "x": 804,
+    "y": 0,
+    "w": 800,
+    "h": 600
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 800,
+    "h": 600
+   },
+   "sourceSize": {
+    "w": 800,
+    "h": 600
+   }
+  },
+  "horse-gallop-2": {
+   "frame": {
+    "x": 0,
+    "y": 604,
+    "w": 800,
+    "h": 600
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 800,
+    "h": 600
+   },
+   "sourceSize": {
+    "w": 800,
+    "h": 600
+   }
+  },
+  "horse-gallop-3": {
+   "frame": {
+    "x": 0,
+    "y": 1208,
+    "w": 800,
+    "h": 600
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 800,
+    "h": 600
+   },
+   "sourceSize": {
+    "w": 800,
+    "h": 600
+   }
+  },
+  "horse-stand": {
+   "frame": {
+    "x": 804,
+    "y": 604,
+    "w": 800,
+    "h": 600
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 800,
+    "h": 600
+   },
+   "sourceSize": {
+    "w": 800,
+    "h": 600
+   }
+  },
+  "gate-post": {
+   "frame": {
+    "x": 804,
+    "y": 1208,
+    "w": 88,
+    "h": 560
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 560
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 560
+   }
+  },
+  "gate-panel": {
+   "frame": {
+    "x": 1608,
+    "y": 0,
+    "w": 192,
+    "h": 400
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 192,
+    "h": 400
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 400
+   }
+  },
+  "barn": {
+   "frame": {
+    "x": 804,
+    "y": 1772,
+    "w": 360,
+    "h": 260
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 360,
+    "h": 260
+   },
+   "sourceSize": {
+    "w": 360,
+    "h": 260
+   }
+  },
+  "floodlight": {
+   "frame": {
+    "x": 1804,
+    "y": 0,
+    "w": 140,
+    "h": 240
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 140,
+    "h": 240
+   },
+   "sourceSize": {
+    "w": 140,
+    "h": 240
+   }
+  },
+  "dust": {
+   "frame": {
+    "x": 1804,
+    "y": 244,
+    "w": 240,
+    "h": 124
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 240,
+    "h": 124
+   },
+   "sourceSize": {
+    "w": 240,
+    "h": 124
+   }
+  },
+  "gate-latch": {
+   "frame": {
+    "x": 1804,
+    "y": 372,
+    "w": 128,
+    "h": 68
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 128,
+    "h": 68
+   },
+   "sourceSize": {
+    "w": 128,
+    "h": 68
+   }
+  },
+  "flash": {
+   "frame": {
+    "x": 1948,
+    "y": 0,
+    "w": 80,
+    "h": 80
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 80
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 80
+   }
+  }
+ },
+ "meta": {
+  "image": "atlas.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 2048,
+   "h": 2048
+  },
+  "scale": "2"
+ }
+}

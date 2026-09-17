@@ -1,0 +1,17 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html",                "x": 0,    "y": 0, "w": 390, "h": 844, "title": "A · Night market  (leading)" },
+    { "file": "LedgerDirection.dc.html",     "x": 470,  "y": 0, "w": 390, "h": 844, "title": "B · Ledger" },
+    { "file": "StrongboxDirection.dc.html",  "x": 940,  "y": 0, "w": 390, "h": 844, "title": "C · Strongbox" },
+    { "file": "TableDirection.dc.html",      "x": 1410, "y": 0, "w": 390, "h": 844, "title": "D · Table" },
+    { "file": "BareDirection.dc.html",       "x": 1880, "y": 0, "w": 390, "h": 844, "title": "E · Bare numerals" }
+  ],
+  "annotations": [
+    { "id": "brief", "x": 0, "y": -250, "w": 430, "text": "THE POT — five directions, same moment.\n\nAll five show the running round at x2.41 on a ₦100 stake, so they are compared on treatment, not on state.\n\nThe concept's advantage: the rising number IS the money. Brazil item 14(c), Portugal regra 4, Netherlands Rko 3.5(1), Spain and AGCO 4.06 all demand the multiplier and the local currency be plainly visible. Every themed game fights that rule. This one satisfies it by construction." },
+    { "id": "risk", "x": 470, "y": -250, "w": 430, "text": "THE RISK CARRIED INTO ALL FIVE.\n\nA game whose picture is a growing pile of money brushes Ghana guideline (ix) — a character must not be shown to be wealthy — and (x), gaming implied as a route to wealth.\n\nThose bind advertising, not game art. But the pot must read as A STAKE POT, never as riches. No lifestyle, no jewellery, no cash-fan imagery, no winner's reaction shot. That is why none of these five shows a person." },
+    { "id": "tradeoff", "x": 940, "y": -250, "w": 860, "text": "THE REAL CHOICE is warmth versus differentiation.\n\nA and C and D are warm and familiar — they look like gambling, which is what a player who already knows Aviator expects. D is the most conventional and therefore the least memorable.\n\nB and E look like nothing else in the category. Every crash game on the market is neon and space. A paper ledger or bare type would stand out in a lobby — and both are the hardest to accuse of glamorising money, since neither shows any." },
+    { "id": "shared", "x": 1880, "y": -250, "w": 430, "text": "NON-NEGOTIABLES, present in all five:\n\n· multiplier and naira figure both plainly visible\n· session clock and net position in the top bar\n· rules reachable before any bet, 44px target\n· one bet, one action, 64px collect button\n· no celebration styling anywhere — this is the running state, and the at-or-below-stake state gets its own artboard once a direction is picked" },
+    { "id": "next", "x": 1410, "y": 884, "w": 430, "text": "NOT YET DONE: the compliance gate.\n\nThese are sketches, which are cheap. Before one becomes the game it needs the concept-stage audit — Nigeria and Ghana, plus whether \"pot\" framing itself raises anything. I do not expect it to: a pot is the most generic casino object there is.\n\nAlso still to draw once picked: betting, collected, returned-at-or-below-stake, crashed, rules." }
+  ],
+  "launch": { "view": "canvas" }
+}

@@ -7,11 +7,7 @@
     ".": "./src/index.ts",
     "./mock": "./src/mock.ts",
     "./testing": "./src/testing/round-service-suite.ts",
-    "./remote": "./src/remote.ts",
-    "./steps": "./src/steps.ts",
-    "./steps-mock": "./src/steps-mock.ts",
-    "./steps-remote": "./src/steps-remote.ts",
-    "./steps-testing": "./src/testing/step-service-suite.ts"
+    "./remote": "./src/remote.ts"
   },
   "scripts": {
     "lint": "eslint .",
@@ -20,7 +16,6 @@
   },
   "dependencies": {
     "@triptown/fairness": "workspace:*",
-    "@triptown/core": "workspace:*",
-    "@triptown/steps": "workspace:*"
+    "@triptown/core": "workspace:*"
   }
 }

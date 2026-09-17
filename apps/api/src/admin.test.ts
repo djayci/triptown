@@ -41,7 +41,7 @@ describe('profiles from env (1.5)', () => {
     const app = createApp({ store: new MemoryRoundStore(), sessionSecret: 's', profiles });
     const acme = (await (await call(app, 'POST', '/v1/sessions', undefined, { operator: 'acme' })).json()) as { session: { profile: { name: string }; config: { id: string } } };
     expect(acme.session.profile.name).toBe('regulated-uk');
-    expect(acme.session.config.id).toBe('whack-crash/v1-rising');
+    expect(acme.session.config.id).toBe('whack-crash/v3-rising');
     const override = await call(app, 'POST', '/v1/sessions', undefined, { profile: 'pt-draft' });
     expect(override.status).toBe(403);
     expect(await override.json()).toMatchObject({ error: { code: 'profile_not_allowed' } });

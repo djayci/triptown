@@ -1,4 +1,4 @@
-import { DEFAULT_CONFIG, resolveConfigId, validateConfig } from '@triptown/fairness';
+import { resolveConfigId, validateConfig } from '@triptown/fairness';
 import { describe, expect, it } from 'vitest';
 import {
   PROFILE_TEMPLATES,
@@ -62,19 +62,21 @@ describe('partial cash-out flag', () => {
 
 describe('effective configs (1.2)', () => {
   it('maps setbacks modes to registered config ids for both games', () => {
-    expect(effectiveConfig('whack-crash', uk()).id).toBe('whack-crash/v1-rising');
+    expect(effectiveConfig('whack-crash', uk()).id).toBe('whack-crash/v3-rising');
     // Paper Route has no boosted config, so the boosted light profile is only valid for whack-crash.
     expect(effectiveConfig('paper-route', { ...profileFromTemplate('light'), boostsMode: 'off' }).id).toBe('paper-route/v1');
-    expect(effectiveConfig('whack-crash', profileFromTemplate('light')).id).toBe('whack-crash/v2');
-    expect(effectiveConfig('whack-crash', { ...profileFromTemplate('light'), boostsMode: 'off' }).id).toBe('whack-crash/v1');
-    expect(effectiveConfig('whack-crash', { ...uk(), boostsMode: 'boost' }).id).toBe('whack-crash/v2-rising');
+    expect(effectiveConfig('whack-crash', profileFromTemplate('light')).id).toBe('whack-crash/v4');
+    expect(effectiveConfig('whack-crash', { ...profileFromTemplate('light'), boostsMode: 'off' }).id).toBe('whack-crash/v3');
+    expect(effectiveConfig('whack-crash', { ...uk(), boostsMode: 'boost' }).id).toBe('whack-crash/v4-rising');
     expect(effectiveConfig('paper-route', uk()).id).toBe('paper-route/v1-rising');
   });
 
   it('rising configs have no setbacks and otherwise match their base', () => {
     const rising = effectiveConfig('whack-crash', uk());
     expect(rising.lambda).toBe(0);
-    expect({ ...rising, id: DEFAULT_CONFIG.id, lambda: DEFAULT_CONFIG.lambda }).toEqual(DEFAULT_CONFIG);
+    // The rising id is the slow-pace family's, so it matches that base, not the original v1 rates.
+    const slowBase = resolveConfigId('whack-crash/v3')!;
+    expect({ ...rising, id: slowBase.id, lambda: slowBase.lambda }).toEqual(slowBase);
     const paper = effectiveConfig('paper-route', uk());
     expect(paper).toMatchObject({ lambda: 0, stakeParts: PAPER_ROUTE_CONFIG.stakeParts });
     expect(validateConfig(rising)).toEqual({ ok: true });
@@ -84,7 +86,7 @@ describe('effective configs (1.2)', () => {
   it('derives +cap ids when the profile caps lower than the config', () => {
     const pt = profileFromTemplate('pt-draft', ['https://pt.example']);
     const cfg = effectiveConfig('whack-crash', pt);
-    expect(cfg).toMatchObject({ id: 'whack-crash/v1-rising+cap100', maxWinMultiplier: 100, lambda: 0 });
+    expect(cfg).toMatchObject({ id: 'whack-crash/v3-rising+cap100', maxWinMultiplier: 100, lambda: 0 });
     expect(resolveConfigId('paper-route/v1-rising+cap100')).toMatchObject({ stakeParts: 5, maxWinMultiplier: 100 });
     expect(resolveConfigId('whack-crash/v1+cap20000')).toBeNull();
     expect(resolveConfigId('nope/v1+cap100')).toBeNull();
@@ -93,13 +95,13 @@ describe('effective configs (1.2)', () => {
 
 describe('report gating (1.4)', () => {
   it('fails when an effective config has no passing report', () => {
-    const index = { 'whack-crash/v1-rising': { pass: true, rounds: 10_000_000, date: '2026-09-15' } };
+    const index = { 'whack-crash/v3-rising': { pass: true, rounds: 10_000_000, date: '2026-09-17' } };
     const onlyWhack = validateProfile(uk(), { reportIndex: index, games: ['whack-crash'] });
     expect(onlyWhack).toEqual({ ok: true });
     const both = validateProfile(uk(), { reportIndex: index });
     expect(both.ok).toBe(false);
     if (!both.ok) expect(both.errors.join()).toMatch(/paper-route\/v1-rising has no passing RTP report/);
-    const failing = validateProfile(uk(), { reportIndex: { 'whack-crash/v1-rising': { pass: false, rounds: 1, date: 'x' } }, games: ['whack-crash'] });
+    const failing = validateProfile(uk(), { reportIndex: { 'whack-crash/v3-rising': { pass: false, rounds: 1, date: 'x' } }, games: ['whack-crash'] });
     expect(failing.ok).toBe(false);
   });
 });
