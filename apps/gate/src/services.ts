@@ -18,8 +18,8 @@ export async function createRoundService(): Promise<RoundService> {
       game: 'beat-the-gate',
       profiles: { defaultProfile: profileFromTemplate(wanted, origins), allowOverride: true },
       playerRegion: params.get('region') ?? 'NG-LA',
-      currency: wanted === 'gh-draft' ? GHS_CURRENCY : NGN_CURRENCY,
-      initialBalanceMinor: wanted === 'gh-draft' ? 5_000_00 : 100_000_00,
+      ...(wanted === 'ng-draft' && { currency: NGN_CURRENCY, initialBalanceMinor: 100_000_00 }),
+      ...(wanted === 'gh-draft' && { currency: GHS_CURRENCY, initialBalanceMinor: 5_000_00 }),
     });
     const force = params.get('force');
     if (force) service.forceNext(force as Parameters<typeof service.forceNext>[0]);

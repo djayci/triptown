@@ -10,6 +10,7 @@ import {
   type SessionInfo,
 } from '@triptown/rgs-client';
 import {
+  clampBet,
   displayMultiplier,
   formatMoney,
   formatMultiplier,
@@ -275,6 +276,13 @@ export class GameController {
 
   async refreshSession() {
     this.session = await this.service.getSession();
+    // A session may be in a currency whose minimum is far above the client's default bet, in which
+    // case every start would be rejected until the player noticed and tapped +.
+    const clamped = clampBet(this.betMinor, this.session.currency);
+    if (clamped !== this.betMinor) {
+      this.betMinor = clamped;
+      this.renderBetUi();
+    }
     this.applyProfile();
     this.renderSessionHud();
     this.balanceMinor = this.session.balanceMinor;
@@ -341,9 +349,7 @@ export class GameController {
     this.audio?.playSfx('bet');
     this.phase = 'starting';
     this.view.disarm();
-    this.lastStartAt = performance.now();
-    this.startLog.push(Math.round(this.lastStartAt));
-    if (this.startLog.length > 100) this.startLog.shift();
+    const attemptedAt = performance.now();
     this.view.showStarting();
     const betMinor = this.betMinor;
     try {
@@ -351,6 +357,12 @@ export class GameController {
         { betMinor, autoCashout: this.autoOn ? this.autoTarget : null },
         (e) => this.onEvent(e),
       );
+      // Recorded only once the host accepted. A refused bet is not a round start: counting it would
+      // make the player wait out a cycle gap the server never imposed, and would put a phantom entry
+      // in the log the timing check reads as evidence (UK RTS 14G, AGCO 2.18).
+      this.lastStartAt = attemptedAt;
+      this.startLog.push(Math.round(attemptedAt));
+      if (this.startLog.length > 100) this.startLog.shift();
       if (this.round && this.round.id === handle.roundId) this.attachHandle(handle);
     } catch (err) {
       const code = err instanceof RoundServiceError ? err.code : 'network';

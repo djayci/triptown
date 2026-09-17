@@ -36,22 +36,6 @@ const square = (ph) => (ph % 1 < 0.5 ? 1 : -1);
 const tri = (ph) => 1 - 4 * Math.abs((ph % 1) - 0.5);
 const saw = (ph) => 2 * (ph % 1) - 1;
 
-/** Oscillator with a time-varying frequency, integrated for smooth sweeps. */
-function sweep(wave, f0, f1, curve = 'exp') {
-  return (t, len) => {
-    const k = Math.min(1, t / len);
-    // Integrate phase analytically for exponential and linear sweeps.
-    let ph;
-    if (curve === 'exp' && f0 !== f1) {
-      const r = Math.log(f1 / f0) / len;
-      ph = (f0 * (Math.exp(r * Math.min(t, len)) - 1)) / r;
-    } else {
-      ph = f0 * t + ((f1 - f0) * t * k) / 2;
-    }
-    return wave(ph);
-  };
-}
-
 function lowpass(buf, cutoff) {
   let y = 0;
   const a = 1 - Math.exp((-TAU * cutoff) / SR);
@@ -91,14 +75,6 @@ export function sfxBet() {
   add(b, 0, 0.25, kick, 0.9);
   coinBlip(b, 0.02, 1320, 0.6);
   return normalize(b);
-}
-
-export function sfxWhack() {
-  const b = buffer(0.4);
-  add(b, 0, 0.22, (t, len) => sweep(square, 520, 110)(t, len) * expDecay(t, 12) * env(t, len, 0.001, 0.04), 0.5);
-  add(b, 0, 0.03, (t, len) => rand() * env(t, len, 0.0005, 0.02), 0.8);
-  add(b, 0, 0.3, (t, len) => Math.sin(TAU * 90 * t) * expDecay(t, 10) * env(t, len, 0.002, 0.05), 0.9);
-  return normalize(lowpass(b, 6000));
 }
 
 export function sfxSetback() {
@@ -153,21 +129,6 @@ export function sfxBigWin() {
   for (let i = 0; i < 14; i++) coinBlip(b, 0.9 + i * 0.07, 1800 + Math.abs(rand()) * 1200, 0.18);
   add(b, 0.8, 0.12, kick, 0.8);
   return normalize(lowpass(b, 10000));
-}
-
-export function sfxCrash() {
-  const b = buffer(1.0);
-  // Whoosh: noise through a falling low-pass.
-  let y = 0;
-  add(b, 0, 0.55, (t, len) => {
-    const cutoff = 4000 * Math.exp(-t * 6) + 200;
-    const a = 1 - Math.exp((-TAU * cutoff) / SR);
-    y += a * (rand() - y);
-    return y * env(t, len, 0.02, 0.1);
-  }, 1.2);
-  add(b, 0, 0.6, (t, len) => sweep(tri, 700, 70)(t, len) * env(t, len, 0.01, 0.1), 0.5);
-  add(b, 0.55, 0.35, kick, 1);
-  return normalize(b);
 }
 
 /** IN!: three quick hoofbeats on turf, then the yard latch clicking behind the horse. */

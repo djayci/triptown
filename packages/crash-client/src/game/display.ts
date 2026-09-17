@@ -90,6 +90,22 @@ export function stepBet(current: number, dir: 1 | -1, currency: CurrencyRules): 
   return [...ladder].reverse().find((v) => v < current) ?? ladder[0]!;
 }
 
+/**
+ * Snaps a bet onto the ladder within a currency's limits. The client's default bet is written once
+ * for a notional currency, but a session may be in naira or cedis where the minimum is 100x larger,
+ * and a bet below the minimum is simply rejected by the host. Without this a player in such a market
+ * cannot start a round at all until they tap +.
+ */
+export function clampBet(current: number, currency: CurrencyRules): number {
+  const ladder = BET_LADDER.filter((v) => v >= currency.minBetMinor && v <= currency.maxBetMinor);
+  if (ladder.length === 0) return currency.minBetMinor;
+  if (current >= currency.minBetMinor && current <= currency.maxBetMinor) {
+    // Already valid: keep the player's choice, snapped down to a ladder value they could have picked.
+    return [...ladder].reverse().find((v) => v <= current) ?? ladder[0]!;
+  }
+  return current < currency.minBetMinor ? ladder[0]! : ladder[ladder.length - 1]!;
+}
+
 export function nextAutoPreset(current: number): number {
   return AUTO_PRESETS.find((v) => v > current + 1e-9) ?? AUTO_PRESETS[0]!;
 }
