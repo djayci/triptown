@@ -53,14 +53,33 @@ export function zoneFor(multiplier: number): Zone {
   return found;
 }
 
-/** The floor number shown on the tape. Decoration over the multiplier, which is the real value. */
+/**
+ * How high the lift has climbed, as a continuous floor.
+ *
+ * Logarithmic, so the building is a building: the top zone sits at floor 100 rather than the floor
+ * 240 that a linear mapping produced, which put the Penthouse at floor 110 of a 490-storey tower.
+ * It also means the number moves fastest early, where most rounds actually live.
+ *
+ * Decoration over the multiplier, which is the value. Pure, and a function of the multiplier alone.
+ */
+export function floorExact(multiplier: number): number {
+  return (Math.log(Math.max(1, multiplier)) / Math.log(25)) * 100;
+}
+
+/** The floor number shown to the player. */
 export function floorFor(multiplier: number): number {
-  return Math.max(0, Math.round((multiplier - 1) * 10));
+  return Math.round(floorExact(multiplier));
 }
 
 /** Tile heights. Each layer scrolls by exactly one tile, so the loop never shows a seam. */
 const FAR_TILE = 90;
 const BAND_TILE = 190;
+/** Vertical distance between floor numerals on the tape. */
+const TAPE_SPACING = 132;
+/** How many floors of tape are drawn above the car. */
+const TAPE_ABOVE = 2;
+/** Where the car sits on screen. The tape is anchored to it so the two agree. */
+const CAR_Y = H * 0.62;
 
 /**
  * The ascent: a lift climbing a building, with the shaft falling past a car that holds still.
@@ -82,6 +101,7 @@ export class LiftScene extends Container {
   private readonly floorTape = new Container();
   private readonly floorLabels: Text[] = [];
   private readonly zoneLabel: Text;
+  private readonly indicatorValue: Text;
   private readonly zoneTextures = new Map<string, Texture>();
   private app!: Application;
 
@@ -139,8 +159,13 @@ export class LiftScene extends Container {
     this.addChild(this.car);
 
     // The zone name rides just above the car, so where you are reads at a glance.
+    // Brass digits on the dark panel, reading as a lit indicator rather than a label.
+    this.indicatorValue = mkText('0', displayStyle(22, COLORS.sun, 0), [0.5, 0.5]);
+    this.indicatorValue.position.set(W / 2 - 84 + 96, CAR_Y - 27);
+    this.addChild(this.indicatorValue);
+
     this.zoneLabel = mkText(t(ZONES[0]!.key), labelStyle(13, COLORS.cream), [0.5, 0.5]);
-    this.zoneLabel.position.set(W / 2, H * 0.62 - 34);
+    this.zoneLabel.position.set(W / 2, CAR_Y - 62);
     this.addChild(this.zoneLabel);
   }
 
@@ -205,7 +230,17 @@ export class LiftScene extends Container {
       door.position.set(x, 48);
     }
     c.addChild(this.doorLeft, this.doorRight);
-    c.position.set(W / 2 - 84, H * 0.62);
+
+    // The floor display, mounted over the doors. This used to be the shared HUD's generic counter
+    // pill floating in the middle of the shaft, which belonged to no part of the picture. A lift
+    // shows its floor on the lift.
+    const panel = new Graphics();
+    panel.roundRect(40, -42, 88, 30, 6).fill(0x0d0f12).stroke({ color: COLORS.ink, width: 4 });
+    // A fixed up-arrow: the ride only goes one way, and a direction that changed would be a claim
+    // about the round rather than a lamp on a lift.
+    panel.moveTo(52, -21).lineTo(58, -33).lineTo(64, -21).closePath().fill(COLORS.lime);
+    c.addChild(panel);
+    c.position.set(W / 2 - 84, CAR_Y);
     return c;
   }
 
@@ -240,8 +275,12 @@ export class LiftScene extends Container {
     // multiplier and nothing else — an earlier `setFloor` was never called by anything and the
     // numerals stayed blank for the life of the game.
     const floor = floorFor(multiplier);
-    this.floorLabels.forEach((label, i) => {
-      const n = floor - i;
+    this.indicatorValue.text = String(floor);
+    // Label k sits at (k - TAPE_ABOVE) floors relative to the car, so the numeral level with the
+    // lift is the floor the indicator is showing. Numerals above are simply the next floors up;
+    // they say nothing about where the lift will stop.
+    this.floorLabels.forEach((label, k) => {
+      const n = floor + TAPE_ABOVE - k;
       label.text = n > 0 ? String(n) : '';
     });
   }
@@ -293,9 +332,14 @@ export class LiftScene extends Container {
     this.far.tilePosition.y = (this.offset * 0.55) % FAR_TILE;
     this.bands.tilePosition.y = this.offset % BAND_TILE;
 
-    this.floorTape.y = this.offset % 132;
-    this.floorLabels.forEach((label, i) => {
-      label.position.set(W / 2, i * 132 - 66);
+    // Driven by the floor, not by elapsed time: the numerals used to scroll on the same clock as
+    // the shaft, so one passing numeral meant nothing in particular and the tape disagreed with the
+    // indicator on the car. One numeral now passes for each floor climbed.
+    const exact = floorExact(this.multiplierSeen);
+    const frac = exact - Math.floor(exact);
+    this.floorTape.y = 0;
+    this.floorLabels.forEach((label, k) => {
+      label.position.set(W / 2, CAR_Y + (k - TAPE_ABOVE + frac) * TAPE_SPACING);
     });
 
     const streakAlpha = this.effectsOn ? this.intensity * 0.55 : 0;

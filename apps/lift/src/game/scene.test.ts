@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ZONES, floorFor, intensityFor, scrollSpeed, zoneFor } from './scene';
+import { ZONES, floorExact, floorFor, intensityFor, scrollSpeed, zoneFor } from './scene';
 import { t } from '../i18n/en';
 
 // The rule this file exists to protect: the scene may read the multiplier and nothing else.
@@ -60,9 +60,27 @@ describe('building zones', () => {
     for (const z of ZONES) expect(t(z.key)).not.toBe(z.key);
   });
 
-  it('puts the floor number above the lobby only once the value has climbed', () => {
+  it('maps the value onto a building rather than an endless tower', () => {
+    // Logarithmic, so the top zone is around floor 100. The linear mapping this replaced put the
+    // Penthouse on floor 110 of a 490-storey building, which no amount of art could rescue.
     expect(floorFor(1)).toBe(0);
-    expect(floorFor(2)).toBe(10);
     expect(floorFor(0.4)).toBe(0);
+    expect(floorFor(25)).toBe(100);
+    expect(floorFor(50)).toBeLessThan(130);
+  });
+
+  it('never sends the floor backwards as the value climbs', () => {
+    let last = -1;
+    for (let m = 1; m <= 60; m += 0.01) {
+      const f = floorFor(m);
+      expect(f).toBeGreaterThanOrEqual(last);
+      last = f;
+    }
+  });
+
+  it('puts each zone boundary on a floor the player can be standing at', () => {
+    // The zone ladder and the floor tape are two views of the same climb; if they disagreed, the
+    // indicator would say one thing and the building another.
+    for (const z of ZONES) expect(floorFor(z.from)).toBe(Math.round(floorExact(z.from)));
   });
 });

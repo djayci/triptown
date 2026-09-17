@@ -1,6 +1,6 @@
 {
   "url": "http://localhost:5175",
-  "date": "2026-09-17T11:26:52.581Z",
+  "date": "2026-09-17T13:42:56.413Z",
   "profile": {
     "belowStake": true,
     "even": true,
@@ -48,6 +48,14 @@
       "name": "deferred heading home is the same for a win and a loss",
       "status": "unreachable",
       "why": "live reveal"
+    },
+    {
+      "case": "practice round",
+      "practice": true,
+      "settled": true,
+      "celebrated": false,
+      "money": null,
+      "pass": true
     }
   ]
 }

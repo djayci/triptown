@@ -21,14 +21,16 @@ export class LiftView extends CrashScreen {
         readySub: t('stage.readySub'),
         settledTitle: t('result.cashedOut'),
         crashedTitle: t('result.crashed'),
-        counterLabel: t('label.floor'),
       },
       new LiftScene(game.app) as unknown as GameStage,
     );
   }
 
-  /** Floors are decoration over the same multiplier; the multiplier is the value. */
-  protected counterFor(multiplier: number): string {
-    return String(Math.max(0, Math.round((multiplier - 1) * 10)));
+  /**
+   * No shared counter: The Lift draws its floor on the car itself, where a lift shows it, rather
+   * than in a HUD pill that belongs to no part of the picture. The multiplier remains the value.
+   */
+  protected counterFor(): string | null {
+    return null;
   }
 }

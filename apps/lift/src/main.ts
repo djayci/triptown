@@ -89,6 +89,9 @@ async function boot() {
     // and reports a game with no cue channel as such, so an empty log is never read as proof.
     w.__triptownAudioLog = [];
     w.__triptownView = () => controller.debugState();
+    // Stake-free practice rounds: the shared check drives one through this hook, and a game that
+    // does not expose it cannot be checked for how it presents a practice result.
+    w.__triptownPractice = () => void controller.bet({ practice: true });
   }
 
   await controller.init();
