@@ -1093,8 +1093,12 @@ export class GameView extends CrashViewBase implements CrashView {
     // holding it would be, and the handle reaches up into the scene. Coming from above read as someone
     // else swinging at the mole. The grip stays outside the stage so the swing enters and leaves through
     // the same arc rather than being conjured beside the hole.
-    const grip = { x: hole.x + hole.w * 1.15, y: hole.y + hole.h * 1.45 };
-    const contact = { x: hole.x + hole.w * 0.52, y: hole.y + hole.h * 0.3 };
+    // Held from the player's side and brought down from above: the grip is off the bottom-right, where
+    // the hand would be, and the handle is long enough that the head arrives over the top of the mole
+    // rather than poking up at it from below. Head above, handle angling down towards the viewer, which
+    // is what a mallet swing looks like from behind it.
+    const grip = { x: hole.x + hole.w * 1.35, y: hole.y + hole.h * 1.7 };
+    const contact = { x: hole.x + hole.w * 0.5, y: hole.y + hole.h * 0.02 };
     const dx = contact.x - grip.x;
     const dy = contact.y - grip.y;
     const reach = Math.hypot(dx, dy);
