@@ -119,6 +119,21 @@ export class GateStage extends Container {
   private clipAtPost = false;
   /** True while the horse is coming out of the yard, so the lap motion leaves its position alone. */
   private emerging = false;
+  /**
+   * True from BET until the gate starts to leave: the field holds still while the doors open, so the doors
+   * never look as if they are sliding with it. The field and the gate then start moving together.
+   */
+  private fieldHeld = false;
+  /**
+   * The gate is fixed to the ground: while it leaves or comes back it moves by exactly as much as the field
+   * scrolls each frame, so it never slides over the grass. `departTo` is where a leaving gate stops;
+   * `arrival` drives a returning one.
+   */
+  private departTo: number | null = null;
+  private departCall: gsap.core.Tween | null = null;
+  /** Scene time the field started moving after BET, to ease it up to speed rather than jump. */
+  private rampFrom: number | null = null;
+  private arrival: { from: number; t: number; onArrived?: () => void } | null = null;
 
   private w = REF_W;
   private h = REF_H;
@@ -273,6 +288,7 @@ export class GateStage extends Container {
     this.horseX = INSIDE_X;
     this.setClip(true);
     this.emerging = true;
+    this.fieldHeld = true;
     this.placeHorse();
     this.gateSwing.open = 0;
     gsap.to(this.gateSwing, { open: 1, duration: OPEN_SECONDS, ease: 'power2.inOut', onUpdate: () => this.setGateOpen(this.gateSwing.open) });
@@ -289,7 +305,12 @@ export class GateStage extends Container {
       },
     });
     // The gate leaves as soon as the horse is through, so it is gone by the time the horse is running.
-    gsap.to(this.yard, { x: yardX, duration: 0.7, delay: OPEN_SECONDS * 0.75, ease: 'power2.in' });
+    // Nothing moves but the doors until they are fully open; then the field and the gate start together.
+    this.departCall = gsap.delayedCall(OPEN_SECONDS, () => {
+      this.fieldHeld = false;
+      this.departTo = yardX;
+      this.rampFrom = this.time;
+    });
   }
 
   /**
@@ -416,7 +437,7 @@ export class GateStage extends Container {
     const speedRef = this.mode === 'heading' || this.mode === 'arriving' ? -160 : this.effectsOn ? 160 + 380 * this.intensity : 160;
 
     if (running && !this.reduced) {
-      this.scroll += speedRef * this.u * dtSeconds;
+      this.moveField(speedRef, dtSeconds);
       this.turf.tilePosition.x = -this.scroll;
       this.rail.tilePosition.x = -this.scroll;
       this.crowd.tilePosition.x = -this.scroll * 0.15;
@@ -625,7 +646,10 @@ export class GateStage extends Container {
    * open door flares past its post), so moving or widening the gate can't leave part of it on screen.
    */
   private yardAway(): number {
-    return -(this.yard.getLocalBounds().maxX + 16 * this.u);
+    // The gate's own parts only: the horse shares this layer and must not push the gate further away.
+    const rightDoor = this.panels[1].getLocalBounds().maxX;
+    const rightPost = this.posts[1].x + this.posts[1].width / 2;
+    return -(Math.max(rightDoor, rightPost) + 16 * this.u);
   }
 
   /**
@@ -640,11 +664,56 @@ export class GateStage extends Container {
       return;
     }
     this.yard.x = Math.min(this.yard.x, this.yardAway());
-    gsap.to(this.yard, { x: 0, duration: ARRIVE_SECONDS, ease: 'power1.out', onComplete: () => onArrived?.() });
+    this.arrival = { from: this.yard.x, t: 0, ...(onArrived ? { onArrived } : {}) };
+  }
+
+  /**
+   * Scrolls the field for one frame and carries the gate with it. Riding out, the field waits for the doors,
+   * eases up to speed, and a leaving gate moves by the same distance until it is off screen. Coming back,
+   * the gate's approach sets the distance and the field scrolls by exactly that, starting at the heading-home
+   * speed and settling as the gate stops, so the two never move apart.
+   */
+  private moveField(speedRef: number, dt: number): void {
+    const u = this.u;
+    if (this.mode === 'out') {
+      if (this.fieldHeld) return;
+      const ramp = this.rampFrom === null ? 1 : Math.min(1, (this.time - this.rampFrom) / 0.4);
+      const d = speedRef * u * dt * ramp;
+      this.scroll += d;
+      if (this.departTo !== null) {
+        this.yard.x = Math.max(this.departTo, this.yard.x - d);
+        if (this.yard.x <= this.departTo) this.departTo = null;
+      }
+      return;
+    }
+    if (this.mode === 'arriving' && this.arrival) {
+      const a = this.arrival;
+      a.t += dt;
+      const p = Math.min(1, a.t / ARRIVE_SECONDS);
+      // Hermite curve: leaves at the heading-home speed, arrives at rest.
+      const distance = -a.from;
+      const k = distance > 0 ? (Math.abs(speedRef) * u * ARRIVE_SECONDS) / distance : 0;
+      const h = k * (p - 2 * p * p + p * p * p) + (3 * p * p - 2 * p * p * p);
+      const x = a.from + distance * h;
+      this.scroll -= x - this.yard.x;
+      this.yard.x = x;
+      if (p >= 1) {
+        this.arrival = null;
+        a.onArrived?.();
+      }
+      return;
+    }
+    this.scroll += speedRef * u * dt;
   }
 
   private killTweens(): void {
     this.emerging = false;
+    this.fieldHeld = false;
+    this.departCall?.kill();
+    this.departCall = null;
+    this.departTo = null;
+    this.rampFrom = null;
+    this.arrival = null;
     gsap.killTweensOf(this);
     gsap.killTweensOf(this.yard);
     gsap.killTweensOf(this.gateSwing);
