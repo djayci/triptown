@@ -131,6 +131,7 @@ export class GameView extends CrashViewBase implements CrashView {
   /** Colour of the current checkpoint tier; the multiplier and payout keep it until the next one. */
   private tierTint: number = COLORS.cream;
   private stageH = 424;
+  private stageTween: gsap.core.Tween | null = null;
   private readonly tick = (t: Ticker) => this.update(t.deltaMS / 1000);
 
   constructor(
@@ -199,7 +200,7 @@ export class GameView extends CrashViewBase implements CrashView {
     this.helpBtn = new IconButton(frames('icon-help'), 44, COLORS.cream, () => this.handlers.onRules(), 'How this game works');
 
     this.confetti = new Confetti(app.ticker);
-    c.addChild(this.sessionStrip, ...this.decoys, this.mainHole, this.ready, this.resultCard, this.oldMult, this.strike, this.mult, this.winNow, this.meter, this.escaped, this.lostChip, this.bustBurst, this.fx, this.confetti, this.demo, this.soundBtn, this.shieldBtn, this.helpBtn);
+    c.addChild(this.sessionStrip, ...this.decoys, this.mainHole, this.ready, this.resultCard, this.oldMult, this.strike, this.mult, this.winNow, this.meter, this.escaped, this.bustBurst, this.fx, this.lostChip, this.confetti, this.demo, this.soundBtn, this.shieldBtn, this.helpBtn);
 
     // Controls
     this.minus = new IconButton(frames('icon-minus'), 56, COLORS.sky, () => this.handlers.onStepBet(-1), 'Decrease bet', 0.5);
@@ -636,7 +637,7 @@ export class GameView extends CrashViewBase implements CrashView {
     this.bigButton.setLabel(replay.label, replay.sub);
     this.setActionLabel({ ...replay, enabled: true });
     this.bigButton.setEnabled(true);
-    this.relayout(false);
+    this.relayout(true);
   }
 
   showCrash(multiplier: string, lost: string, instant: boolean) {
@@ -649,7 +650,6 @@ export class GameView extends CrashViewBase implements CrashView {
     this.mult.text = multiplier;
     this.fitMult();
     const { width: w } = this.stage.size;
-    const h = this.stageH;
     const hole = this.holeRect();
     if (instant) {
       this.mainHole.setFrame(this.frames, 'mole-gold-happy');
@@ -664,7 +664,6 @@ export class GameView extends CrashViewBase implements CrashView {
       this.mainHole.setFrame(this.frames, 'mole-gold-smug');
       this.mainHole.riseTo(222, 0.22, 'power3.in');
       this.escaped.set(t('result.escaped'));
-      this.puffs(hole);
     }
     this.escaped.visible = true;
     this.escaped.position.set(w / 2, (this.layout === 'desktop' ? 230 : 140) + this.hudOffset);
@@ -672,13 +671,12 @@ export class GameView extends CrashViewBase implements CrashView {
     pop(this.escaped, 1.2, 0.3);
     this.lostChip.set(lost);
     this.lostChip.visible = true;
-    this.lostChip.position.set(w / 2, h - 44);
     if (this.intensityEffects) shake(this.root, 6, 0.25);
     this.bigButton.setFill(COLORS.pink);
     this.bigButton.setIcon(this.frames('icon-replay-cream'));
     this.bigButton.setLabel(t('button.betAgain'), t('button.playAgainSub'));
     this.bigButton.setEnabled(true);
-    this.relayout(false);
+    this.relayout(true);
   }
 
   toast(message: string) {
@@ -843,12 +841,14 @@ export class GameView extends CrashViewBase implements CrashView {
         this.placeBetControls(PAD, statY, CONTENT, false);
         // The stake is on screen while betting; during a round it is neither editable nor useful.
         const showStats = this.phase !== 'running' && this.phase !== 'cashing';
-        this.statBet.visible = showStats;
         this.statAuto.visible = false;
-        // The stage keeps one height across the round and its result. Growing it while the stat row was
-        // hidden meant it shrank again the moment the round settled, and the hole and the diving mole
-        // are positioned from that height — so every crash ended with the scene lurching downward.
-        this.setStageSize(CONTENT, Math.max(240, statY - 10 - practiceH - top), animate);
+        this.statBet.visible = showStats;
+        // With the stat row hidden the stage takes the space back, so the round itself gets the largest
+        // view. It grows and shrinks on a tween: the hole, the diving mole and the dust are all placed
+        // from this height, so changing it without animating re-laid the scene out under the animation
+        // that was still playing, which is what made the escape screen look broken.
+        const stageBottom = showStats ? statY - 10 : btnY - 12;
+        this.setStageSize(CONTENT, Math.max(240, stageBottom - practiceH - top), animate);
         // BET spans the row now that AUTO is gone, rather than leaving a gap where it used to sit.
         this.statBet.resize(CONTENT, 44);
         this.statBet.position.set(PAD, statY);
@@ -914,9 +914,19 @@ export class GameView extends CrashViewBase implements CrashView {
   }
 
   private setStageSize(w: number, h: number, animate: boolean) {
+    // One tween at a time: a second resize arriving mid-animation used to leave two tweens driving the
+    // same height, which is how a smooth change turns into a stutter.
+    this.stageTween?.kill();
+    this.stageTween = null;
     if (animate && this.stageH !== h) {
       const state = { h: this.stageH };
-      gsap.to(state, { h, duration: 0.35, ease: 'power2.inOut', onUpdate: () => this.applyStageSize(w, state.h) });
+      this.stageTween = gsap.to(state, {
+        h,
+        duration: 0.35,
+        ease: 'power2.inOut',
+        onUpdate: () => this.applyStageSize(w, state.h),
+        onComplete: () => (this.stageTween = null),
+      });
     } else {
       this.applyStageSize(w, h);
     }
@@ -958,6 +968,11 @@ export class GameView extends CrashViewBase implements CrashView {
     this.layoutWinNow();
     this.ready.position.set(w / 2, (desktop ? 60 : 26) + this.hudOffset);
     this.ready.scale.set(desktop ? 1.6 : 1);
+    // On the hole's mouth, where the dive's dust used to be: that is where the eye already is when the
+    // mole disappears. Placed here rather than once in showCrash because the stage height animates, and
+    // a chip positioned from the height at settle time ends up clipped below the new bottom edge.
+    const holeNow = this.holeRect();
+    this.lostChip.position.set(w / 2, Math.min(h - 34, holeNow.y + holeNow.h * 0.84));
     this.meter.resize(desktop ? 480 : CONTENT - 32);
     this.meter.position.set(w / 2 - (desktop ? 240 : 163), h - (desktop ? 66 : 54));
     this.demo.position.set(46, 26);
@@ -1184,20 +1199,6 @@ export class GameView extends CrashViewBase implements CrashView {
           star.position.set(centerX + Math.cos(state.a) * 70 * s, topY + Math.sin(state.a) * 18 * s);
         },
       }));
-    });
-  }
-
-  private puffs(hole: { x: number; y: number; w: number; h: number }) {
-    const s = hole.w / 280;
-    const spots = [[120, 250, 26], [160, 232, 32], [206, 240, 28], [240, 258, 22], [96, 270, 18]];
-    spots.forEach(([x, y, r], i) => {
-      const puff = new Sprite(this.frames('puff'));
-      puff.anchor.set(0.5);
-      puff.position.set(hole.x + x! * s, hole.y + y! * s);
-      puff.scale.set(0);
-      this.fx.addChild(puff);
-      const size = (r! * 2 * s) / 80;
-      this.trackFx(gsap.to(puff.scale, { x: size, y: size, duration: 0.3, delay: 0.12 + i * 0.03, ease: 'back.out(2)' }));
     });
   }
 }
