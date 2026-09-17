@@ -44,7 +44,7 @@ async function boot() {
   const service = await createRoundService();
   const skin = (await service.getSession().catch(() => null))?.profile?.skin === 'adult' ? 'adult' : 'candy';
   useSkin(skin);
-  const [game, frames, audio] = await Promise.all([createGameApp(parent), loadAtlas(asset(`atlas-${skin}.json`)), loadAudio()]);
+  const [game, frames, audio] = await Promise.all([createGameApp(parent), loadAtlas(asset(`atlas-${skin}.json`), __BUILD_HASH__), loadAudio()]);
   let fairness: FairnessPanel | null = null;
   let rules: RulesPanel | null = null;
   let history: HistoryPanel | null = null;
