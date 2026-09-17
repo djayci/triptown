@@ -129,12 +129,18 @@ async function boot() {
     reduceEffects: controller.reduceEffects,
     onReduceEffects: (on) => controller.setReduceEffects(on),
     autoCashout: false,
+    game: GAME_ID,
+    stakeMinor: () => controller.stakeMinor,
   });
 
   // Dev hooks for the shared compliance checks. Demo builds only, never production.
   if (DEMO) {
     const w = window as unknown as Record<string, unknown>;
-    if (audio) w.__triptownAudioLog = audio.log;
+    if (audio) {
+      w.__triptownAudioLog = audio.log;
+      // Read-only access for checks of the music layers.
+      w.__triptownAudio = audio;
+    }
     w.__triptownView = () => controller.debugState();
     // Stake-free practice rounds: the shared check drives one through this hook on markets that allow them.
     w.__triptownPractice = () => void controller.bet({ practice: true });

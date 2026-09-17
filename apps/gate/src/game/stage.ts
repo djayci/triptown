@@ -1,4 +1,4 @@
-import { AnimatedSprite, Container, Graphics, Sprite, TilingSprite, type Application, type Texture } from 'pixi.js';
+import { AnimatedSprite, Container, Graphics, PerspectiveMesh, Sprite, TilingSprite, type Application, type Texture } from 'pixi.js';
 import { gsap } from '@triptown/engine';
 
 /** The shared screen's fixed design size; the stage fills it behind the HUD. */
@@ -53,6 +53,15 @@ export type RevealMode = 'live' | 'onCollect';
 /** Seconds the heading-home turn takes. Fixed, and the same for every outcome (gate-odds-mvp D6). */
 export const HEADING_HOME_SECONDS = 1.2;
 
+/** Gate posts in reference units, clear of the screen edge so an open door never swings off it. */
+const GATE_LEFT = 58;
+const GATE_RIGHT = 170;
+/** How far an open door swings towards the viewer, in degrees, and the camera distance for its perspective. */
+const OPEN_DEGREES = 115;
+const CAMERA_DISTANCE = 220;
+/** Where the horse waits at the start, clear of the open right-hand door. */
+const IDLE_X = 292;
+
 /**
  * Beat the Gate's scene: a floodlit night field with the yard gate fixed at the left.
  *
@@ -71,6 +80,8 @@ export class GateStage extends Container {
   private readonly sky = new Graphics();
   /** The green mound the field sits on; its top edge is outlined like Whack's hole lip. */
   private readonly mound = new Graphics();
+  /** The field's shape: the striped turf is clipped to the mound so the stripes follow its curved top. */
+  private readonly fieldMask = new Graphics();
   private readonly beams = new Graphics();
   private readonly lights: [Sprite, Sprite];
   private readonly crowd: TilingSprite;
@@ -79,7 +90,7 @@ export class GateStage extends Container {
   private readonly rail: TilingSprite;
   private readonly barn: Sprite;
   private readonly posts: [Sprite, Sprite];
-  private readonly panels: [Sprite, Sprite];
+  private readonly panels: [PerspectiveMesh, PerspectiveMesh];
   private readonly latch: Sprite;
   /** Barn, posts, panels and latch, moved as one so Gate Rush can leave the gate behind and bring it back. */
   private readonly yard = new Container();
@@ -103,7 +114,7 @@ export class GateStage extends Container {
   private flashCooldown = 0;
   /** Horse x in reference units while it is out on the field; the lap adds to this. */
   private fieldX = 250;
-  private horseX = 244;
+  private horseX = IDLE_X;
 
   constructor(
     app: Application,
@@ -118,15 +129,13 @@ export class GateStage extends Container {
     this.rail = new TilingSprite({ texture: this.railTexture(app), width: REF_W, height: 30 });
     this.barn = new Sprite(frames('barn'));
     this.posts = [new Sprite(frames('gate-post')), new Sprite(frames('gate-post'))];
-    this.panels = [new Sprite(frames('gate-panel')), new Sprite(frames('gate-panel'))];
+    this.panels = [0, 1].map(() => new PerspectiveMesh({ texture: frames('gate-panel'), verticesX: 6, verticesY: 6 })) as [PerspectiveMesh, PerspectiveMesh];
     this.latch = new Sprite(frames('gate-latch'));
     this.horseRun = new AnimatedSprite([0, 1, 2, 3].map((i) => frames(`horse-gallop-${i}`)));
     this.horseStand = new Sprite(frames('horse-stand'));
     for (const s of [this.horseRun, this.horseStand]) s.anchor.set(0.5, 0.94);
     this.horse.addChild(this.horseStand, this.horseRun);
     for (const p of this.posts) p.anchor.set(0.5, 1);
-    this.panels[0].anchor.set(0, 1);
-    this.panels[1].anchor.set(0, 1);
     this.latch.anchor.set(0.5);
     this.barn.anchor.set(0, 1);
 
@@ -138,8 +147,9 @@ export class GateStage extends Container {
       ...this.lights,
       this.crowd,
       this.flashLayer,
-      this.mound,
       this.turf,
+      this.fieldMask,
+      this.mound,
       this.rail,
       // The horse passes behind the barn and the gate, so riding home reads as going in.
       this.horse,
@@ -201,7 +211,7 @@ export class GateStage extends Container {
     this.setGateOpen(1);
     this.yard.x = 0;
     this.crashTint.alpha = 0;
-    this.horseX = 244;
+    this.horseX = IDLE_X;
     this.faceHorse(1);
     this.showStanding(true);
     this.dustLayer.removeChildren();
@@ -285,7 +295,8 @@ export class GateStage extends Container {
     this.bringYardBack();
     this.showStanding(true);
     this.faceHorse(1);
-    this.horseX = this.fieldX;
+    // Well clear of the shut gate, so the loss never reads as stopping just short of it.
+    this.horseX = IDLE_X - 8;
     this.placeHorse();
     if (this.reduced) this.crashTint.alpha = 0.35;
     else gsap.to(this.crashTint, { alpha: 0.35, duration: 0.3 });
@@ -356,7 +367,7 @@ export class GateStage extends Container {
   }
 
   private gateCenterX(): number {
-    return 80 * this.u;
+    return ((GATE_LEFT + GATE_RIGHT) / 2) * this.u;
   }
 
   private layout(): void {
@@ -389,12 +400,19 @@ export class GateStage extends Container {
     this.flashLayer.position.set(0, crowdY);
 
     const moundTop = crowdY + 26 * u;
-    this.mound
-      .clear()
-      .ellipse(w / 2, moundTop + 150 * u, w * 0.9, 150 * u)
-      .fill(this.c.turf)
-      .stroke({ color: this.c.ink, width: 5 });
-    this.turf.position.set(0, crowdY + 40 * u);
+    // The field is one shape: an arched top edge, then straight down to the bottom of the screen. The
+    // stripes are clipped to it and the ink outline follows the same curve, so there is no flat band
+    // between the arch and the stripes.
+    const arch = (g: Graphics) => {
+      g.moveTo(-10, moundTop + 34 * u).quadraticCurveTo(w / 2, moundTop - 34 * u, w + 10, moundTop + 34 * u);
+      return g;
+    };
+    this.fieldMask.clear();
+    arch(this.fieldMask).lineTo(w + 10, h + 10).lineTo(-10, h + 10).closePath().fill(0xffffff);
+    this.mound.clear();
+    arch(this.mound).stroke({ color: this.c.ink, width: 5 });
+    this.turf.mask = this.fieldMask;
+    this.turf.position.set(0, moundTop - 34 * u);
     this.turf.width = w;
     this.turf.height = h - this.turf.y;
     this.turf.tileScale.set(u);
@@ -409,8 +427,8 @@ export class GateStage extends Container {
     const postScale = 0.85 * u;
     this.posts[0].scale.set(postScale);
     this.posts[1].scale.set(postScale);
-    this.posts[0].position.set(14 * u, ground + 6 * u);
-    this.posts[1].position.set(146 * u, ground + 6 * u);
+    this.posts[0].position.set(GATE_LEFT * u, ground + 6 * u);
+    this.posts[1].position.set(GATE_RIGHT * u, ground + 6 * u);
     this.latch.scale.set(0.6 * u);
     this.setGateOpen(this.mode === 'shut' ? 0 : 1);
 
@@ -419,24 +437,41 @@ export class GateStage extends Container {
     this.crashTint.clear().rect(0, 0, w, h).fill(this.c.crash);
   }
 
-  /** 1 = swung open towards the viewer, 0 = shut across the opening. One texture, squashed about its hinge. */
+  /**
+   * 1 = swung open towards the viewer, 0 = shut across the opening. Each door turns on its post's hinge
+   * and is drawn in perspective: the free edge comes towards the camera, so it grows and moves away from
+   * the centre of the view, as a real door opening towards you does.
+   */
   private setGateOpen(open: number): void {
     const u = this.u;
     const ground = this.groundY();
-    const left = 14 * u;
-    const right = 146 * u;
+    const left = GATE_LEFT * u;
+    const right = GATE_RIGHT * u;
     const half = (right - left) / 2;
-    const heightScale = 0.8 * u;
-    const shutScaleX = half / 96;
-    const scaleX = shutScaleX * (1 - 0.72 * open);
-    const [a, b] = this.panels;
-    a.scale.set(scaleX, heightScale);
-    a.position.set(left, ground - 8 * u);
-    a.skew.y = -0.35 * open;
-    b.scale.set(-scaleX, heightScale);
-    b.position.set(right, ground - 8 * u);
-    b.skew.y = 0.35 * open;
-    this.latch.position.set((left + right) / 2, ground - 90 * u);
+    const bottom = ground - 8 * u;
+    const top = bottom - 160 * u;
+    // The camera looks at the middle of the gate, from about the door's mid-height.
+    const cx = (left + right) / 2;
+    const cy = (top + bottom) / 2;
+    const angle = (open * OPEN_DEGREES * Math.PI) / 180;
+    const project = (x: number, y: number, depth: number): [number, number] => {
+      const s = (CAMERA_DISTANCE * u) / (CAMERA_DISTANCE * u - depth);
+      return [cx + (x - cx) * s, cy + (y - cy) * s];
+    };
+    const door = (mesh: PerspectiveMesh, hinge: number, dir: 1 | -1) => {
+      // Past 90 degrees the free edge passes its own post, so each door flares outward and towards the viewer.
+      const freeX = hinge + dir * half * Math.cos(angle);
+      const depth = half * Math.sin(angle);
+      const [hx0, hy0] = project(hinge, top, 0);
+      const [hx1, hy1] = project(hinge, bottom, 0);
+      const [fx0, fy0] = project(freeX, top, depth);
+      const [fx1, fy1] = project(freeX, bottom, depth);
+      // Texture left edge on the hinge, right edge on the free edge: the right door comes out mirrored.
+      mesh.setCorners(hx0, hy0, fx0, fy0, fx1, fy1, hx1, hy1);
+    };
+    door(this.panels[0], left, 1);
+    door(this.panels[1], right, -1);
+    this.latch.position.set(cx, ground - 90 * u);
     this.latch.visible = open < 0.05;
   }
 
@@ -474,9 +509,12 @@ export class GateStage extends Container {
     gsap.to(s, { alpha: 0, duration: 0.5, delay: 0.5, onComplete: () => s.destroy() });
   }
 
-  /** Where the yard waits while the horse is out: fully off the left edge. */
+  /**
+   * Where the yard waits while the horse is out: fully off the left edge. Measured from what is drawn (an
+   * open door flares past its post), so moving or widening the gate can't leave part of it on screen.
+   */
   private yardAway(): number {
-    return -170 * this.u;
+    return -(this.yard.getLocalBounds().maxX + 16 * this.u);
   }
 
   /** The reveal: the gate, already in its final state, slides back into view. Same motion either way. */

@@ -131,6 +131,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
    * same weight as the caption: it informs, it never competes with the multiplier or the money.
    */
   private readonly revealChance = text('', labelStyle(12, onStage()), [0.5, 0]);
+  private lastChance: string | null = null;
 
   /** Hard rule 7: a demo build must say so on screen, in every game, always. */
   private readonly demoBadge = new Container();
@@ -278,6 +279,15 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     return true;
   }
 
+  /**
+   * Top of the result card in the 390x844 frame. A game whose result is shown in the scene (a gate opening,
+   * say) can lift the card clear of it. The card restates the multiplier and the net, so it may cover the
+   * live values but never the stage's own answer.
+   */
+  protected resultCardTop(): number {
+    return 360;
+  }
+
   get offersAutoCashout(): boolean {
     return this.hasAutoCashout();
   }
@@ -286,12 +296,14 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     this.logo.position.set(PAD, 14);
     this.balance.position.set(W - PAD, 14);
     this.session.position.set(PAD, 64);
-    this.history.position.set(PAD, 96);
+    this.placeHistory();
     this.mult.position.set(W / 2, 150);
     this.payout.position.set(W / 2, 246);
     this.payoutLabel.position.set(W / 2, 294);
     // Centred, so it wraps inside the control column on both sides rather than running under the icons.
-    Object.assign(this.payoutLabel.style, { wordWrap: true, wordWrapWidth: 2 * (W - PAD - 40 - 8 - W / 2), align: 'center' });
+    for (const line of [this.payoutLabel, this.revealChance]) {
+      Object.assign(line.style, { wordWrap: true, wordWrapWidth: 2 * (W - PAD - 40 - 8 - W / 2), align: 'center' });
+    }
     this.revealChance.position.set(W / 2, 318);
 
     // Above the stake row rather than beside the wordmark: a longer two-word logo collided with it
@@ -310,7 +322,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     this.counterCaption.position.set(11, 9);
     this.counterValue.position.set(81, 5);
 
-    this.resultCard.position.set(28, 360);
+    this.resultCard.position.set(28, this.resultCardTop());
     this.resultTitle.position.set((W - 56) / 2, 20);
     this.resultLine.position.set((W - 56) / 2, 70);
 
@@ -349,6 +361,11 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     this.placeControls();
   }
 
+  /** The history chips move up into the session strip's row when a market shows no clock or net. */
+  private placeHistory(): void {
+    this.history.position.set(PAD, this.session.visible ? 96 : 64);
+  }
+
   private placeControls(): void {
     this.controls.filter((b) => b.visible).forEach((b, i) => b.position.set(W - PAD - 40, 136 + i * 50));
   }
@@ -374,6 +391,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
 
   setSessionHud(hud: SessionHud): void {
     this.session.set(hud);
+    this.placeHistory();
   }
 
   showBetting(): void {
@@ -406,6 +424,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
 
   /** Deferred reveal: the round's chance line, or null to hide it. */
   setRevealOdds(chance: string | null): void {
+    this.lastChance = chance;
     this.revealChance.text = chance === null ? '' : t('run.revealChance', { chance });
   }
 
@@ -415,6 +434,10 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
    */
   showHeadingHome(multiplier: string, payoutIfWon: string): void {
     this.phase = 'cashing';
+    // The chance stays on screen while heading home, restated so it is still true: "if you go in now" is
+    // false once they have gone in, and hiding it would drop the disclosure that makes a locked value
+    // honest when it may already be unwinnable. It describes the value, never this round's result.
+    if (this.lastChance !== null) this.revealChance.text = t('run.revealChanceLocked', { chance: this.lastChance, multiplier });
     this.mult.text = multiplier;
     this.payout.text = payoutIfWon;
     this.payout.style.fill = COLORS.cream;
@@ -449,7 +472,9 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     this.resultCard.visible = true;
     // The big value becomes the SETTLED return, not the last animated frame, so the figure on screen
     // is the one actually paid (UK RTS 7E, AGCO 4.15). The live caption goes: it said "collect now".
-    this.payout.text = line;
+    // A card lifted over the live values already states that same settled line, so the copy underneath
+    // would only peek out from behind it.
+    this.payout.text = this.resultCardTop() < 330 ? '' : line;
     this.payout.style.fill = celebrate ? COLORS.lime : COLORS.cream;
     this.payoutLabel.text = '';
     this.replay(celebrate);

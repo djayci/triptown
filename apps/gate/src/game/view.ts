@@ -46,6 +46,11 @@ export class GateView extends CrashScreen {
     return null;
   }
 
+  /** The card sits above the field, so the gate opening or staying shut is seen, not covered. */
+  protected override resultCardTop(): number {
+    return 262;
+  }
+
   /** No auto cash-out: IN! is the only way a ride ends before the automatic reveal. */
   protected override hasAutoCashout(): boolean {
     return false;

@@ -214,8 +214,10 @@ export const PROFILE_TEMPLATES: Readonly<Record<string, ProfileTemplate>> = Obje
     // Sound on by default (user decision, 17 Sep 2026); no Nigerian or Ghanaian rule found requiring muted.
     soundDefault: 'on',
     intensityEffects: true,
-    showSessionClock: true,
-    showNetPosition: true,
+    // Off by user decision (17 Sep 2026): no Nigerian rule found requiring an in-game session clock or net
+    // position (docs/compliance/night-meet-2026-09-16.md s.3). The UK, Ontario and Portugal profiles keep them.
+    showSessionClock: false,
+    showNetPosition: false,
     marketCountry: 'NG',
     // States that apply Sharia criminal law and ban gambling (research M); operators geo-block by state.
     blockedRegions: ['NG-BA', 'NG-BO', 'NG-GO', 'NG-JI', 'NG-KD', 'NG-KN', 'NG-KT', 'NG-KE', 'NG-NI', 'NG-SO', 'NG-YO', 'NG-ZA'],
@@ -240,8 +242,9 @@ export const PROFILE_TEMPLATES: Readonly<Record<string, ProfileTemplate>> = Obje
     // Sound on by default (user decision, 17 Sep 2026); no Nigerian or Ghanaian rule found requiring muted.
     soundDefault: 'on',
     intensityEffects: true,
-    showSessionClock: true,
-    showNetPosition: true,
+    // Off by user decision (17 Sep 2026): no Ghanaian rule found requiring them (same audit, s.3).
+    showSessionClock: false,
+    showNetPosition: false,
     marketCountry: 'GH',
     blockedRegions: [],
     hostingRegions: [],

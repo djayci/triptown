@@ -41,6 +41,7 @@ export const EN = {
   'run.winNow': 'IN NOW {amount}',
   'run.ifOpen': 'IF THE GATE IS OPEN',
   'run.revealChance': 'GATE OPEN IF YOU GO IN NOW · {chance}',
+  'run.revealChanceLocked': 'OPEN ON {chance} OF RIDES IN AT {multiplier}',
   'run.headingHome': 'LOCKED · HEADING HOME',
   'button.headingHome': 'RIDING IN…',
   'button.headingHomeSub': 'The result was fixed when the round started',
@@ -59,6 +60,20 @@ export const EN = {
     'The value rises from x1.00 while the horse is out in the field. Press IN! before the gate slams and you keep the value at the moment the server receives your press.',
   'rules.outcomeFixed':
     'The outcome of every round is fixed before the round starts, by the seeds shown in the fairness panel. The horse, the gate and the crowd are decoration: nothing you tap, and nothing on screen, changes or predicts when the gate slams.',
+  'rules.introDeferred':
+    'The value rises from x1.00 while the horse is out in the field. Press IN! and your value locks at the moment the server receives your press; the horse turns for home, and the gate shows whether you win. Open pays your stake times the locked value. Shut loses your stake.',
+  'rules.outcomeFixedDeferred':
+    'The outcome of every round is fixed before the round starts, by the seeds shown in the fairness panel. The horse, the gate and the field are decoration: nothing you tap, and nothing on screen, changes or predicts whether the gate is open. The ride home takes the same time and looks the same whatever the result.',
+  'rules.chance.title': 'Chance the gate is open',
+  'rules.chance.intro':
+    'If you press IN! at a value, the chance the gate is open is {rtp}% divided by that value. Chance times value is {rtp}% on every row, so no value is a better time to go in than another.',
+  'rules.chance.value': 'Value',
+  'rules.chance.chance': 'Chance open',
+  'rules.chance.return': 'Return on {stake}',
+  'rules.chance.nominal':
+    'The chance uses the theoretical return of {rtp}%. The measured return above includes rounding at the smallest stake, so the two can differ slightly.',
+  'rules.chance.onScreen':
+    'The value keeps rising for the whole ride, so the amount on screen is paid only if the gate is open. The chance beside it tells you how likely that is, and it stays on screen after you press IN! until the gate is shown.',
   'rules.growth': 'The value speeds up over the first {tRamp} seconds, then keeps that speed.',
   'rules.setbacks': 'A setback appears about every {every} seconds on average and halves the current value. There is no warning.',
   'rules.boosts': 'A boost appears about every {every} seconds on average and raises the value by {percent}%. There is no warning.',

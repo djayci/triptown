@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { chromium } from 'playwright-core';
 import {
+  LOBBY_SECONDS,
   LOOP_SECONDS,
   SR,
   TONE_SECONDS,
@@ -118,7 +119,7 @@ const manifest = {
     drums: { src: src('stem-drums'), loop: loopRegion(LOOP_SECONDS) },
     lead: { src: src('stem-lead'), loop: loopRegion(LOOP_SECONDS) },
   },
-  lobby: { src: src('lobby'), loop: loopRegion(LOOP_SECONDS) },
+  lobby: { src: src('lobby'), loop: loopRegion(LOBBY_SECONDS) },
   tone: { src: src('tone'), loop: loopRegion(TONE_SECONDS) },
 };
 writeFileSync(`${OUT}/audio.json`, JSON.stringify(manifest, null, 2));

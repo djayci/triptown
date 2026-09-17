@@ -314,6 +314,11 @@ export class GameController {
     return this.session;
   }
 
+  /** The stake currently selected, e.g. for the rules screen's chance table. */
+  get stakeMinor(): number {
+    return this.betMinor;
+  }
+
   get reduceEffects() {
     return this.reduceEffectsChoice;
   }
