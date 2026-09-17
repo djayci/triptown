@@ -9,10 +9,11 @@ for (let i = 2; i < process.argv.length; i += 2) args.set(process.argv[i].replac
 const url = args.get('url') ?? 'http://localhost:5173';
 const profile = args.get('profile');
 /** Keeps any query already on --url (e.g. ?profile=regulated-uk) and adds the scenario. */
-const pageUrl = (force) => {
+const pageUrl = (force, betMinor) => {
   const u = new URL(url);
   if (force) u.searchParams.set('force', force);
   if (profile) u.searchParams.set('profile', profile);
+  if (betMinor) u.searchParams.set('bet', String(betMinor));
   return u.toString();
 };
 const out = args.get('out');
@@ -56,8 +57,8 @@ function assertObservable(state, scenario) {
  * Plays one round. `when` is 'time' (cash out after `ms`), 'belowStake' (wait until the value is
  * under x1.00 after a setback, then cash out) or 'never' (ride it to the crash).
  */
-async function play(force, when, ms = 0) {
-  await page.goto(pageUrl(force), { waitUntil: 'networkidle' });
+async function play(force, when, ms = 0, betMinor) {
+  await page.goto(pageUrl(force, betMinor), { waitUntil: 'networkidle' });
   await page.waitForTimeout(2000);
   // The audio manager keeps a rolling log of every cue; clear it before the round.
   await page.evaluate(() => {
@@ -118,7 +119,12 @@ function reachable(profile) {
 const cases = [
   { name: 'win above stake', force: 'bigWin', when: 'time', ms: 2500, expect: 'win', needs: null },
   { name: 'return below stake after a setback', force: 'setback', when: 'belowStake', expect: 'not-win', needs: 'belowStake' },
-  { name: 'even return at x1.00', force: 'longRound', when: 'time', ms: 150, expect: 'not-win', needs: 'even' },
+  // Played at the market's minimum stake, because an even return is a ROUNDING outcome: the check
+  // needs round(stake * m) to land back on the stake. At 10.00 that window is +/-0.05% of x1.00 and
+  // no cash-out round trip can hit it, so this case silently never ran. At the 0.20 minimum the
+  // window is +/-2.5%, which a fast collect does reach — and the minimum stake is where the rule
+  // bites hardest anyway (GLI-19 4.7.1(a), AGENTS hard rule 9).
+  { name: 'even return at x1.00', force: 'longRound', when: 'time', ms: 150, expect: 'not-win', needs: 'even', betMinor: 20 },
   { name: 'crash', force: 'quickCrash', when: 'never', expect: 'not-win', needs: null },
 ];
 
@@ -128,6 +134,19 @@ assertObservable(probe, 'probe');
 const can = reachable(probe.view?.profile);
 console.info(`presentation-check: ${can.why}`);
 
+/**
+ * A game with no audio cannot emit a win cue, so "no win cue found" proves nothing about it. That is
+ * a true pass only because the celebration flag is judged too — say so, rather than let a silent
+ * build look like it cleared an audio check it never had.
+ */
+const silent = await page.evaluate(() => (window.__triptownAudioLog ?? []).length === 0 && !window.__triptownAudio);
+if (silent) {
+  console.info(
+    'presentation-check: this game emits no audio cues, so the celebration judgement rests on the ' +
+      'confetti flag alone. The audio half of every result below is vacuous.',
+  );
+}
+
 for (const c of cases) {
   if (c.needs && !can[c.needs]) {
     const note = `${c.name}: UNREACHABLE on this profile (${can.why}) — not tested, and not a pass`;
@@ -135,19 +154,49 @@ for (const c of cases) {
     results.push({ name: c.name, status: 'unreachable', why: can.why });
     continue;
   }
-  const state = await play(c.force, c.when, c.ms);
+  const state = await play(c.force, c.when, c.ms, c.betMinor);
   assertObservable(state, c.name);
-  const celebrated = state.audio.some(isWinCue) || !!state.view?.confetti;
+  // A rounding-dependent case that did not actually land on its outcome proves nothing about the
+  // rule, so say so rather than bank a pass that only shows the stake was too large.
+  if (c.needs === 'even' && state.view?.resultKind !== 'even') {
+    console.error(
+      `FAIL  ${c.name}: settled as ${state.view?.resultKind} at stake ${state.view?.betMinor} minor, ` +
+        `so no at-stake return was produced and the celebration rule was never exercised.`,
+    );
+    results.push({ case: c.name, expect: c.expect, kind: state.view?.resultKind, pass: false });
+    continue;
+  }
+  // Emphasis is not only sound and confetti: a screen shake on a return at or below the stake reads
+  // as celebration just as clearly, and was reaching losing rounds through the cash-out hammer.
+  const shakes = state.view?.shakes ?? 0;
+  const celebrated = state.audio.some(isWinCue) || !!state.view?.confetti || shakes > 0;
   const kind = state.view?.resultKind ?? 'unknown';
   // A 'not-win' case must have settled (so the check cannot pass by simply never finishing).
   const settled = kind === 'win' || kind === 'even' || kind === 'loss';
+  // An "even" return means the round gave back exactly the stake. The scenario aims for it by cashing
+  // out on the first frame, but growth plus half-up rounding can land one minor unit above the stake,
+  // in which case the round really is a win and celebrating it is correct. That is the scenario failing
+  // to set itself up, not the game misbehaving — so report it unreachable rather than pass or fail. The
+  // guard is narrow (a win at barely over x1.00) so a genuine celebration bug cannot hide behind it.
+  if (c.needs === 'even' && kind === 'win' && (state.view?.multiplier ?? 9) <= 1.01) {
+    const why = `the earliest cash-out still rounds above the stake (x${(state.view?.multiplier ?? 0).toFixed(4)})`;
+    console.info(`${c.name}: UNREACHABLE on this profile (${why}) — not tested, and not a pass`);
+    results.push({ name: c.name, status: 'unreachable', why });
+    continue;
+  }
   const ok = c.expect === 'win' ? kind === 'win' && celebrated : settled && !celebrated && kind !== 'win';
-  results.push({ case: c.name, expect: c.expect, kind, celebrated, audio: state.audio, pass: ok });
-  console.info(`${ok ? 'PASS' : 'FAIL'}  ${c.name}: kind=${kind} celebrated=${celebrated} audio=${state.audio.join(',')}`);
+  results.push({ case: c.name, expect: c.expect, kind, celebrated, shakes, audio: state.audio, pass: ok });
+  console.info(
+    `${ok ? 'PASS' : 'FAIL'}  ${c.name}: kind=${kind} celebrated=${celebrated} shakes=${shakes} audio=${state.audio.join(',')}`,
+  );
 }
 
 await browser.close();
-if (out) writeFileSync(out, JSON.stringify({ url, date: new Date().toISOString(), profile: can, results }, null, 2));
+if (out)
+  writeFileSync(
+    out,
+    JSON.stringify({ url, date: new Date().toISOString(), profile: can, audioCues: silent ? 'none' : 'present', results }, null, 2),
+  );
 
 // The whole point of this check is the at-or-below-stake rule (UK RTS 14F, AGCO 2.20). If every
 // such case turned out to be unreachable, the run proved nothing about it and must not report green.

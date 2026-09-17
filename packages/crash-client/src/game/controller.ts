@@ -61,6 +61,14 @@ export interface ControllerHooks {
   /** Build version reported to the operator bridge. Apps inject it; the shared client cannot read
    *  a per-app Vite define. */
   clientVersion?: string;
+  /**
+   * Starting stake, in minor units. Demo builds only, so the compliance checks can play a round at
+   * the market's minimum: whether a return lands at or below the stake is a rounding question, and
+   * rounding only bites at the smallest stake (AGENTS hard rule 9). At 10.00 an even return needs
+   * the settled multiplier inside +/-0.05% of x1.00, which no real cash-out round trip can hit, so
+   * the even case was silently never exercised. It is still clamped to the session's currency.
+   */
+  initialBetMinor?: number;
 }
 
 /** Taps on the big button are ignored this long after a round ends. */
@@ -85,7 +93,7 @@ export class GameController {
   /** Player's own "reduce effects" choice, on top of the profile's `intensityEffects`. */
   private reduceEffectsChoice = false;
   private phase: Phase = 'betting';
-  private betMinor = 10_00;
+  private betMinor: number;
   private autoOn = false;
   private autoTarget = 5;
   private round: ActiveRound | null = null;
@@ -119,6 +127,7 @@ export class GameController {
     createView: CrashViewFactory,
     private readonly hooks: ControllerHooks = {},
   ) {
+    this.betMinor = hooks.initialBetMinor ?? 10_00;
     this.view = createView(game, frames, {
       onBigButton: () => this.onBigButton(),
       onCollect: () => this.collect(),
@@ -422,6 +431,7 @@ export class GameController {
       phase: this.phase,
       resultKind: this.lastResultKind,
       confetti: this.lastCelebrated,
+      shakes: this.view.shakesShown ?? 0,
       betMinor: r?.betMinor ?? this.betMinor,
       starts: [...this.startLog],
       multiplier: r?.lastDisplayed ?? 0,

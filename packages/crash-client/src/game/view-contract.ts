@@ -83,6 +83,12 @@ export interface CrashView {
   toast(message: string): void;
   /** Optional: market disclosures a profile switches on, e.g. a withholding-tax notice. */
   setDisclosures?(d: { withholdingNotice?: boolean }): void;
+  /**
+   * Optional: screen shakes played, for the presentation check. Emphasis effects are not just sound
+   * and confetti — a shake on a return at or below the stake reads as celebration too (UK RTS 14F),
+   * and a check that only counts the obvious cues would pass a game that shakes on a loss.
+   */
+  readonly shakesShown?: number;
   readonly history: Pick<HistoryStrip, 'setAll' | 'push'>;
 }
 

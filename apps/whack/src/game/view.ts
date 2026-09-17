@@ -114,6 +114,8 @@ export class GameView extends CrashViewBase implements CrashView {
 
   /** Count of setback moments played (used by automated checks). */
   setbacksShown = 0;
+  /** Screen shakes played this round. A return at or below the stake must never add one. */
+  shakesShown = 0;
   private fxTweens: gsap.core.Animation[] = [];
   private decoyTimer = 0;
   private level = 0;
@@ -551,7 +553,7 @@ export class GameView extends CrashViewBase implements CrashView {
     this.phase = 'cashing';
     this.bigButton.setEnabled(false);
     this.bigButton.setLabel(t('button.whack'), `Cashing out ${cashout}…`);
-    this.swingHammer();
+    this.swingHammer(false);
   }
 
   /**
@@ -581,6 +583,7 @@ export class GameView extends CrashViewBase implements CrashView {
     this.resultCard.scale.set(0.3);
     gsap.to(this.resultCard.scale, { x: 1, y: 1, duration: 0.4, ease: 'back.out(2.2)' });
     // Confetti and the BONK sticker are part of the arcade look; the adult skin has neither.
+    if (celebrate) this.swingHammer(true);
     if (celebrate && SKIN !== 'adult') {
       this.stars();
       const hole = this.holeRect();
@@ -1032,7 +1035,14 @@ export class GameView extends CrashViewBase implements CrashView {
     }
   }
 
-  private swingHammer() {
+  /**
+   * `impact` lands the blow on the mole and shakes the screen. The bare swing is feedback for the
+   * player's own action, which is honest at any outcome; the contact and the shake are emphasis, so
+   * they wait until the server has answered and only play on a return above the stake (UK RTS 14F,
+   * AGCO 2.20). A swing that connects before the result is known would also land on a cash-out the
+   * server goes on to refuse.
+   */
+  private swingHammer(impact = false) {
     const hole = this.holeRect();
     const hammer = new Graphics()
       .roundRect(-7, -10, 14, 110, 6).fill(0xc98a55).stroke({ width: 4, color: COLORS.ink })
@@ -1043,10 +1053,17 @@ export class GameView extends CrashViewBase implements CrashView {
     hammer.rotation = 0.9;
     this.fx.addChild(hammer);
     this.trackFx(gsap.timeline({ onComplete: () => hammer.destroy() }))
-      .to(hammer, { rotation: -0.55, duration: 0.09, ease: 'power3.in' })
+      .to(hammer, { rotation: impact ? -0.72 : -0.55, duration: 0.09, ease: 'power3.in' })
       .to(hammer, { rotation: -0.3, duration: 0.12, ease: 'power2.out' })
       .to(hammer, { alpha: 0, duration: 0.2, delay: 0.25 });
-    if (this.intensityEffects) shake(this.root, 5, 0.18);
+    if (impact) {
+      // The mole takes the hit: a short squash on contact, in time with the swing's downstroke.
+      this.trackFx(pop(this.mainHole, 0.88, 0.16));
+      if (this.intensityEffects) {
+        this.shakesShown++;
+        shake(this.root, 5, 0.18);
+      }
+    }
   }
 
   private stars() {

@@ -1,13 +1,13 @@
 # RTP simulation: whack-crash/v4
 
-- Rounds: 10,000,000 (seed 1), 146.8s
-- Config: `{"id":"whack-crash/v4","rtp":0.97,"r0":0.048,"rmax":0.38,"tRamp":30,"lambda":0.048,"setbackFactor":0.5,"boostRate":0.16,"boostFactor":1.05,"maxWinMultiplier":10000,"tMax":60,"stakeParts":1}`
+- Rounds: 10,000,000 (seed 1), 151.4s
+- Config: `{"id":"whack-crash/v4","rtp":0.97,"r0":0.06,"rmax":0.475,"tRamp":24,"lambda":0.06,"setbackFactor":0.5,"boostRate":0.2,"boostFactor":1.05,"maxWinMultiplier":10000,"tMax":60,"stakeParts":1}`
 - Minimum cash-out: none
 - Time strategy jitter: none
 - Rounding: none (theoretical)
 - Target RTP 97.000%, tolerance ±0.100%
-- Round length: mean 9.210 s, median 8.425 s (first 200,000 rounds)
-- Modifiers: setbacks x0.5 at 0.048/s; boosts x1.05 at 0.16/s
+- Round length: mean 7.367 s, median 6.717 s (first 200,000 rounds)
+- Modifiers: setbacks x0.5 at 0.06/s; boosts x1.05 at 0.2/s
 - Instant bust share: 3.003% (±0.005% SE), target 3.000% ±0.05% → PASS
 
 "Direct" counts a payout only when the stop beats the sampled crash time.
@@ -16,13 +16,13 @@ PASS requires the conditional RTP within the tolerance and the direct RTP within
 
 | Strategy | Win rate | Direct RTP (± SE) | Conditional RTP (± SE) | Result |
 |---|---|---|---|---|
-| auto cash-out x1.5 | 64.542% | 96.982% (±0.023%) | 97.000% (±0.008%) | PASS |
-| auto cash-out x2 | 48.418% | 96.971% (±0.032%) | 97.003% (±0.010%) | PASS |
-| auto cash-out x10 | 9.684% | 96.921% (±0.094%) | 97.007% (±0.015%) | PASS |
-| auto cash-out x100 | 0.972% | 97.257% (±0.310%) | 97.005% (±0.018%) | PASS |
-| cash out at 2s | 88.990% | 96.997% (±0.012%) | 97.001% (±0.005%) | PASS |
-| cash out at 5s | 71.962% | 96.977% (±0.021%) | 97.002% (±0.008%) | PASS |
-| cash out at 10s | 40.490% | 96.943% (±0.041%) | 97.001% (±0.011%) | PASS |
-| cash out right after first setback | 33.104% | 96.191% (±2.028%) | 96.962% (±0.021%) | PASS |
-| cash out right after first boost | 66.481% | 96.887% (±0.109%) | 96.996% (±0.008%) | PASS |
-| never cash out (caps only) | 0.010% | 96.700% (±3.110%) | 96.926% (±0.024%) | PASS |
+| auto cash-out x1.5 | 64.528% | 96.960% (±0.023%) | 96.994% (±0.008%) | PASS |
+| auto cash-out x2 | 48.393% | 96.922% (±0.032%) | 96.991% (±0.010%) | PASS |
+| auto cash-out x10 | 9.688% | 96.956% (±0.094%) | 97.003% (±0.015%) | PASS |
+| auto cash-out x100 | 0.969% | 96.939% (±0.310%) | 96.983% (±0.018%) | PASS |
+| cash out at 2s | 86.497% | 96.993% (±0.013%) | 96.994% (±0.005%) | PASS |
+| cash out at 5s | 63.951% | 96.934% (±0.025%) | 96.989% (±0.009%) | PASS |
+| cash out at 10s | 27.362% | 96.907% (±0.055%) | 96.999% (±0.013%) | PASS |
+| cash out right after first setback | 33.107% | 99.339% (±2.106%) | 96.966% (±0.021%) | PASS |
+| cash out right after first boost | 66.451% | 96.947% (±0.147%) | 96.990% (±0.008%) | PASS |
+| never cash out (caps only) | 0.010% | 100.000% (±3.162%) | 96.947% (±0.024%) | PASS |

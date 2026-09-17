@@ -4,9 +4,9 @@
   "config": {
     "id": "whack-crash/v3-rising",
     "rtp": 0.97,
-    "r0": 0.048,
-    "rmax": 0.38,
-    "tRamp": 30,
+    "r0": 0.06,
+    "rmax": 0.475,
+    "tRamp": 24,
     "lambda": 0,
     "setbackFactor": 0.5,
     "boostRate": 0,
@@ -17,8 +17,8 @@
   },
   "bustShare": 0.029961,
   "bustSe": 0.00008523986520255648,
-  "meanLength": 8.312074224094387,
-  "medianLength": 7.443624865145587,
+  "meanLength": 6.649659379275386,
+  "medianLength": 5.954899892116471,
   "rows": [
     {
       "strategy": "auto cash-out x1.5",
@@ -58,29 +58,29 @@
     },
     {
       "strategy": "cash out at 2s",
-      "winRate": 0.86208775,
-      "directRtp": 0.9702738949931718,
-      "directSe": 0.00019405319890250427,
-      "conditionalRtp": 0.9700826012915843,
-      "conditionalSe": 0.0000013907194459762535,
+      "winRate": 0.8312365,
+      "directRtp": 0.9700193999836859,
+      "directSe": 0.00021854827148542065,
+      "conditionalRtp": 0.9698203358961358,
+      "conditionalSe": 0.0000011767668179278665,
       "pass": true
     },
     {
       "strategy": "cash out at 5s",
-      "winRate": 0.66467975,
-      "directRtp": 0.9703066350029232,
-      "directSe": 0.00034459811857370765,
-      "conditionalRtp": 0.969972794340839,
-      "conditionalSe": 0.0000010708100206291072,
+      "winRate": 0.57899525,
+      "directRtp": 0.9702199200022746,
+      "directSe": 0.00041367327295621566,
+      "conditionalRtp": 0.9700801851356858,
+      "conditionalSe": 8.934973961611173e-7,
       "pass": true
     },
     {
       "strategy": "cash out at 10s",
-      "winRate": 0.34484225,
-      "directRtp": 0.969129844997995,
-      "directSe": 0.0006679162897011853,
-      "conditionalRtp": 0.9699799448460708,
-      "conditionalSe": 4.784384185887706e-7,
+      "winRate": 0.2242145,
+      "directRtp": 0.9698889374992022,
+      "directSe": 0.0009020770660995493,
+      "conditionalRtp": 0.9700072931857455,
+      "conditionalSe": 3.2437452719918186e-7,
       "pass": true
     },
     {

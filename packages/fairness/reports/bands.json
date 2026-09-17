@@ -154,22 +154,22 @@
   "whack-crash/v3": [
     {
       "stakeMinor": 20,
-      "minRtp": 0.9667860303182629,
-      "maxRtp": 0.9706954719945098,
+      "minRtp": 0.9582002390996547,
+      "maxRtp": 0.9717291430262053,
       "rounds": 4000000,
       "report": "rtp-whack-crash-v3-halfup-20-jitter50.md"
     },
     {
       "stakeMinor": 100,
-      "minRtp": 0.9692546157165163,
-      "maxRtp": 0.9700226580123855,
+      "minRtp": 0.9697305582907338,
+      "maxRtp": 0.970124360359878,
       "rounds": 4000000,
       "report": "rtp-whack-crash-v3-halfup-100-jitter50.md"
     },
     {
       "stakeMinor": 10000,
-      "minRtp": 0.9692546157165166,
-      "maxRtp": 0.9700235016502627,
+      "minRtp": 0.9697305582907338,
+      "maxRtp": 0.9701303589588521,
       "rounds": 4000000,
       "report": "rtp-whack-crash-v3-halfup-10000-jitter50.md"
     }
@@ -177,22 +177,22 @@
   "whack-crash/v3-rising": [
     {
       "stakeMinor": 20,
-      "minRtp": 0.9634527113852415,
-      "maxRtp": 0.9717817133606841,
+      "minRtp": 0.9557260002421778,
+      "maxRtp": 0.9702903522660506,
       "rounds": 4000000,
       "report": "rtp-whack-crash-v3-rising-halfup-20-jitter50.md"
     },
     {
       "stakeMinor": 100,
-      "minRtp": 0.969972794340839,
-      "maxRtp": 0.9700826012915843,
+      "minRtp": 0.9698203358961358,
+      "maxRtp": 0.9700801851356858,
       "rounds": 4000000,
       "report": "rtp-whack-crash-v3-rising-halfup-100-jitter50.md"
     },
     {
       "stakeMinor": 10000,
-      "minRtp": 0.9699999607200297,
-      "maxRtp": 0.970000019891079,
+      "minRtp": 0.9699999690674499,
+      "maxRtp": 0.9700000077004749,
       "rounds": 4000000,
       "report": "rtp-whack-crash-v3-rising-halfup-10000-jitter50.md"
     }
@@ -200,22 +200,22 @@
   "whack-crash/v4": [
     {
       "stakeMinor": 20,
-      "minRtp": 0.9690084284398925,
-      "maxRtp": 0.9741829630527019,
+      "minRtp": 0.9628348826207834,
+      "maxRtp": 0.9701879531988009,
       "rounds": 4000000,
       "report": "rtp-whack-crash-v4-halfup-20-jitter50.md"
     },
     {
       "stakeMinor": 100,
-      "minRtp": 0.9690084284398943,
-      "maxRtp": 0.9700829474818571,
+      "minRtp": 0.9694819027993795,
+      "maxRtp": 0.9701879488770534,
       "rounds": 4000000,
       "report": "rtp-whack-crash-v4-halfup-100-jitter50.md"
     },
     {
       "stakeMinor": 10000,
-      "minRtp": 0.9690084284398944,
-      "maxRtp": 0.9700055547366837,
+      "minRtp": 0.9694819027993795,
+      "maxRtp": 0.9701879475335635,
       "rounds": 4000000,
       "report": "rtp-whack-crash-v4-halfup-10000-jitter50.md"
     }
@@ -223,22 +223,22 @@
   "whack-crash/v4-rising": [
     {
       "stakeMinor": 20,
-      "minRtp": 0.9695841642467102,
-      "maxRtp": 0.9751018668612047,
+      "minRtp": 0.9615796503283565,
+      "maxRtp": 0.9701037861911462,
       "rounds": 4000000,
       "report": "rtp-whack-crash-v4-rising-halfup-20-jitter50.md"
     },
     {
       "stakeMinor": 100,
-      "minRtp": 0.9695841642467102,
-      "maxRtp": 0.970176144223014,
+      "minRtp": 0.969558316509811,
+      "maxRtp": 0.9701167264351453,
       "rounds": 4000000,
       "report": "rtp-whack-crash-v4-rising-halfup-100-jitter50.md"
     },
     {
       "stakeMinor": 10000,
-      "minRtp": 0.9695841642467102,
-      "maxRtp": 0.9700696819048639,
+      "minRtp": 0.969558316509811,
+      "maxRtp": 0.9701037864779597,
       "rounds": 4000000,
       "report": "rtp-whack-crash-v4-rising-halfup-10000-jitter50.md"
     }

@@ -68,7 +68,7 @@ export const WHACK_CRASH_BOOST_RISING_CONFIG: GameConfig = Object.freeze({
  * tMax cut-off could bind differently, and a round still reaches the x10,000 cap well inside 60 s.
  * Proven, not assumed: every id here has its own committed 10M-round report.
  */
-const PACE = 2.5;
+const PACE = 2;
 const slow = (config: GameConfig, id: string): GameConfig =>
   Object.freeze({
     ...config,
