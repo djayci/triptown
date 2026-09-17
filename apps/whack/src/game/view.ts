@@ -614,7 +614,7 @@ export class GameView extends CrashViewBase implements CrashView {
         // Sits across the mole's shoulder like a ribbon, overlapping it, rather than floating in the
         // space beside the hole where it read as unrelated to the hit it is marking.
         const bonk = new Burst(this.frames('burst-sky'), Math.max(78, hole.w * 0.34), t('result.bonk'), 20);
-        bonk.position.set(hole.x + hole.w * 0.28, hole.y + hole.h * 0.32);
+        bonk.position.set(hole.x + hole.w * 0.24, hole.y + hole.h * 0.46);
         bonk.rotation = 0.34;
         this.fx.addChild(bonk);
         this.trackFx(pop(bonk, 1.3, 0.3));
@@ -1095,7 +1095,9 @@ export class GameView extends CrashViewBase implements CrashView {
     // rather than poking up at it from below. Head above, handle angling down towards the viewer, which
     // is what a mallet swing looks like from behind it.
     const grip = { x: hole.x + hole.w * 1.35, y: hole.y + hole.h * 1.7 };
-    const contact = { x: hole.x + hole.w * 0.5, y: hole.y + hole.h * 0.02 };
+    // The head's centre lands exactly here, so this is the mole's crown, not the top of the hole box.
+    // Aiming at the box top left the hammer hovering clear of the mole with nothing to hit.
+    const contact = { x: hole.x + hole.w * 0.5, y: hole.y + hole.h * 0.22 };
     const dx = contact.x - grip.x;
     const dy = contact.y - grip.y;
     const reach = Math.hypot(dx, dy);
