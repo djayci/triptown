@@ -5,7 +5,7 @@
  */
 export type SkinName = 'candy' | 'adult';
 
-interface Palette {
+export interface Palette {
   ink: number;
   sun: number;
   sun2: number;
@@ -67,14 +67,91 @@ const PALETTES: Record<SkinName, Palette> = {
 export let COLORS: Palette = PALETTES.candy;
 export let SKIN: SkinName = 'candy';
 
-export function useSkin(skin: SkinName) {
+let displayOverride: string | undefined;
+
+/** Relative luminance of a packed RGB colour, per WCAG 2.1. */
+function luminance(rgb: number): number {
+  const channel = (c: number) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel((rgb >> 16) & 0xff) + 0.7152 * channel((rgb >> 8) & 0xff) + 0.0722 * channel(rgb & 0xff);
+}
+
+export function contrastRatio(a: number, b: number): number {
+  const la = luminance(a);
+  const lb = luminance(b);
+  const hi = Math.max(la, lb);
+  const lo = Math.min(la, lb);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/** The multiplier and the money must stay legible against the stage they sit on. */
+const MIN_PRIMARY_CONTRAST = 3;
+
+/**
+ * Selects the profile's skin, optionally recolouring tokens for a game whose stage the base palette
+ * was not drawn for — `candy` assumes a yellow ground and `adult` a light one, and neither suits a
+ * night scene.
+ *
+ * `skin` stays exactly what the profile chose, so asset selection and every audit keyed on
+ * `SKIN === 'adult'` are unaffected: a game may recolour, never reclassify itself.
+ *
+ * The one thing an override may not do is hide the primary values. Brazil Annex I item 14(c)
+ * requires the rising multiplier to be displayed *clearly*, AGCO 4.15 requires the bet and outcome
+ * to be clearly displayed, and UK RTS 7E requires the player to be able to determine the value of
+ * any winnings. A multiplier that sinks into the background fails all three, so the contrast of the
+ * multiplier and the payout against the stage is checked here rather than left to review.
+ */
+export interface SkinOptions {
+  /** Token overrides for a game whose stage the base palette was not drawn for. */
+  colors?: Partial<Palette>;
+  /** Display face, e.g. a condensed poster face for a night scene. */
+  display?: string;
+  /**
+   * The colour the primary values actually sit on. Only the game knows this — the base palettes
+   * assume a yellow ground (candy) or a light one (adult), and a night scene is neither. Required
+   * when `colors` is given, because that is exactly when legibility can be lost.
+   */
+  ground?: number;
+}
+
+export function useSkin(skin: SkinName, options: SkinOptions = {}) {
+  const { colors = {}, display, ground } = options;
+  const next = { ...PALETTES[skin], ...colors };
+
+  // Only checked when a game recolours. The shipped palettes are reviewed against the stages they
+  // were drawn for; a game that changes them takes on the duty of saying what its ground is.
+  if (Object.keys(colors).length > 0) {
+    if (ground === undefined) {
+      throw new Error(
+        `useSkin(${skin}): recolouring requires \`ground\` — the colour the multiplier and the money ` +
+          `sit on. Without it their legibility cannot be checked, and it is the thing most easily lost.`,
+      );
+    }
+    for (const [name, token] of [
+      ['multiplier', next.sun],
+      ['payout', next.lime],
+    ] as const) {
+      const ratio = contrastRatio(token, ground);
+      if (ratio < MIN_PRIMARY_CONTRAST) {
+        throw new Error(
+          `useSkin(${skin}): the ${name} colour has ${ratio.toFixed(2)}:1 contrast against the ground, ` +
+            `below the ${MIN_PRIMARY_CONTRAST}:1 floor. The multiplier and the money must be plainly ` +
+            `visible (BR Annex I 14(c), AGCO 4.15, UK RTS 7E).`,
+        );
+      }
+    }
+  }
+
   SKIN = skin;
-  COLORS = PALETTES[skin];
+  COLORS = next;
+  displayOverride = display;
 }
 
 export const FONT_DISPLAY = 'Lilita One, Arial Black, Impact, sans-serif';
 /** The adult skin uses the body face for display text too: no bubbly lettering. */
-export const displayFont = () => (SKIN === 'adult' ? FONT_BODY : FONT_DISPLAY);
+export const displayFont = () => displayOverride ?? (SKIN === 'adult' ? FONT_BODY : FONT_DISPLAY);
 export const FONT_BODY = 'Bricolage Grotesque, Trebuchet MS, sans-serif';
 
 const METERS: Record<SkinName, number[]> = {

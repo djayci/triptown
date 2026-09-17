@@ -3,6 +3,7 @@ import {
   MemoryRoundStore,
   RoundHost,
   isTerminal,
+  type CurrencyRules,
   type GameId,
   type ProfileSettings,
   type RoundEvent,
@@ -41,6 +42,8 @@ export interface MockRoundServiceOptions {
   latencyMs?: number;
   /** Build id recorded on the session for recall. */
   clientVersion?: string;
+  /** Session currency; defaults to the host's default. */
+  currency?: CurrencyRules;
   /** Player region the fake operator sends (ISO 3166-2), for profiles that block regions. */
   playerRegion?: string;
   /** Game to run; defaults to Whack Crash. */
@@ -82,6 +85,7 @@ export class MockRoundService implements RoundService {
       clock: opts.clock ?? { now: () => Date.now() },
       sleep,
       ...(opts.config ? { config: opts.config } : {}),
+      ...(opts.currency ? { currency: opts.currency } : {}),
       profiles: opts.profiles,
       settlementPollMs: 50,
       game: opts.game ?? 'whack-crash',

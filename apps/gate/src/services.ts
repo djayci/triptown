@@ -6,7 +6,7 @@ export const DEMO = import.meta.env.VITE_DEMO === 'true';
 export async function createRoundService(): Promise<RoundService> {
   if (import.meta.env.VITE_DEMO === 'true') {
     const { MockRoundService } = await import('@triptown/rgs-client/mock');
-    const { profileFromTemplate, registerGame } = await import('@triptown/core');
+    const { GHS_CURRENCY, NGN_CURRENCY, profileFromTemplate, registerGame } = await import('@triptown/core');
     // The mock runs the real round host in the page, so the game registers on its engine here too.
     registerGame('beat-the-gate', 'whack-crash');
     const params = new URLSearchParams(location.search);
@@ -18,7 +18,8 @@ export async function createRoundService(): Promise<RoundService> {
       game: 'beat-the-gate',
       profiles: { defaultProfile: profileFromTemplate(wanted, origins), allowOverride: true },
       playerRegion: params.get('region') ?? 'NG-LA',
-      initialBalanceMinor: 100_000_00,
+      currency: wanted === 'gh-draft' ? GHS_CURRENCY : NGN_CURRENCY,
+      initialBalanceMinor: wanted === 'gh-draft' ? 5_000_00 : 100_000_00,
     });
     const force = params.get('force');
     if (force) service.forceNext(force as Parameters<typeof service.forceNext>[0]);

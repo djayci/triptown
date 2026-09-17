@@ -109,6 +109,9 @@ importers:
         specifier: ^8.20.1
         version: 8.20.1
     devDependencies:
+      '@breezystack/lamejs':
+        specifier: ^1.2.7
+        version: 1.2.7
       '@resvg/resvg-js':
         specifier: ^2.6.2
         version: 2.6.2
@@ -121,6 +124,9 @@ importers:
       vite:
         specifier: ^8.3.0
         version: 8.3.0(@types/node@22.20.2)(esbuild@0.28.2)(tsx@4.23.13)
+      webm-muxer:
+        specifier: ^5.1.4
+        version: 5.1.4
 
   apps/lift:
     dependencies:

@@ -23,6 +23,11 @@ if (FILES.length === 0) {
 }
 // Words that would be a finding wherever they appear, catalogue or not.
 const BANNED = [/\bfrenzy\b/i, /\bnear miss\b/i, /would have\b/i, /\bskill\b/i, /\balmost\b/i, /\bso close\b/i];
+// A game may ban words of its own theme in copy-banned.json (an array of regex sources, matched
+// case-insensitively), e.g. racing vocabulary for a horse game. Optional; absent means none.
+if (existsSync('copy-banned.json')) {
+  for (const source of JSON.parse(readFileSync('copy-banned.json', 'utf8'))) BANNED.push(new RegExp(source, 'i'));
+}
 
 let problems = 0;
 for (const file of FILES) {
@@ -47,7 +52,8 @@ for (const file of FILES) {
     ]);
     // Uppercase literals are display text; they belong in the catalogue.
     for (const m of line.matchAll(/'([A-Z][A-Z !?·…%+-]{3,})'/g)) {
-      if (PROTOCOL.has(m[1])) continue;
+      // ISO 3166-2 region codes (NG-LA) are operator protocol, never drawn.
+      if (PROTOCOL.has(m[1]) || /^[A-Z]{2}-[A-Z0-9]{1,3}$/.test(m[1])) continue;
       console.error(`LITERAL ${where}: ${m[1]} should come from i18n/en.ts`);
       problems++;
     }
