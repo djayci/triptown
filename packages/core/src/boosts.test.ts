@@ -46,7 +46,18 @@ async function aim(
 describe('good mole rounds (3.1-3.3)', () => {
   it('plays the boosted config under a profile with boostsMode boost', () => {
     expect(effectiveConfig('whack-crash', boostedProfile).id).toBe('whack-crash/v4');
-    expect(BOOSTED).toMatchObject({ boostFactor: 1.05, boostRate: 0.4 / 2.5 });
+    // Assert the property that must hold, not the current numbers: v4 is a pure time rescaling of v2,
+    // so every rate divides by the same factor the ramp multiplies by. A hard-coded rate here goes red
+    // on every pace change without saying anything, and restating BOOSTED.boostRate would assert
+    // nothing at all. This survives the next pace change and still fails if the family stops matching.
+    const FAST = GAME_CONFIGS['whack-crash/v2']!;
+    const pace = FAST.r0 / BOOSTED.r0;
+    expect(pace).toBeGreaterThan(1);
+    expect(BOOSTED.boostFactor).toBe(FAST.boostFactor);
+    expect(BOOSTED.boostRate).toBeCloseTo(FAST.boostRate / pace, 12);
+    expect(BOOSTED.rmax).toBeCloseTo(FAST.rmax / pace, 12);
+    expect(BOOSTED.lambda).toBeCloseTo(FAST.lambda / pace, 12);
+    expect(BOOSTED.tRamp).toBeCloseTo(FAST.tRamp * pace, 12);
     // A game with no boosted variant registered keeps the unboosted maths.
     expect(effectiveConfig('paper-route', boostedProfile).id).toBe('paper-route/v1');
   });
@@ -107,7 +118,7 @@ describe('good mole rules (3.5)', () => {
     const boosted = describeRules(BOOSTED, boostedProfile, DEFAULT_CURRENCY).map((i) => i.key);
     expect(boosted.indexOf('boosts')).toBe(boosted.indexOf('setbacks') + 1);
     const item = describeRules(BOOSTED, boostedProfile, DEFAULT_CURRENCY).find((i) => i.key === 'boosts');
-    expect(item!.params).toEqual({ ratePerSecond: 0.4 / 2.5, factor: 1.05, warning: false });
+    expect(item!.params).toEqual({ ratePerSecond: BOOSTED.boostRate, factor: 1.05, warning: false });
 
     const plain = describeRules(GAME_CONFIGS['whack-crash/v3']!, { ...boostedProfile, boostsMode: 'off' }, DEFAULT_CURRENCY);
     expect(plain.some((i) => i.key === 'boosts')).toBe(false);
