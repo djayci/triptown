@@ -41,6 +41,17 @@ describe('each rule fails on its fixture', () => {
     expect(problems).toEqual([{ rule: 'demo-build', detail: 'Ghost: no demo build at public/play/demo/index.html' }]);
   });
 
+  it('a production bundle in place of a demo build', () => {
+    const problems = missingFiles([entry({})], () => true, () => ['index-abc123.js', 'Filter-xyz.js']);
+    expect(problems).toHaveLength(1);
+    expect(problems[0]!.rule).toBe('demo-bundle');
+    expect(problems[0]!.detail).toContain('.env.demo');
+  });
+
+  it('accepts a demo build, which carries the mock chunk', () => {
+    expect(missingFiles([entry({})], () => true, () => ['index-abc123.js', 'mock-CzNokjgw.js'])).toEqual([]);
+  });
+
   it('a live entry with no logo tile', () => {
     const problems = missingFiles([entry({ tile: undefined })], () => true);
     expect(problems).toEqual([{ rule: 'tile', detail: 'Demo: a live game needs a logo tile theme' }]);

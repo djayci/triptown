@@ -7,6 +7,8 @@ coverage/
 .env
 .env.*
 !.env.example
+# Demo builds need VITE_DEMO=true at build time, on CI too. No secrets in these.
+!apps/*/.env.demo
 .DS_Store
 dist-demo/
 

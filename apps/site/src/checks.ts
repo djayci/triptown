@@ -20,11 +20,20 @@ export function duplicateSlugs(entries: readonly Entry[]): Problem[] {
 export function missingFiles(
   entries: readonly Entry[],
   exists: (publicPath: string) => boolean,
+  /** Files under public/play/<slug>/assets, for the demo-bundle check. Absent means "not checked". */
+  assetsOf?: (slug: string) => string[],
 ): Problem[] {
   const problems: Problem[] = [];
   for (const e of entries.filter((x) => x.status === 'live')) {
     if (!exists(`play/${e.slug}/index.html`)) {
       problems.push({ rule: 'demo-build', detail: `${e.name}: no demo build at public/play/${e.slug}/index.html` });
+    } else if (assetsOf && !assetsOf(e.slug).some((f) => /^mock-.*\.js$/.test(f))) {
+      // A production bundle has no mock chunk: it would ask for VITE_API_URL and fail to boot. That
+      // shipped once, because .env.demo was gitignored and CI built the games without VITE_DEMO.
+      problems.push({
+        rule: 'demo-bundle',
+        detail: `${e.name}: public/play/${e.slug}/ is not a demo build (no mock chunk). Check apps/${e.app}/.env.demo is present and \`build:demo\` ran.`,
+      });
     }
     if (!e.tile) problems.push({ rule: 'tile', detail: `${e.name}: a live game needs a logo tile theme` });
   }

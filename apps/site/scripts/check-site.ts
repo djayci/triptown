@@ -1,5 +1,5 @@
 // Fails the build when the site breaks one of its compliance rules. Runs after assemble-demos.
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { catalogue } from '../src/catalogue';
@@ -16,7 +16,17 @@ const strings = [...allCopyStrings(), ...catalogue.flatMap((e) => [e.name, e.pit
 
 const problems = [
   ...duplicateSlugs(catalogue),
-  ...missingFiles(catalogue, (p) => existsSync(join(publicDir, p))),
+  ...missingFiles(
+    catalogue,
+    (p) => existsSync(join(publicDir, p)),
+    (slug) => {
+      try {
+        return readdirSync(join(publicDir, 'play', slug, 'assets'));
+      } catch {
+        return [];
+      }
+    },
+  ),
   ...bannedWording(strings),
   ...requiredStatements(allCopyStrings(), TRIPTYCH_URL),
 ];
