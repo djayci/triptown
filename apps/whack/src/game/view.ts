@@ -291,8 +291,10 @@ export class GameView extends CrashViewBase implements CrashView {
   }
 
   setBalance(amount: string, currency: string) {
-    this.balance.set(amount, currency);
-    this.balanceBig.set(amount, currency);
+    // The room each pill has: it grows leftwards from its anchor, so this is the anchor minus the
+    // gutter on the far side. A pill wider than that used to run off the edge of the screen.
+    this.balance.set(amount, currency, PORTRAIT.w - PAD - 6 - (this.logo.width + PAD + 12));
+    this.balanceBig.set(amount, currency, 1416 - 24 - (this.logoBig.width + 24 + 24));
     this.relayoutHeader();
   }
 

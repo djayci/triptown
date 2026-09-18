@@ -85,7 +85,6 @@ const STATUS: Record<HostErrorCode, ContentfulStatusCode> = {
 export function createApp(opts: AppOptions) {
   // Games that are skins on an existing engine register here: same certified config ids, same
   // committed RTP reports, nothing to recertify. The Lift plays the Whack Crash engine.
-  registerGame('cable-car', 'whack-crash', { reveal: ['onCollect'] });
   // Beat the Gate plays the same engine (beat-the-gate-mvp D1).
   registerGame('beat-the-gate', 'whack-crash', { reveal: ['onCollect'] });
 

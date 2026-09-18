@@ -28,9 +28,14 @@ describe('catalogue', () => {
     for (const e of liveEntries()) expect(e.tile).toBeDefined();
   });
 
-  it('lists Whack Crash and Gate Rush as live and The Cable Car as in development', () => {
+  it('lists Whack Crash and Gate Rush as live', () => {
     expect(liveEntries().map((e) => e.slug)).toEqual(['whack', 'gate']);
-    expect(catalogue.find((e) => e.slug === 'cable-car')?.status).toBe('in-development');
+  });
+
+  it('lists no game whose app is not in the tree', () => {
+    // A catalogue entry outlived its game once. The showcase would have offered a tile for
+    // something nobody could play.
+    for (const e of catalogue) expect(['whack', 'gate']).toContain(e.app);
   });
 });
 

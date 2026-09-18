@@ -18,7 +18,6 @@ Settled decisions are not up for debate while you implement. If code and spec di
 ```
 apps/
   whack/        Vite + PixiJS v8 game client (static build)       @triptown/whack
-  cable-car/    The Cable Car: a deferred-reveal skin on that engine @triptown/cable-car
   gate/         Gate Rush / Beat the Gate: a Whack Crash skin      @triptown/gate
   sandbox/      fake operator page: iframe embed + verifier       @triptown/sandbox
   site/         Next.js studio site: catalogue + gated play demos @triptown/site
@@ -38,8 +37,8 @@ Packages export TypeScript source directly (`"exports": "./src/index.ts"`). They
 
 **A new game is a skin, not a product.** It extends `CrashScreen` from `@triptown/crash-client`,
 supplies a `GameStage` and its words, and implements no layout and no compliance logic — those live
-in `CrashViewBase` and hold by construction. `apps/cable-car` is the worked example: its view is
-under 60 lines, and all of it is words and one scene cue.
+in `CrashViewBase` and hold by construction. `apps/gate` is the worked example: its view supplies a
+stage, its words and a couple of scene cues, and no layout or compliance logic at all.
 A stage receives the multiplier and nothing else, never the crash time, which is what keeps the
 no-advance-warning rule true rather than merely intended.
 

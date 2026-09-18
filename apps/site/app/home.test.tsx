@@ -20,7 +20,18 @@ describe('Home', () => {
     for (const e of catalogue) expect(html).toContain(e.name);
     expect(html.match(/row-locked"[^>]*aria-disabled="true"/g)).toHaveLength(2);
     expect(html.match(new RegExp(copy.games.locked.replace('+', '\\+'), 'g'))).toHaveLength(2);
+  });
+
+  it('marks an unfinished game coming soon, and does not link it', () => {
+    // Driven by a fixture, not by whichever game happens to be unfinished: this assertion used to
+    // ride on a real in-development entry, so deleting that game took the coverage with it.
+    const soon = [{ ...catalogue[0]!, slug: 'soon', app: 'soon', name: 'Something Later', status: 'in-development' as const }];
+    const html = renderToStaticMarkup(
+      <Home state="confirmed" next={null} entries={soon} confirmAction={noop} declineAction={noop} />,
+    );
+    expect(html).toContain('Something Later');
     expect(html).toContain(copy.games.comingSoon);
+    expect(html).not.toContain('/play/soon');
   });
 
   it('asks the question with both answers, and the B2B statement', () => {
@@ -51,9 +62,6 @@ describe('Home', () => {
     expect(html).toContain('href="/play/whack/index.html"');
     expect(html).toContain('href="/play/gate/index.html"');
     expect(html).toContain('aria-label="Play Whack Crash demo"');
-    expect(html).toContain('The Cable Car');
-    expect(html).not.toContain('/play/cable-car');
-    expect(html).toContain(copy.games.comingSoon);
     expect(html).not.toContain('row-locked');
     expect(html).not.toContain(copy.games.locked);
     // Rows in catalogue order, after the play-money statement.

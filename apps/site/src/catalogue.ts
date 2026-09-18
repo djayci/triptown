@@ -53,16 +53,6 @@ export const catalogue: readonly Entry[] = [
     accent: '#3abef9',
     demoQuery: {},
   },
-  {
-    slug: 'cable-car',
-    app: 'cable-car',
-    name: 'The Cable Car',
-    pitch: 'A cable car climbs the valley with the multiplier.',
-    status: 'in-development',
-    logo: ['THE', 'CABLE CAR'],
-    accent: '#2a2f35',
-    demoQuery: {},
-  },
 ];
 
 export const liveEntries = (entries: readonly Entry[] = catalogue) =>
