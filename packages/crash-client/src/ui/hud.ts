@@ -15,8 +15,12 @@ export class Logo extends Container {
     const b = text(second, displayStyle(size, COLORS.sun, 3));
     const padX = size * 0.55;
     const padY = size * 0.34;
-    a.position.set(padX, padY);
-    b.position.set(padX + a.width + size * 0.2, padY);
+    // A text's box is its line box — ascent plus descent — but this lettering is all capitals, so the
+    // descender space at the bottom is empty and centring on the box leaves the ink sitting high.
+    // Drop it by the slack so the letters, rather than the box, are centred.
+    const inkDrop = size * 0.12;
+    a.position.set(padX, padY + inkDrop);
+    b.position.set(padX + a.width + size * 0.2, padY + inkDrop);
     drawSticker(bg, b.x + b.width + padX, a.height + padY * 2 - 4, { fill: COLORS.pink, radius: 14, border: 4, shadow: 4 });
     this.addChild(bg, a, b);
     this.rotation = (-3 * Math.PI) / 180;
