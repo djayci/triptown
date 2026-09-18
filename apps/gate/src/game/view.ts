@@ -84,6 +84,11 @@ export class GateView extends CrashScreen {
     return null;
   }
 
+  /** The control column steps aside during a round, as on Whack Crash; it is back for every bet and result. */
+  protected override hideControlsInRound(): boolean {
+    return true;
+  }
+
   /** DEMO at the top, under the history, clear of the gate and the stake row. */
   protected override demoBadgeUnderHistory(): boolean {
     return true;

@@ -158,6 +158,8 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
   private readonly icons: Record<IconName, Texture>;
   private readonly soundBtn: IconButton;
   private readonly controls: IconButton[];
+  private controlsHidden = false;
+  private audioAvailable = true;
   private readonly minusBtn: IconButton;
   private readonly plusBtn: IconButton;
   private readonly bigButton: StickerButton;
@@ -363,8 +365,29 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
 
   /** Games without audio get no sound button, and the column closes up. */
   setAudioAvailable(available: boolean): void {
-    this.soundBtn.visible = available;
+    this.audioAvailable = available;
+    this.applyControls();
+  }
+
+  /**
+   * Whether the control column steps aside while a round runs, as Whack Crash does, leaving the stage to the
+   * round. Rules, fairness and history stay reachable before every bet and on the result, which is what
+   * GLI-19 4.4.1 and UK RTS 3 ask for; sound also has its own place in the operator's wrapper.
+   */
+  protected hideControlsInRound(): boolean {
+    return false;
+  }
+
+  private applyControls(): void {
+    for (const b of this.controls) b.visible = !this.controlsHidden && (b !== this.soundBtn || this.audioAvailable);
     this.placeControls();
+  }
+
+  private setControlsHidden(hidden: boolean): void {
+    const next = hidden && this.hideControlsInRound();
+    if (next === this.controlsHidden) return;
+    this.controlsHidden = next;
+    this.applyControls();
   }
 
   /** The history chips move up into the session strip's row when a market shows no clock or net. */
@@ -413,6 +436,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
 
   showBetting(): void {
     this.phase = 'betting';
+    this.setControlsHidden(false);
     this.revealChance.text = '';
     this.resultCard.visible = false;
     this.payout.text = '';
@@ -428,6 +452,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
   showStarting(): void {
     this.phase = 'starting';
     this.resultCard.visible = false;
+    this.setControlsHidden(true);
   }
 
   showRunning(): void {
@@ -477,6 +502,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
 
   showWin(multiplier: string, payout: string, _big: boolean, kind: ResultKind, net: string): void {
     this.phase = 'won';
+    this.setControlsHidden(false);
     // The rule lives in the base; this only draws what it returns.
     const { celebrate, line } = this.resultPresentation(kind, payout, net);
     this.resultTitle.text = this.words.settledTitle;
@@ -499,6 +525,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
 
   showCrash(multiplier: string, loss: string, instant: boolean): void {
     this.phase = 'lost';
+    this.setControlsHidden(false);
     this.resultTitle.text = this.words.crashedTitle;
     this.resultLine.text = instant ? loss : `${multiplier} · ${loss}`;
     this.card(COLORS.violet);
