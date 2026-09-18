@@ -29,6 +29,9 @@ export class BalancePill extends Container {
   private readonly value: Text;
   private readonly unit: Text;
 
+  /** Last values, so the pill can size itself again once the real font is available. */
+  private last: { amount: string; currency: string; maxWidth: number } | null = null;
+
   constructor(private readonly big = false) {
     super();
     this.key.alpha = 0.6;
@@ -36,14 +39,35 @@ export class BalancePill extends Container {
     this.unit = text('USD', bodyStyle(big ? 13 : 11), [1, 0]);
     this.unit.alpha = 0.6;
     this.addChild(this.bg, this.key, this.value, this.unit);
+    // The pill is drawn to fit its text, so it is only correct if the text was measured with the font
+    // it will be drawn in. The first balance can arrive before the web font is ready, in which case the
+    // pill is sized from fallback metrics and the currency code overhangs it once the real font loads.
+    // Re-measure once, when the fonts settle.
+    void globalThis.document?.fonts?.ready
+      .then(() => {
+        if (this.last) this.set(this.last.amount, this.last.currency, this.last.maxWidth);
+      })
+      .catch(() => {});
   }
 
-  set(amount: string, currency: string) {
+  /**
+   * `maxWidth` is the room the pill has to its left. Without it the pill simply grows with the amount,
+   * and a longer balance — or a currency whose amounts run long — pushes it off the edge of the screen,
+   * taking the currency code with it.
+   */
+  set(amount: string, currency: string, maxWidth = Infinity) {
     const changed = this.value.text !== amount && this.value.text !== '—';
+    this.last = { amount, currency, maxWidth };
     this.value.text = amount;
     this.unit.text = currency;
     const padX = 14;
-    const w = Math.max(this.key.width, this.value.width + this.unit.width + 4) + padX * 2;
+    const base = this.big ? 22 : 18;
+    this.value.style = bodyStyle(base);
+    if (this.value.width + this.unit.width + 4 + padX * 2 > maxWidth) {
+      const room = maxWidth - padX * 2 - this.unit.width - 4;
+      if (room > 0) this.value.style = bodyStyle(Math.max(11, Math.floor((base * room) / this.value.width)));
+    }
+    const w = Math.min(maxWidth, Math.max(this.key.width, this.value.width + this.unit.width + 4) + padX * 2);
     const h = this.big ? 58 : 46;
     drawSticker(this.bg, w, h, { fill: COLORS.cream, radius: 14, border: 4, shadow: 4 });
     this.bg.x = -w;
