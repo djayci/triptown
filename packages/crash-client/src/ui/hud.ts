@@ -35,8 +35,12 @@ export class BalancePill extends Container {
   constructor(private readonly big = false) {
     super();
     this.key.alpha = 0.6;
-    this.value = text('—', bodyStyle(big ? 22 : 18), [1, 0]);
-    this.unit = text('USD', bodyStyle(big ? 13 : 11), [1, 0]);
+    // `padding` is texture padding, not layout: bodyStyle sets none, so Pixi sizes the canvas from its
+    // own measurement and a bold glyph whose ink runs past its advance width — a D, an S — loses its
+    // right edge inside the texture. No amount of room in the pill fixes that; the glyph is already
+    // clipped by the time it is drawn.
+    this.value = text('—', { ...bodyStyle(big ? 22 : 18), padding: 4 }, [1, 0]);
+    this.unit = text('USD', { ...bodyStyle(big ? 13 : 11), padding: 4 }, [1, 0]);
     this.unit.alpha = 0.6;
     this.addChild(this.bg, this.key, this.value, this.unit);
     // The pill is drawn to fit its text, so it is only correct if the text was measured with the font
@@ -64,10 +68,10 @@ export class BalancePill extends Container {
     // which reads as touching it at a glance even though it never overlapped.
     const padX = 20;
     const base = this.big ? 22 : 18;
-    this.value.style = bodyStyle(base);
+    this.value.style = { ...bodyStyle(base), padding: 4 };
     if (this.value.width + this.unit.width + 4 + padX * 2 > maxWidth) {
       const room = maxWidth - padX * 2 - this.unit.width - 4;
-      if (room > 0) this.value.style = bodyStyle(Math.max(11, Math.floor((base * room) / this.value.width)));
+      if (room > 0) this.value.style = { ...bodyStyle(Math.max(11, Math.floor((base * room) / this.value.width))), padding: 4 };
     }
     const w = Math.min(maxWidth, Math.max(this.key.width, this.value.width + this.unit.width + 4) + padX * 2);
     const h = this.big ? 58 : 46;
