@@ -60,7 +60,9 @@ export class BalancePill extends Container {
     this.last = { amount, currency, maxWidth };
     this.value.text = amount;
     this.unit.text = currency;
-    const padX = 14;
+    // 14 left the currency code about 10px clear of the inner border once the 4px border is taken off,
+    // which reads as touching it at a glance even though it never overlapped.
+    const padX = 20;
     const base = this.big ? 22 : 18;
     this.value.style = bodyStyle(base);
     if (this.value.width + this.unit.width + 4 + padX * 2 > maxWidth) {
