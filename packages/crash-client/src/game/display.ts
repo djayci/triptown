@@ -17,6 +17,41 @@ export function formatRevealChance(rtp: number, multiplier: number): string {
   return tenths < 0.1 ? '<0.1%' : `${tenths.toFixed(1)}%`;
 }
 
+/** Values a deferred game may show a chance for during the ride. Capped by the config's max win. */
+export const CHANCE_LADDER = [1.5, 2, 5, 10] as const;
+
+/** One settled deferred ride: the value the player went in at, and whether the gate was open. */
+export interface RideResult {
+  multiplier: number;
+  won: boolean;
+}
+
+export interface ChanceRow {
+  multiplier: number;
+  value: string;
+  chance: string;
+  /** The player's own record at or past this value this session, e.g. "2/3", or null when they have none. */
+  yours: string | null;
+}
+
+/**
+ * The chance at each ladder value, with the player's own rides counted against it, for a game that shows the
+ * table while the ride runs. Chance x value is the RTP on every row, so no row is a better place to go in
+ * than another, and a player's own tally says nothing about the next ride: each is settled on its own seeds.
+ */
+export function chanceTable(config: GameConfig, rides: RideResult[] = []): ChanceRow[] {
+  return CHANCE_LADDER.filter((m) => m <= config.maxWinMultiplier).map((m) => {
+    const reached = rides.filter((r) => r.multiplier >= m);
+    const open = reached.filter((r) => r.won).length;
+    return {
+      multiplier: m,
+      value: formatMultiplier(m),
+      chance: formatRevealChance(config.rtp, m),
+      yours: reached.length === 0 ? null : `${open}/${reached.length}`,
+    };
+  });
+}
+
 /**
  * Deferred reveal (gate-odds-mvp D6): the heading-home state lasts at least this long from the press,
  * for every outcome. It starts on the press, never on the settlement, so its length can't depend on

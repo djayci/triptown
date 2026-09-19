@@ -68,6 +68,19 @@ export let COLORS: Palette = PALETTES.candy;
 export let SKIN: SkinName = 'candy';
 
 let displayOverride: string | undefined;
+
+/**
+ * How solid the panels are drawn. Candy Arcade Pop stickers are the default: thick ink border, hard drop
+ * shadow, round corners. A game with another visual language scales them down (a broadcast graphic has a
+ * hairline and no shadow). Multipliers, so relative weights stay as designed.
+ */
+export interface ShapeTokens {
+  border: number;
+  shadow: number;
+  radius: number;
+}
+const STICKER_SHAPE: ShapeTokens = { border: 1, shadow: 1, radius: 1 };
+export let SHAPE: ShapeTokens = STICKER_SHAPE;
 /** The stage colour a game declared in useSkin, if any. */
 let stageGround: number | undefined;
 
@@ -135,6 +148,8 @@ export interface SkinOptions {
   colors?: Partial<Palette>;
   /** Display face, e.g. a condensed poster face for a night scene. */
   display?: string;
+  /** Panel weights: 1 is the sticker look. Lower them for a flatter language. */
+  shape?: Partial<ShapeTokens>;
   /**
    * The colour the primary values actually sit on. Only the game knows this — the base palettes
    * assume a yellow ground (candy) or a light one (adult), and a night scene is neither. Required
@@ -144,7 +159,7 @@ export interface SkinOptions {
 }
 
 export function useSkin(skin: SkinName, options: SkinOptions = {}) {
-  const { colors = {}, display, ground } = options;
+  const { colors = {}, display, ground, shape } = options;
   const next = { ...PALETTES[skin], ...colors };
 
   // Checked whenever a game says what its ground is, not only when it recolours. "The shipped
@@ -188,6 +203,7 @@ export function useSkin(skin: SkinName, options: SkinOptions = {}) {
   COLORS = next;
   displayOverride = display;
   stageGround = ground;
+  SHAPE = { ...STICKER_SHAPE, ...shape };
 }
 
 export const FONT_DISPLAY = 'Lilita One, Arial Black, Impact, sans-serif';

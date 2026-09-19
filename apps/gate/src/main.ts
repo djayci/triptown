@@ -1,4 +1,6 @@
 import '@fontsource/lilita-one/400.css';
+import '@fontsource/barlow-condensed/600.css';
+import '@fontsource/barlow-condensed/800.css';
 import '@fontsource/bricolage-grotesque/500.css';
 import '@fontsource/bricolage-grotesque/700.css';
 import '@fontsource/bricolage-grotesque/800.css';
@@ -67,22 +69,39 @@ const CANDY_PADDOCK = {
   ground: STAGE_PALETTES.candy.night,
 };
 
+/**
+ * Broadcast (chosen 19 Sep 2026): the ride as sports television. A floodlit pitch under a night sky, flat
+ * panels instead of stickers (shape weights at a third of the sticker look, no drop shadow), condensed
+ * display type, and the broadcast accents: white value, amber money, red action. `ground` is the night sky
+ * the values sit on, which the shared theme contrast-checks.
+ */
+const BROADCAST = {
+  colors: { sun: 0xffffff, lime: 0xffd166, lime2: 0xffdd8f, violet: 0xd90429, sky: 0xd90429, pink: 0xd90429 },
+  ground: STAGE_PALETTES.broadcast.night,
+  display: 'Barlow Condensed, Barlow, Arial Narrow, sans-serif',
+  shape: { border: 0.3, shadow: 0, radius: 0.25 },
+};
+
 async function boot() {
   const parent = document.getElementById('game');
   if (!parent) throw new Error('#game missing');
-  await loadFonts(['Lilita One', 'Bricolage Grotesque']);
+  await loadFonts(['Lilita One', 'Bricolage Grotesque', { family: 'Barlow Condensed', weights: [600, 800] }]);
 
   // The session decides the skin, so the service comes first.
   const service = await createRoundService();
   const session = await service.getSession().catch(() => null);
-  const skin = session?.profile?.skin === 'adult' ? 'adult' : 'candy';
+  // The look is the game's own presentation; the skin still says what a market allows (candy or adult art).
+  // Broadcast ships as the look; `?look=paddock` keeps the earlier Candy Paddock for comparison.
+  const profileSkin = session?.profile?.skin === 'adult' ? 'adult' : 'candy';
+  const wantsPaddock = new URLSearchParams(location.search).get('look') === 'paddock';
+  const skin = wantsPaddock ? profileSkin : 'broadcast';
   // Gate Rush where this game's rounds reveal at IN!, Beat the Gate everywhere else (gate-odds-mvp D8).
   // Decided by effectiveReveal, the same function the server uses at START, not by the market flag alone:
   // the flag says what the market allows, effectiveReveal says what this game does. START confirms it
   // per round; this only picks the wordmark and words up front.
   registerGame(GAME_ID, 'whack-crash', { reveal: ['onCollect'] });
   const presentation = session ? effectiveReveal(GAME_ID, session.profile, session.config) : 'live';
-  useSkin(skin, skin === 'adult' ? ADULT_STICKER : CANDY_PADDOCK);
+  useSkin(skin === 'broadcast' ? 'adult' : skin, skin === 'broadcast' ? BROADCAST : skin === 'adult' ? ADULT_STICKER : CANDY_PADDOCK);
   document.body.style.background = `#${STAGE_PALETTES[skin].ray.toString(16).padStart(6, '0')}`;
 
   const [game, frames] = await Promise.all([
@@ -96,7 +115,9 @@ async function boot() {
   let history: HistoryPanel | null = null;
   const overlay = new Overlay();
 
-  const controller = new GameController(game, frames, service, audio, (app, f, cb) => new GateView(app, f, cb, presentation, skin), {
+  let view: GateView | null = null;
+  const controller = new GameController(game, frames, service, audio, (app, f, cb) => (view = new GateView(app, f, cb, presentation, skin)), {
+    game: GAME_ID,
     collectSfx: 'collect',
     clientVersion: __APP_VERSION__,
     initialBetMinor: demoBetMinor(),
@@ -142,6 +163,7 @@ async function boot() {
       w.__triptownAudio = audio;
     }
     w.__triptownView = () => controller.debugState();
+    w.__gateScene = () => view?.debugScene();
     // Stake-free practice rounds: the shared check drives one through this hook on markets that allow them.
     w.__triptownPractice = () => void controller.bet({ practice: true });
   }

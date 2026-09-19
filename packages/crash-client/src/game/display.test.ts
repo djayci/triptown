@@ -1,7 +1,8 @@
 import { DEFAULT_CURRENCY } from '@triptown/core';
-import { DEFAULT_CONFIG, growth } from '@triptown/fairness';
+import { DEFAULT_CONFIG, growth, type GameConfig } from '@triptown/fairness';
 import { describe, expect, it } from 'vitest';
 import {
+  chanceTable,
   crossedCheckpoint,
   crossedMini,
   displayMultiplier,
@@ -68,5 +69,28 @@ describe('display math', () => {
   it('cycles auto cash-out presets', () => {
     expect(nextAutoPreset(5)).toBe(10);
     expect(nextAutoPreset(100)).toBe(1.5);
+  });
+});
+
+describe('chance table with the player\'s own rides', () => {
+  const config = { rtp: 0.97, maxWinMultiplier: 10_000 } as GameConfig;
+
+  it('gives every row the same expected return, and no tally before the first ride', () => {
+    const rows = chanceTable(config);
+    expect(rows.map((r) => r.value)).toEqual(['x1.50', 'x2.00', 'x5.00', 'x10.00']);
+    expect(rows.every((r) => r.yours === null)).toBe(true);
+    for (const r of rows) expect((Number(r.chance.replace('%', '')) / 100) * r.multiplier).toBeCloseTo(0.97, 2);
+  });
+
+  it('counts a ride at every value it reached, open or shut', () => {
+    const rides = [
+      { multiplier: 3, won: true },
+      { multiplier: 1.6, won: false },
+      { multiplier: 12, won: true },
+      { multiplier: 1.2, won: true },
+    ];
+    const yours = Object.fromEntries(chanceTable(config, rides).map((r) => [r.value, r.yours]));
+    // x1.50: three rides reached it (3, 1.6, 12), two of them open. x5.00 and x10.00: only the x12 ride.
+    expect(yours).toEqual({ 'x1.50': '2/3', 'x2.00': '2/2', 'x5.00': '1/1', 'x10.00': '1/1' });
   });
 });

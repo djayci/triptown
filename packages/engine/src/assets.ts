@@ -28,8 +28,12 @@ function frameLookup(sheet: Spritesheet): (frame: string) => Texture {
 }
 
 /** Waits for web fonts so Pixi Text measures with the real faces. Never rejects. */
-export async function loadFonts(families: string[], timeoutMs = 3000): Promise<void> {
+/** A family name loads its regular weight; `{ family, weights }` loads each listed weight, which a face used only at 800 needs. */
+export type FontRequest = string | { family: string; weights: number[] };
+
+export async function loadFonts(families: FontRequest[], timeoutMs = 3000): Promise<void> {
   if (typeof document === 'undefined' || !document.fonts) return;
-  const loads = families.map((f) => document.fonts.load(`32px "${f}"`).catch(() => []));
+  const specs = families.flatMap((f) => (typeof f === 'string' ? [`32px "${f}"`] : f.weights.map((w) => `${w} 32px "${f.family}"`)));
+  const loads = specs.map((spec) => document.fonts.load(spec).catch(() => []));
   await Promise.race([Promise.all(loads), new Promise((r) => setTimeout(r, timeoutMs))]);
 }

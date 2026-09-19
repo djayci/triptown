@@ -11,7 +11,9 @@ export const EN = {
 
   'stage.ready': 'READY?',
   'stage.readySub': 'Ride out. Get back in before the gate slams.',
-  'stage.readySubRush': 'Go in when you like. Gate open chance = 97% ÷ value.',
+  'stage.readyTitle': 'READY?',
+  // The whole game in one line. Nothing about timing or skill: the gate is decided before the ride starts.
+  'stage.readySubRush': 'The further you ride, the more it pays, if the gate is open.',
   'button.bet': 'BET {amount}',
   'button.collect': 'IN!',
   'button.cashOut': 'In for {amount}',
@@ -40,8 +42,12 @@ export const EN = {
 
   'run.winNow': 'IN NOW {amount}',
   'run.ifOpen': 'IF THE GATE IS OPEN',
-  'run.revealChance': 'GATE OPEN IF YOU GO IN NOW · {chance}',
-  'run.revealChanceLocked': 'OPEN ON {chance} OF RIDES IN AT {multiplier}',
+  'run.chanceTable': 'GATE OPEN AT',
+  'run.chanceHeadChance': 'CHANCE',
+  'run.chanceHeadYours': 'YOURS',
+  'run.revealChance': 'GATE OPEN NOW · {chance}',
+  // The label above it already says LOCKED; this restates the chance at the locked value, one line.
+  'run.revealChanceLocked': 'OPEN ON {chance}',
   'run.headingHome': 'LOCKED · HEADING HOME',
   'button.headingHome': 'RIDING IN…',
   'button.headingHomeSub': 'The result was fixed when the round started',
@@ -72,6 +78,8 @@ export const EN = {
   'rules.chance.return': 'Return on {stake}',
   'rules.chance.nominal':
     'The chance uses the theoretical return of {rtp}%. The measured return above includes rounding at the smallest stake, so the two can differ slightly.',
+  'rules.chance.yours':
+    'While you ride, the table also counts your own rides this session at each value: how many found the gate open out of how many reached it. It is a record of what happened. Every ride is settled on its own seeds before it starts, so your record does not change what the next gate does.',
   'rules.chance.onScreen':
     'The value keeps rising for the whole ride, so the amount on screen is paid only if the gate is open. The chance beside it tells you how likely that is, and it stays on screen after you press IN! until the gate is shown.',
   'rules.growth': 'The value speeds up over the first {tRamp} seconds, then keeps that speed.',

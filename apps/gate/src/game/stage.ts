@@ -1,4 +1,4 @@
-import { AnimatedSprite, Container, Graphics, PerspectiveMesh, Sprite, TilingSprite, type Application, type Texture } from 'pixi.js';
+import { AnimatedSprite, Container, Graphics, PerspectiveMesh, Rectangle, Sprite, TilingSprite, type Application, type Texture } from 'pixi.js';
 import { gsap } from '@triptown/engine';
 
 /** The shared screen's fixed design size; the stage fills it behind the HUD. */
@@ -23,6 +23,8 @@ export const LAP_SECONDS = 5;
  */
 export const STAGE_PALETTES = {
   candy: { ink: 0x1d1424, night: 0xffd43b, ray: 0xffc414, turf: 0x6fd14a, turf2: 0x4fbf3a, cream: 0xfff4d6, crash: 0xff7361 },
+  /** Broadcast: a floodlit pitch seen from the camera gantry, under a night sky graded to navy. */
+  broadcast: { ink: 0x0d0f14, night: 0x16304d, ray: 0x11253c, turf: 0x1c6b3a, turf2: 0x186034, cream: 0xe8eef5, crash: 0x5a1220 },
   adult: { ink: 0x14161a, night: 0x2c333b, ray: 0x232930, turf: 0x4a6b52, turf2: 0x3c5744, cream: 0xe8e3d9, crash: 0x5a4045 },
 } as const;
 export type StageSkin = keyof typeof STAGE_PALETTES;
@@ -105,6 +107,8 @@ export class GateStage extends Container {
   /** Barn, posts, panels and latch, moved as one so Gate Rush can leave the gate behind and bring it back. */
   private readonly yard = new Container();
   private readonly c: StagePalette;
+  /** The candy stage is a sunburst; the broadcast stage is a graded night sky. */
+  private readonly rays: boolean;
   private readonly horseRun: AnimatedSprite;
   private readonly horseStand: Sprite;
   private readonly horse = new Container();
@@ -156,6 +160,7 @@ export class GateStage extends Container {
   ) {
     super();
     this.c = STAGE_PALETTES[skin];
+    this.rays = skin !== 'broadcast';
     this.lights = [new Sprite(frames('floodlight')), new Sprite(frames('floodlight'))];
     this.crowd = new TilingSprite({ texture: this.crowdTexture(app), width: REF_W, height: 40 });
     this.turf = new TilingSprite({ texture: this.turfTexture(app), width: REF_W, height: 200 });
@@ -437,10 +442,14 @@ export class GateStage extends Container {
     const speedRef = this.mode === 'heading' || this.mode === 'arriving' ? -160 : this.effectsOn ? 160 + 380 * this.intensity : 160;
 
     if (running && !this.reduced) {
+      const before = this.scroll;
       this.moveField(speedRef, dtSeconds);
       this.turf.tilePosition.x = -this.scroll;
       this.rail.tilePosition.x = -this.scroll;
       this.crowd.tilePosition.x = -this.scroll * 0.15;
+      // A flash belongs to someone in the stand, so it moves with the stand, not with the camera.
+      const drift = -(this.scroll - before) * 0.15;
+      for (const f of this.flashLayer.children) f.x += drift;
       this.horseRun.animationSpeed = this.effectsOn ? 0.2 + 0.16 * this.intensity : 0.2;
       if (!this.horseRun.playing) this.horseRun.play();
       if (this.mode === 'out' && !this.emerging && !gsap.isTweening(this)) {
@@ -480,46 +489,63 @@ export class GateStage extends Container {
   private layout(): void {
     const { w, h, u } = this;
     const ground = this.groundY();
-    const crowdY = h * 0.43;
+    // The field's arch tops out at 300 of 844 in broadcast, where the scene band starts; the paddock keeps its lower field.
+    // Broadcast: the stand starts where the scene band does (300 of 844) and the pitch begins under it.
+    const crowdY = this.rays ? h * 0.43 : h * 0.3555;
 
-    // Sunburst: alternating wedges around a point above the field, as on Whack's stage card.
     this.sky.clear().rect(0, 0, w, h).fill(this.c.night);
-    const cx = w / 2;
-    const cy = h * 0.36;
-    const reach = Math.hypot(w, h);
-    for (let i = 0; i < 40; i += 2) {
-      const a0 = (i / 40) * Math.PI * 2;
-      const a1 = ((i + 1) / 40) * Math.PI * 2;
-      this.sky.poly([cx, cy, cx + Math.cos(a0) * reach, cy + Math.sin(a0) * reach, cx + Math.cos(a1) * reach, cy + Math.sin(a1) * reach]).fill(this.c.ray);
+    if (this.rays) {
+      // Sunburst: alternating wedges around a point above the field, as on Whack's stage card.
+      const cx = w / 2;
+      const cy = h * 0.36;
+      const reach = Math.hypot(w, h);
+      for (let i = 0; i < 40; i += 2) {
+        const a0 = (i / 40) * Math.PI * 2;
+        const a1 = ((i + 1) / 40) * Math.PI * 2;
+        this.sky.poly([cx, cy, cx + Math.cos(a0) * reach, cy + Math.sin(a0) * reach, cx + Math.cos(a1) * reach, cy + Math.sin(a1) * reach]).fill(this.c.ray);
+      }
+    } else {
+      // Broadcast: the night sky graded down to the floodlit pitch, no rays.
+      for (let i = 0; i < 12; i++) {
+        this.sky.rect(0, (i * h) / 12, w, h / 12 + 1).fill({ color: this.c.ray, alpha: i / 14 });
+      }
     }
-    // Floodlights, beams, crowd and barn belong to the night look; the sticker stage has none.
+    // Floodlights, beams and barn belong to the old night look. The crowd is the broadcast stand.
     this.beams.clear();
-    for (const part of [this.beams, ...this.lights, this.crowd, this.barn]) part.visible = false;
+    for (const part of [this.beams, ...this.lights, this.barn]) part.visible = false;
+    this.crowd.visible = !this.rays;
     this.lights[0].scale.set(0.6 * u);
     this.lights[0].position.set(8 * u, 10 * u);
     this.lights[1].scale.set(0.6 * u);
     this.lights[1].position.set(w - 8 * u - this.lights[1].width, 10 * u);
 
+    const standH = 44 * u;
     this.crowd.width = w;
-    this.crowd.height = 40 * u;
+    this.crowd.height = standH;
     this.crowd.tileScale.set(u);
     this.crowd.position.set(0, crowdY);
     this.flashLayer.position.set(0, crowdY);
 
-    const moundTop = crowdY + 26 * u;
-    // The field is one shape: an arched top edge, then straight down to the bottom of the screen. The
-    // stripes are clipped to it and the ink outline follows the same curve, so there is no flat band
-    // between the arch and the stripes.
-    const arch = (g: Graphics) => {
-      g.moveTo(-10, moundTop + 34 * u).quadraticCurveTo(w / 2, moundTop - 34 * u, w + 10, moundTop + 34 * u);
-      return g;
-    };
+    const moundTop = this.rays ? crowdY + 26 * u : crowdY + standH;
     this.fieldMask.clear();
-    arch(this.fieldMask).lineTo(w + 10, h + 10).lineTo(-10, h + 10).closePath().fill(0xffffff);
     this.mound.clear();
-    arch(this.mound).stroke({ color: this.c.ink, width: 5 });
+    if (this.rays) {
+      // Paddock: the field is one shape, an arched top edge then straight down to the bottom of the screen.
+      // The stripes are clipped to it and the ink outline follows the same curve.
+      const arch = (g: Graphics) => {
+        g.moveTo(-10, moundTop + 34 * u).quadraticCurveTo(w / 2, moundTop - 34 * u, w + 10, moundTop + 34 * u);
+        return g;
+      };
+      arch(this.fieldMask).lineTo(w + 10, h + 10).lineTo(-10, h + 10).closePath().fill(0xffffff);
+      arch(this.mound).stroke({ color: this.c.ink, width: 5 });
+      this.turf.position.set(0, moundTop - 34 * u);
+    } else {
+      // Broadcast: a straight pitch edge under the stand, with the perimeter board along it.
+      this.fieldMask.rect(-10, moundTop, w + 20, h).fill(0xffffff);
+      this.mound.rect(0, moundTop, w, 4 * u).fill(this.c.ink);
+      this.turf.position.set(0, moundTop);
+    }
     this.turf.mask = this.fieldMask;
-    this.turf.position.set(0, moundTop - 34 * u);
     this.turf.width = w;
     this.turf.height = h - this.turf.y;
     this.turf.tileScale.set(u);
@@ -624,6 +650,11 @@ export class GateStage extends Container {
   }
 
   /** A milestone: dust kicked up behind the running horse. Follows the multiplier only, like the rest of the ride. */
+  /** Demo builds: the stand's tile width and scroll, and where the flashes are, so a check can see they move together. */
+  debugScene(): { tileW: number; crowdX: number; flashes: number[] } {
+    return { tileW: this.crowd.texture.width, crowdX: this.crowd.tilePosition.x, flashes: this.flashLayer.children.map((f) => f.x) };
+  }
+
   kick(size = 1): void {
     if (this.mode !== 'out' || this.reduced || !this.effectsOn) return;
     const x = (this.horseX - 70) * this.u;
@@ -720,20 +751,37 @@ export class GateStage extends Container {
     gsap.killTweensOf(this.crashTint);
   }
 
+  /**
+   * The stand: two rows of spectators, heads and shoulders, in mixed clothing, on a dark terrace. One tile,
+   * repeated across the width and scrolled slowly with the field.
+   */
   private crowdTexture(app: Application): Texture {
-    const g = new Graphics().rect(0, 0, 48, 40).fill({ color: this.c.night, alpha: 0 });
-    for (const [x, y, c] of [
-      [6, 8, 0xfff4d6],
-      [18, 22, 0xffc414],
-      [30, 10, 0xfff4d6],
-      [42, 26, 0xe03131],
-      [12, 32, 0xfff4d6],
-      [36, 34, 0xfff4d6],
-    ] as const) {
-      g.circle(x, y, 3).fill({ color: c, alpha: 0.55 });
-    }
-    g.rect(0, 37, 48, 3).fill(this.c.ink);
-    return app.renderer.generateTexture(g);
+    const W = 96;
+    const H = 44;
+    const g = new Graphics().rect(0, 0, W, H).fill(0x0b1522);
+    const skins = [0x7a4a2b, 0x5b3620, 0x8a5a36, 0xc68642, 0x3b2314];
+    const shirts = [0xd90429, 0xe8eef5, 0xffd166, 0x2f9e44, 0x1971c2, 0xf3a5b1, 0x7048e8];
+    // Deterministic placement (no Math.random): the tile must join seamlessly and look the same every frame.
+    const rows: [number, number, number][] = [
+      [8, 6, 0.85],
+      [8, 24, 1],
+    ];
+    rows.forEach(([x0, y, scale], r) => {
+      for (let i = 0; i < 6; i++) {
+        const x = x0 + i * 16 + (r % 2 ? 8 : 0);
+        const skin = skins[(i + r) % skins.length]!;
+        const shirt = shirts[(i * 3 + r) % shirts.length]!;
+        // A figure near the right edge is drawn again one tile to the left, so the repeat has no seam.
+        for (const cx of x + 7 * scale > W ? [x, x - W] : [x]) {
+          g.roundRect(cx - 7 * scale, y + 6 * scale, 14 * scale, 12 * scale, 4).fill(shirt);
+          g.circle(cx, y + 2 * scale, 4.2 * scale).fill(skin);
+        }
+      }
+    });
+    g.rect(0, H - 3, W, 3).fill(this.c.ink);
+    // The wrapped figures spill past the tile on both sides; the texture is cut to the tile, not the drawing,
+    // or the repeat would carry that spill as a gap.
+    return app.renderer.generateTexture({ target: g, frame: new Rectangle(0, 0, W, H) });
   }
 
   private turfTexture(app: Application): Texture {

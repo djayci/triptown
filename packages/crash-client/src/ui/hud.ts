@@ -8,11 +8,21 @@ import { bodyStyle, displayStyle, drawSticker, labelStyle, text } from './primit
 
 /** The game's wordmark. Each game passes its own two words; the shared client knows none of them. */
 export class Logo extends Container {
-  constructor(first: string, second: string, size = 22) {
+  /** With `box`, the wordmark is drawn flat inside that exact rectangle, words centred, for a gridded look. */
+  constructor(first: string, second: string, size = 22, box?: { w: number; h: number }) {
     super();
     const bg = new Graphics();
     const a = text(first, displayStyle(size, COLORS.cream, 3));
     const b = text(second, displayStyle(size, COLORS.sun, 3));
+    if (box) {
+      drawSticker(bg, box.w, box.h, { fill: COLORS.pink, radius: 14, border: 4, shadow: 4 });
+      const gap = size * 0.2;
+      const total = a.width + gap + b.width;
+      a.position.set((box.w - total) / 2, (box.h - a.height) / 2);
+      b.position.set(a.x + a.width + gap, a.y);
+      this.addChild(bg, a, b);
+      return;
+    }
     const padX = size * 0.55;
     const padY = size * 0.34;
     // Nudge so the letters are centred rather than the text's line box. Measured, not guessed: for
@@ -37,7 +47,11 @@ export class BalancePill extends Container {
   /** Last values, so the pill can size itself again once the real font is available. */
   private last: { amount: string; currency: string; maxWidth: number } | null = null;
 
-  constructor(private readonly big = false) {
+  /** `compact` draws one 32px line, label then amount, for a look with a single-height header row. */
+  constructor(
+    private readonly big = false,
+    private readonly compact = false,
+  ) {
     super();
     this.key.alpha = 0.6;
     // `padding` is texture padding, not layout: bodyStyle sets none, so Pixi sizes the canvas from its
@@ -71,12 +85,25 @@ export class BalancePill extends Container {
     this.unit.text = currency;
     // 14 left the currency code about 10px clear of the inner border once the 4px border is taken off,
     // which reads as touching it at a glance even though it never overlapped.
-    const padX = 20;
-    const base = this.big ? 22 : 18;
+    const padX = this.compact ? 12 : 20;
+    const base = this.compact ? 16 : this.big ? 22 : 18;
     this.value.style = { ...bodyStyle(base), padding: 4 };
-    if (this.value.width + this.unit.width + 4 + padX * 2 > maxWidth) {
-      const room = maxWidth - padX * 2 - this.unit.width - 4;
+    if (this.compact) this.unit.style = { ...bodyStyle(10), padding: 4 };
+    const fixed = this.compact ? this.key.width + 12 : 0;
+    if (this.value.width + this.unit.width + 4 + fixed + padX * 2 > maxWidth) {
+      const room = maxWidth - padX * 2 - this.unit.width - 4 - fixed;
       if (room > 0) this.value.style = { ...bodyStyle(Math.max(11, Math.floor((base * room) / this.value.width))), padding: 4 };
+    }
+    if (this.compact) {
+      // One line: BALANCE on the left, the amount and code on the right, 32 tall, filling maxWidth.
+      const w = maxWidth === Infinity ? this.key.width + this.value.width + this.unit.width + 4 + padX * 2 + 12 : maxWidth;
+      drawSticker(this.bg, w, 32, { fill: COLORS.cream, radius: 14, border: 4, shadow: 4 });
+      this.bg.x = -w;
+      this.key.position.set(-w + padX + this.key.width, 11);
+      this.unit.position.set(-padX, 11);
+      this.value.position.set(-padX - this.unit.width - 4, 6);
+      if (changed) pop(this.value, 1.15, 0.25);
+      return;
     }
     const w = Math.min(maxWidth, Math.max(this.key.width, this.value.width + this.unit.width + 4) + padX * 2);
     const h = this.big ? 58 : 46;

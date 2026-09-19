@@ -19,6 +19,58 @@ const STAKE_W_ALONE = W - PAD * 2 - (44 + 6 + 6 + 44);
 
 type IconName = 'sound' | 'muted' | 'rules' | 'fairness' | 'history' | 'minus' | 'plus';
 
+/** A named rectangle in the 390x844 frame, for the layout audit. */
+export interface LayoutBox {
+  name: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * Where the shared HUD sits in the 390x844 frame. The defaults are the Candy Arcade Pop layout; a game with
+ * its own grid passes the numbers it designed to. It is given to the constructor, not read from a hook, so
+ * the first layout already has it: a hook on a subclass field runs before that field exists.
+ */
+export interface ScreenLook {
+  /** With w and h, the wordmark is a flat box of that size; otherwise the tilted sticker. */
+  logo: { x: number; y: number; w?: number; h?: number };
+  /** Right-anchored. `compact` is a single 32px line filling `width`. */
+  balance: { x: number; y: number; width: number; compact: boolean };
+  /** The history strip's top when no session strip shows; it drops 32 when one does. */
+  history: { x: number; y: number };
+  /** The DEMO badge's rectangle; `underHistory` puts it just below the history strip instead. */
+  demo: { x: number; y: number; w: number; h: number; underHistory: boolean };
+  /** The sound, fairness, rules and history controls: a column by default, or a row. */
+  controls: { x: number; y: number; size: number; gap: number; horizontal: boolean };
+  /** The value and the money: anchor 0.5 centres them on x, 1 right-aligns them to x. */
+  value: { x: number; anchor: number; valueY: number; valueSize: number; payoutY: number; payoutSize: number; labelY: number; chanceY: number };
+  /** The caption and chance lines: centred on x when the value is centred, right-aligned to value.x otherwise. */
+  liveText: { x: number; width: number };
+  resultCard: { x: number; y: number; w: number; h: number; titleY: number; lineY: number };
+  /** True when the result card states the value itself, so the big value and the money are not also drawn. */
+  hideValueOnResult: boolean;
+  /** True when the betting screen is only an invitation to play, as on Whack Crash: no x1.00 until the round starts. */
+  hideValueWhileBetting: boolean;
+  /** The empty band the lobby invitation is centred in: from the last HUD row above it to the scene below. */
+  lobby: { top: number; bottom: number };
+}
+
+export const DEFAULT_LOOK: ScreenLook = {
+  logo: { x: PAD, y: 14 },
+  balance: { x: W - PAD, y: 14, width: Infinity, compact: false },
+  history: { x: PAD, y: 64 },
+  demo: { x: PAD, y: H - 208, w: 62, h: 24, underHistory: false },
+  controls: { x: W - PAD - 40, y: 136, size: 40, gap: 10, horizontal: false },
+  value: { x: W / 2, anchor: 0.5, valueY: 150, valueSize: 88, payoutY: 246, payoutSize: 34, labelY: 294, chanceY: 318 },
+  liveText: { x: W / 2, width: 2 * (W - PAD - 40 - 8 - W / 2) },
+  resultCard: { x: 28, y: 360, w: 334, h: 118, titleY: 20, lineY: 70 },
+  hideValueOnResult: false,
+  hideValueWhileBetting: false,
+  lobby: { top: 150, bottom: 340 },
+};
+
 /**
  * Vector icons for the shared controls, rendered once to textures. CrashScreen games have no shared
  * atlas, and these must exist in every game: sound and rules are player-protection controls.
@@ -89,6 +141,8 @@ export interface ScreenWords {
   liveLabel: string;
   /** Subtitle on the betting screen. */
   readySub: string;
+  /** Optional title in the value's place on the betting screen, for a look that hides the value there (e.g. READY?). */
+  readyTitle?: string;
   /** Title on a settled round that returned something. */
   settledTitle: string;
   /** Title when the round ended badly. */
@@ -118,7 +172,11 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
   protected readonly stage: GameStage;
 
   private readonly logo: Logo;
-  private readonly balance = new BalancePill();
+  private readonly balance: BalancePill;
+  protected readonly look: ScreenLook;
+  private readonly renderer: Application['renderer'];
+  /** How far the value's texture was shifted to centre its ink (lobby title); the audit box is the ink. */
+  private multInkShift = 0;
   private readonly session = new SessionStrip();
   readonly history = new HistoryStrip(W - PAD * 2);
 
@@ -172,11 +230,16 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     handlers: CrashViewCallbacks,
     private readonly words: ScreenWords,
     stage: GameStage,
+    look: Partial<ScreenLook> = {},
   ) {
     super(handlers);
     const { app } = game;
     this.stage = stage;
-    this.logo = new Logo(words.logo[0], words.logo[1], 22);
+    this.look = { ...DEFAULT_LOOK, ...look };
+    this.renderer = app.renderer;
+    this.balance = new BalancePill(false, this.look.balance.compact);
+    const logoBox = this.look.logo.w && this.look.logo.h ? { w: this.look.logo.w, h: this.look.logo.h } : undefined;
+    this.logo = new Logo(words.logo[0], words.logo[1], logoBox ? 16 : 22, logoBox);
 
     this.statBet = new StatBox(t('label.stake'), this.hasAutoCashout() ? STAKE_W : STAKE_W_ALONE, 44);
     this.statAuto = new StatBox(t('label.auto'), AUTO_W, 44);
@@ -288,38 +351,122 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
   }
 
   /**
-   * Top of the result card in the 390x844 frame. A game whose result is shown in the scene (a gate opening,
-   * say) can lift the card clear of it. The card restates the multiplier and the net, so it may cover the
-   * live values but never the stage's own answer.
+   * The action button's fill in each state: ready to bet, running (collect), and a celebrated result. A game
+   * whose language has one action colour returns it for all three. The celebrate decision itself stays in
+   * the base: this only says what colour it is drawn in.
    */
-  protected resultCardTop(): number {
-    return 360;
+  protected actionColors(): { ready: number; running: number; celebrate: number } {
+    return { ready: COLORS.sky, running: COLORS.lime, celebrate: COLORS.lime };
   }
 
   get offersAutoCashout(): boolean {
     return this.hasAutoCashout();
   }
 
+  /**
+   * How far a rendered text's ink centre sits from its texture centre, in px. Centring the texture is not
+   * centring what the player sees: a trailing "?" leaves more room on its right, and the text renderer's
+   * padding is not always even. Read from the pixels actually drawn, so it is right for any face.
+   */
+  private inkCentreOffset(txt: Text): number {
+    try {
+      const { pixels, width, height } = this.renderer.extract.pixels({ target: txt, resolution: 1 });
+      let first = -1;
+      let last = -1;
+      for (let x = 0; x < width; x++) {
+        for (let y = 0; y < height; y++) {
+          if (pixels[(y * width + x) * 4 + 3]! > 40) {
+            if (first < 0) first = x;
+            last = x;
+            break;
+          }
+        }
+      }
+      if (first < 0) return 0;
+      return ((first + last + 1) / 2 - width / 2) / txt.scale.x;
+    } catch {
+      return 0;
+    }
+  }
+
+  /** Boxes a game draws on top of the shared HUD, for the layout audit. */
+  protected extraBoxes(): LayoutBox[] {
+    return [];
+  }
+
+  /**
+   * Every visible HUD element as a rectangle in the 390x844 frame. Demo builds expose it so the layout
+   * audit can check the running game the way it checks the design boards: no two boxes may intersect.
+   */
+  layoutBoxes(): LayoutBox[] {
+    const out: LayoutBox[] = [];
+    const add = (name: string, obj: Container, when = true) => {
+      if (!when || !obj.visible || obj.alpha === 0) return;
+      const gb = obj.getBounds();
+      const tl = this.root.toLocal({ x: gb.x, y: gb.y });
+      let box = { name, x: tl.x, y: tl.y, w: gb.width / this.root.scale.x, h: gb.height / this.root.scale.y };
+      // A Text's bounds include its texture padding (room for the stroke and shadow); the ink is inside it.
+      const pad = 'style' in obj && typeof (obj as { style?: { padding?: number } }).style?.padding === 'number' ? (obj as { style: { padding: number } }).style.padding : 0;
+      if (pad) box = { ...box, x: box.x + pad, y: box.y + pad, w: box.w - 2 * pad, h: box.h - 2 * pad };
+      if (box.w <= 0 || box.h <= 0) return;
+      out.push(box);
+    };
+    add('logo', this.logo);
+    add('balance', this.balance);
+    add('session', this.session);
+    add('history', this.history, this.history.children.length > 0);
+    add('demo', this.demoBadge);
+    this.controls.forEach((c, i) => add(`control-${i}`, c));
+    add('value', this.mult, this.mult.text !== '');
+    const value = out.find((b) => b.name === 'value');
+    // The texture was moved by -shift to centre the ink, so the ink sits +shift from the texture's box.
+    if (value) value.x += this.multInkShift;
+    add('payout', this.payout, this.payout.text !== '');
+    add('payout-label', this.payoutLabel, this.payoutLabel.text !== '');
+    add('chance-line', this.revealChance, this.revealChance.text !== '');
+    add('result', this.resultCard);
+    add('stake', this.statBet);
+    add('minus', this.minusBtn);
+    add('plus', this.plusBtn);
+    add('auto', this.statAuto);
+    add('action', this.bigButton);
+    return [...out, ...this.extraBoxes()];
+  }
+
   private layout(): void {
-    this.logo.position.set(PAD, 14);
-    this.balance.position.set(W - PAD, 14);
+    const { look } = this;
+    this.logo.position.set(look.logo.x, look.logo.y);
+    this.balance.position.set(look.balance.x, look.balance.y);
     this.session.position.set(PAD, 64);
     this.placeHistory();
-    this.mult.position.set(W / 2, 150);
-    this.payout.position.set(W / 2, 246);
-    this.payoutLabel.position.set(W / 2, 294);
+    const live = look.liveText;
+    const value = look.value;
+    const metrics = look.value;
+    this.mult.style.fontSize = metrics.valueSize;
+    this.payout.style.fontSize = metrics.payoutSize;
+    this.mult.anchor.set(value.anchor, 0);
+    // Placed by the ink, not the texture: the texture has padding for the stroke and shadow around it, so
+    // a right-anchored text's ink sits a padding short of the anchor unless it is pushed back out.
+    const pad = (txt: Text) => txt.style.padding ?? 0;
+    const inkY = (txt: Text, y: number) => y - pad(txt);
+    const inkX = (txt: Text, x: number) => (value.anchor === 1 ? x + pad(txt) : x);
+    this.mult.position.set(inkX(this.mult, value.x), inkY(this.mult, metrics.valueY));
+    this.payout.anchor.set(value.anchor, 0);
+    this.payout.position.set(inkX(this.payout, value.x), inkY(this.payout, metrics.payoutY));
+    this.payoutLabel.position.set(value.anchor === 1 ? inkX(this.payoutLabel, value.x) : live.x, inkY(this.payoutLabel, metrics.labelY));
     // Centred, so it wraps inside the control column on both sides rather than running under the icons.
     for (const line of [this.payoutLabel, this.revealChance]) {
-      Object.assign(line.style, { wordWrap: true, wordWrapWidth: 2 * (W - PAD - 40 - 8 - W / 2), align: 'center' });
+      line.anchor.set(value.anchor, 0);
+      Object.assign(line.style, { wordWrap: true, wordWrapWidth: live.width, align: value.anchor === 1 ? 'right' : 'center' });
     }
-    this.revealChance.position.set(W / 2, 318);
+    this.revealChance.position.set(value.anchor === 1 ? inkX(this.revealChance, value.x) : live.x, inkY(this.revealChance, metrics.chanceY));
 
     // Above the stake row rather than beside the wordmark: a longer two-word logo collided with it
     // there, and this spot is free on every screen of every game regardless of name length.
     this.demoBg.clear();
-    drawSticker(this.demoBg, 62, 24, { fill: COLORS.pink, radius: 8, border: 3, shadow: 3 });
-    this.demoBg.position.set(-31, -12);
-    if (!this.demoBadgeUnderHistory()) this.demoBadge.position.set(PAD + 31, H - 196);
+    drawSticker(this.demoBg, look.demo.w, look.demo.h, { fill: COLORS.pink, radius: 8, border: 3, shadow: 3 });
+    this.demoBg.position.set(-look.demo.w / 2, -look.demo.h / 2);
+    if (!look.demo.underHistory) this.demoBadge.position.set(look.demo.x + look.demo.w / 2, look.demo.y + look.demo.h / 2);
 
     this.counter.position.set(W / 2 - 46, 312);
     this.counterBg.clear();
@@ -330,9 +477,9 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     this.counterCaption.position.set(11, 9);
     this.counterValue.position.set(81, 5);
 
-    this.resultCard.position.set(28, this.resultCardTop());
-    this.resultTitle.position.set((W - 56) / 2, 20);
-    this.resultLine.position.set((W - 56) / 2, 70);
+    this.resultCard.position.set(look.resultCard.x, look.resultCard.y);
+    this.resultTitle.position.set(look.resultCard.w / 2, look.resultCard.titleY);
+    this.resultLine.position.set(look.resultCard.w / 2, look.resultCard.lineY);
 
     // Stake row: [-] stake [+] auto, or [-] stake [+] across the row when the game offers no auto.
     const rowY = H - 168;
@@ -351,7 +498,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
 
   private card(fill: number): void {
     this.resultBg.clear();
-    drawSticker(this.resultBg, W - 56, 118, { fill, radius: 16, border: 5, shadow: 6 });
+    drawSticker(this.resultBg, this.look.resultCard.w, this.look.resultCard.h, { fill, radius: 16, border: 5, shadow: 6 });
     // The line is unstroked, so it needs real contrast against the fill (BR Annex I 14(c),
     // AGCO 4.15, UK RTS 7E). The title carries an ink outline and reads on either card.
     this.resultLine.style.fill = readableOn(fill);
@@ -392,22 +539,20 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
 
   /** The history chips move up into the session strip's row when a market shows no clock or net. */
   private placeHistory(): void {
-    const historyY = this.session.visible ? 96 : 64;
-    this.history.position.set(PAD, historyY);
+    const { look } = this;
+    const historyY = this.session.visible ? look.history.y + 32 : look.history.y;
+    this.history.position.set(look.history.x, historyY);
     // Chips are 30 px tall with a 3 px shadow; the badge sits a small gap below them.
-    if (this.demoBadgeUnderHistory()) this.demoBadge.position.set(PAD + 31, historyY + 33 + 8 + 12);
-  }
-
-  /**
-   * Where the DEMO badge goes: false keeps it above the stake row, true puts it at the top, under the
-   * multiplier history. Called from layout, so an override must return a constant.
-   */
-  protected demoBadgeUnderHistory(): boolean {
-    return false;
+    if (look.demo.underHistory) this.demoBadge.position.set(look.demo.x + look.demo.w / 2, historyY + 33 + 8 + look.demo.h / 2);
   }
 
   private placeControls(): void {
-    this.controls.filter((b) => b.visible).forEach((b, i) => b.position.set(W - PAD - 40, 136 + i * 50));
+    const { x, y, size, gap, horizontal } = this.look.controls;
+    this.controls.forEach((b) => b.resize(size));
+    this.controls.filter((b) => b.visible).forEach((b, i) => {
+      if (horizontal) b.position.set(x + i * (size + gap), y);
+      else b.position.set(x, y + i * (size + gap));
+    });
   }
 
   setMuted(muted: boolean): void {
@@ -415,7 +560,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
   }
 
   setBalance(amount: string, currency: string): void {
-    this.balance.set(amount, currency);
+    this.balance.set(amount, currency, this.look.balance.width);
   }
 
   setBetUi(ui: BetUi): void {
@@ -442,11 +587,34 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     this.payout.text = '';
     this.payoutLabel.text = this.words.readySub;
     this.mult.text = 'x1.00';
+    // As on Whack Crash, a look can make the lobby an invitation: READY? and one line, centred where the
+    // value will be, and no value until the round starts. showRunning puts the value back in its column.
+    const invite = this.look.hideValueWhileBetting && !!this.words.readyTitle;
+    this.mult.visible = !this.look.hideValueWhileBetting || invite;
+    if (invite) {
+      this.mult.text = this.words.readyTitle!;
+      this.mult.anchor.set(0.5, 0);
+      this.multInkShift = this.inkCentreOffset(this.mult);
+      this.mult.position.x = W / 2 - this.multInkShift;
+      this.payoutLabel.anchor.set(0.5, 0);
+      this.payoutLabel.style.align = 'center';
+      this.payoutLabel.style.wordWrapWidth = W - PAD * 2;
+      // The title and its line, as one block, centred in the lobby band by their drawn heights.
+      const gap = 14;
+      const titlePad = this.mult.style.padding ?? 0;
+      const linePad = this.payoutLabel.style.padding ?? 0;
+      const titleH = this.mult.height - 2 * titlePad;
+      const lineH = this.payoutLabel.height - 2 * linePad;
+      const { top, bottom } = this.look.lobby;
+      const y0 = top + (bottom - top - (titleH + gap + lineH)) / 2;
+      this.mult.position.y = y0 - titlePad;
+      this.payoutLabel.position.set(W / 2, y0 + titleH + gap - linePad);
+    }
     this.multiplier = 1;
     this.stage.setMultiplier(1);
     this.stage.reset();
     this.stage.setEffectsEnabled(this.intensityEffects);
-    this.bigButton.setFill(COLORS.sky);
+    this.bigButton.setFill(this.actionColors().ready);
   }
 
   showStarting(): void {
@@ -458,7 +626,11 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
   showRunning(): void {
     this.phase = 'running';
     this.resultCard.visible = false;
-    this.bigButton.setFill(COLORS.lime);
+    this.mult.visible = true;
+    this.multInkShift = 0;
+    // Back to the look's own places after the lobby's centred invitation.
+    this.layout();
+    this.bigButton.setFill(this.actionColors().running);
     this.bigButton.setLabel(this.words.collect, '');
     this.bigButton.setEnabled(true);
     this.setActionLabel({ label: this.words.collect, sub: '', enabled: true });
@@ -515,9 +687,9 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     this.resultCard.visible = true;
     // The big value becomes the SETTLED return, not the last animated frame, so the figure on screen
     // is the one actually paid (UK RTS 7E, AGCO 4.15). The live caption goes: it said "collect now".
-    // A card lifted over the live values already states that same settled line, so the copy underneath
-    // would only peek out from behind it.
-    this.payout.text = this.resultCardTop() < 330 ? '' : line;
+    // A card that states the settled line itself does not also draw the value and the money under it.
+    this.payout.text = this.look.hideValueOnResult ? '' : line;
+    this.mult.visible = !this.look.hideValueOnResult;
     this.payout.style.fill = celebrate ? COLORS.lime : COLORS.cream;
     this.payoutLabel.text = '';
     this.replay(celebrate);
@@ -526,6 +698,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
   showCrash(multiplier: string, loss: string, instant: boolean): void {
     this.phase = 'lost';
     this.setControlsHidden(false);
+    this.mult.visible = !this.look.hideValueOnResult;
     this.resultTitle.text = this.words.crashedTitle;
     this.resultLine.text = instant ? loss : `${multiplier} · ${loss}`;
     this.card(COLORS.violet);
@@ -545,7 +718,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     const next = this.quickReplay
       ? { label: t('button.playAgain'), sub: t('button.playAgainSub') }
       : { label: t('button.continue'), sub: t('button.continueSub') };
-    this.bigButton.setFill(celebrate ? COLORS.lime : COLORS.sky);
+    this.bigButton.setFill(celebrate ? this.actionColors().celebrate : this.actionColors().ready);
     this.bigButton.setLabel(next.label, next.sub);
     this.bigButton.setEnabled(true);
     this.setActionLabel({ ...next, enabled: true });

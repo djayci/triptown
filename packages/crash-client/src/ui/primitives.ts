@@ -1,6 +1,6 @@
 import { Container, Graphics, Rectangle, Sprite, Text, type TextStyleOptions, type Texture } from 'pixi.js';
 import { pop } from '@triptown/engine';
-import { COLORS, FONT_BODY, FONT_DISPLAY } from '../theme';
+import { COLORS, FONT_BODY, FONT_DISPLAY, SHAPE } from '../theme';
 
 export interface StickerStyle {
   fill: number;
@@ -12,9 +12,10 @@ export interface StickerStyle {
 
 /** The Candy Arcade Pop "sticker": fill, thick ink border, hard drop shadow. */
 export function drawSticker(g: Graphics, w: number, h: number, s: StickerStyle): Graphics {
-  const r = s.radius ?? 18;
-  const b = s.border ?? 4;
-  const sh = s.shadow ?? 5;
+  // Weights scale with the skin's shape tokens, so a flatter language needs no per-call changes.
+  const r = (s.radius ?? 18) * SHAPE.radius;
+  const b = Math.round((s.border ?? 4) * SHAPE.border);
+  const sh = Math.round((s.shadow ?? 5) * SHAPE.shadow);
   const ink = s.borderColor ?? COLORS.ink;
   g.clear();
   if (sh > 0) g.roundRect(0, sh, w, h, r).fill(ink);
@@ -247,6 +248,14 @@ export class IconButton extends Container {
 
   setFill(fill: number) {
     this.fill = fill;
+    this.redraw();
+  }
+
+  /** A layout may draw the control smaller than it was built; the hit area follows. */
+  resize(size: number) {
+    if (size === this.size) return;
+    this.size = size;
+    this.hitArea = new Rectangle(-4, -4, size + 8, size + 8);
     this.redraw();
   }
 

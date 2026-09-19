@@ -221,6 +221,7 @@ export class RulesPanel {
       <p>${t('rules.chance.intro', { rtp })}</p>
       <table class="chances"><thead><tr><th>${t('rules.chance.value')}</th><th>${t('rules.chance.chance')}</th><th>${t('rules.chance.return', { stake })}</th></tr></thead><tbody>${rows}</tbody></table>
       <p>${t('rules.chance.nominal', { rtp })}</p>
-      <p>${t('rules.chance.onScreen')}</p>`;
+      <p>${t('rules.chance.onScreen')}</p>
+      <p>${t('rules.chance.yours')}</p>`;
   }
 }

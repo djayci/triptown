@@ -1,4 +1,4 @@
-import { practiceAllowed, resultKind, type Settlement, type TerminalEvent } from '@triptown/core';
+import { effectiveReveal, practiceAllowed, resultKind, type Settlement, type TerminalEvent } from '@triptown/core';
 import { t } from '../i18n';
 import { OperatorBridge, type AudioManager, type GameApp } from '@triptown/engine';
 import type { GameConfig } from '@triptown/fairness';
@@ -14,6 +14,8 @@ import {
   displayMultiplier,
   formatMoney,
   formatMultiplier,
+  chanceTable,
+  type RideResult,
   formatRevealChance,
   HEADING_HOME_MS,
   crossedCheckpoint,
@@ -59,6 +61,12 @@ interface ActiveRound {
 }
 
 export interface ControllerHooks {
+  /**
+   * The registered game id. With it the client can tell, before any round, whether THIS game's rounds
+   * reveal at collect (effectiveReveal, the same call the server makes at START) and show the chance table
+   * on the betting screen. The market flag alone would only say what the market allows.
+   */
+  game?: string;
   onFairness?: () => void;
   onRules?: () => void;
   onHistory?: () => void;
@@ -125,6 +133,11 @@ export class GameController {
   /** Smoothed round-trip time, and whether the slow-connection notice is showing (design D20). */
   private rttMs = 0;
   private slowShown = false;
+  /**
+   * This session's settled deferred rides, for a game that shows the player their own record beside the
+   * chance. It is a record of what happened, never a prediction: every ride is settled on its own seeds.
+   */
+  private deferredRides: RideResult[] = [];
   /** Round start times (client clock) for the automated timing check. */
   private readonly startLog: number[] = [];
   /** True while a stake-free practice round is running or showing its result (practice-rounds). */
@@ -249,6 +262,11 @@ export class GameController {
     this.renderBalance();
     this.renderSessionHud();
     const past = await this.service.history(20).catch(() => []);
+    // Earlier deferred rides in this session seed the player's own record, oldest first.
+    this.deferredRides = past
+      .filter((r) => r.reveal === 'onCollect' && r.settlement && r.status !== 'void')
+      .map((r) => ({ multiplier: r.settlement!.multiplier, won: r.status === 'won' }))
+      .reverse();
     this.view.history.setAll(
       past
         .filter((r) => r.settlement)
@@ -257,6 +275,7 @@ export class GameController {
           kind: r.status === 'void' ? ('void' as const) : resultKind(r.betMinor, r.returnMinor ?? 0),
         })),
     );
+    this.renderChanceTable();
     this.startLatencyProbe();
     this.toBetting();
   }
@@ -346,6 +365,16 @@ export class GameController {
   }
 
   // ---------- actions ----------
+
+  /**
+   * The chance table for the betting screen and between rounds, with the player's own record so far. Sent
+   * only when this game's rounds actually reveal at collect.
+   */
+  private renderChanceTable(): void {
+    const profile = this.session?.profile;
+    const deferred = !!this.hooks.game && !!profile && effectiveReveal(this.hooks.game, profile, this.config) === 'onCollect';
+    this.view.setChanceTable?.(deferred ? chanceTable(this.config, this.deferredRides) : null);
+  }
 
   /** A game without an auto control never sends a target, whatever state the toggle was left in. */
   private autoOffered(): boolean {
@@ -509,6 +538,7 @@ export class GameController {
       headingHome: !!r && r.pressedAt !== null && !r.resolved,
       betMinor: r?.betMinor ?? this.betMinor,
       starts: [...this.startLog],
+      boxes: this.view.layoutBoxes?.() ?? [],
       multiplier: r?.lastDisplayed ?? 0,
       setbacks: r?.setbackTimes.size ?? 0,
       boosts: r?.boostTimes.size ?? 0,
@@ -558,6 +588,7 @@ export class GameController {
       };
       this.view.setRevealMode?.(e.reveal ?? 'live');
       this.view.setRevealOdds?.(e.reveal === 'onCollect' ? formatRevealChance(this.config.rtp, 1) : null);
+      this.view.setChanceTable?.(e.reveal === 'onCollect' ? chanceTable(this.config, this.deferredRides) : null);
       this.balanceMinor -= e.betMinor;
       this.renderBalance();
       this.phase = 'running';
@@ -696,6 +727,11 @@ export class GameController {
       return;
     }
     // Void rounds return early above, so this is only a settled win or loss.
+    // A deferred ride joins the player's own record at the value they went in at, staked rounds only.
+    if (r.deferred && !this.practiceRound) {
+      this.deferredRides.push({ multiplier: s.multiplier, won: s.status === 'won' });
+      this.renderChanceTable();
+    }
     this.bridge?.roundEnded(r.id, r.betMinor, s.status === 'lost' ? 0 : s.payoutMinor);
     void this.refreshSession().catch(() => {});
     this.view.history.push({

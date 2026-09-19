@@ -15,9 +15,11 @@
     "audio": "node scripts/build-audio.mjs",
     "check:copy": "node ../../packages/crash-client/scripts/copy-check.mjs",
     "check:presentation": "node ../../packages/crash-client/scripts/presentation-check.mjs --url http://127.0.0.1:5178/",
-    "check:timing": "node ../../packages/crash-client/scripts/timing-check.mjs --url http://127.0.0.1:5178/ --min-ms 5000"
+    "check:timing": "node ../../packages/crash-client/scripts/timing-check.mjs --url http://127.0.0.1:5178/ --min-ms 5000",
+    "check:layout": "node ../../packages/crash-client/scripts/layout-check.mjs --url http://127.0.0.1:5178/ --out ../../docs/compliance/evidence/layout/gate"
   },
   "dependencies": {
+    "@fontsource/barlow-condensed": "^5.3.0",
     "@fontsource/bricolage-grotesque": "^5.3.0",
     "@fontsource/bungee": "^5.2.0",
     "@fontsource/lilita-one": "^5.3.0",

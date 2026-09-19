@@ -93,10 +93,18 @@ export interface CrashView {
   /** Optional: the live win chance of a deferred round (already formatted), or null to hide it. */
   setRevealOdds?(chance: string | null): void;
   /**
+   * Optional, deferred reveal: the chance at a ladder of values, sent once at round start, for a game that
+   * shows the table during the ride. Every row carries the same expected return, so none is a better place
+   * to go in; a game must not mark one as best.
+   */
+  setChanceTable?(rows: { multiplier: number; value: string; chance: string }[] | null): void;
+  /**
    * Optional: the player pressed collect on a deferred round. The value is locked and the result is
    * not known yet; this state must look and sound the same whatever the outcome.
    */
   showHeadingHome?(multiplier: string, payoutIfWon: string): void;
+  /** Optional: every visible HUD element as a rectangle in the design frame, for the layout audit (demo builds). */
+  layoutBoxes?(): { name: string; x: number; y: number; w: number; h: number }[];
   /** Optional: whether this game has audio at all. A sound control with nothing behind it is a false signal. */
   setAudioAvailable?(available: boolean): void;
   /** Optional: market disclosures a profile switches on, e.g. a withholding-tax notice. */

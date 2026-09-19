@@ -21,6 +21,17 @@ const PALETTES = {
     horse: { coat: '#a0602f', shade: '#6f3e1d', light: '#c98a55', mane: '#2a1712', blaze: '#f6ead2', tack: '#2a1712', silks: '#3ec6ff', silks2: '#fff4d6', cloth: '#ff3d8b', skin: '#7a4a2b' },
     halo: 0,
   },
+  broadcast: {
+    INK: '#0d0f14',
+    CREAM: '#e8eef5',
+    GOLD: '#ffd166',
+    RED: '#d90429',
+    DUST: '#9fb0c0',
+    BARN: ['#1b2130', '#0d0f14'],
+    // A dark bay under floodlight, red and white silks: the colours a broadcast picture would show.
+    horse: { coat: '#5a3a24', shade: '#3d2616', light: '#7d5434', mane: '#241609', blaze: '#e8eef5', tack: '#241609', silks: '#d90429', silks2: '#e8eef5', cloth: '#ffd166', skin: '#7a4a2b' },
+    halo: 0.1,
+  },
   adult: {
     INK: '#14161a',
     CREAM: '#e8e3d9',
