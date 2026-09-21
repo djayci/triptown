@@ -115,9 +115,10 @@ export interface JurisdictionProfile {
   crashReveal?: RevealMode;
   /**
    * Whether a player may run a round with no stake (practice-rounds). Absent means off, so a new profile
-   * offers none until it says otherwise. Free play is treated as advertising in several markets (UK CAP,
-   * Brazil 1.231), which brings age-gating and content rules a gameplay flag cannot answer, so enabling
-   * it for a market is a legal decision rather than a config change.
+   * offers none until it says otherwise. Free play is treated as advertising in several markets, which
+   * brings age-gating and content rules a gameplay flag cannot answer (Ghana's underage advertising
+   * guidelines reach material appealing to under-18s "directly or indirectly"), so enabling it for a
+   * market is a legal decision rather than a config change.
    */
   practiceRounds?: boolean;
 }
@@ -155,49 +156,6 @@ export const PROFILE_TEMPLATES: Readonly<Record<string, ProfileTemplate>> = Obje
     intensityEffects: true,
     showSessionClock: false,
     showNetPosition: false,
-  },
-  'regulated-uk': {
-    ...base,
-    name: 'regulated-uk',
-    regulated: true,
-    sources: ['UKGC RTS 14F/14G, 8, 2E, 13A-C, 3, 4 (2025-01-17 extension to casino games)', 'CAP 16.3.12'],
-    minCycleMs: 5000,
-    quickReplay: false,
-    setbacksMode: 'off',
-    skin: 'adult',
-    soundDefault: 'muted',
-    intensityEffects: false,
-    showSessionClock: true,
-    showNetPosition: true,
-  },
-  'regulated-on': {
-    ...base,
-    name: 'regulated-on',
-    regulated: true,
-    sources: ['AGCO Registrar Standards 2.15-2.22, 2.03, 4.05-4.06'],
-    minCycleMs: 2500,
-    quickReplay: false,
-    setbacksMode: 'off',
-    skin: 'adult',
-    soundDefault: 'muted',
-    intensityEffects: false,
-    showSessionClock: true,
-    showNetPosition: true,
-  },
-  'regulated-br': {
-    ...base,
-    name: 'regulated-br',
-    regulated: true,
-    sources: ['Portaria SPA/MF 1.207/2024 Annex I items 14, 28-29', 'Planned design portaria (5 s, no turbo) - not yet published'],
-    minCycleMs: 5000,
-    quickReplay: false,
-    setbacksMode: 'off',
-    skin: 'adult',
-    soundDefault: 'muted',
-    intensityEffects: false,
-    showRtpInGame: true,
-    showSessionClock: false,
-    showNetPosition: true,
   },
   'ng-draft': {
     ...base,
@@ -253,26 +211,6 @@ export const PROFILE_TEMPLATES: Readonly<Record<string, ProfileTemplate>> = Obje
     withholdingNotice: false,
     liveBetsFeed: false,
     crashReveal: 'onCollect',
-  },
-  'pt-draft': {
-    ...base,
-    name: 'pt-draft',
-    status: 'draft',
-    regulated: true,
-    sources: ['Portugal Regulamento 308/2023 R17, R19, R33, R35, R38-43'],
-    minCycleMs: 5000,
-    quickReplay: false,
-    setbacksMode: 'off',
-    maxMultiplier: 100,
-    skin: 'adult',
-    soundDefault: 'muted',
-    intensityEffects: false,
-    showSessionClock: true,
-    showNetPosition: true,
-    idlePromptMs: 180_000,
-    disconnectPolicy: 'cashout-at-disconnect',
-    language: 'pt-PT',
-    partialCashout: 'off',
   },
 });
 

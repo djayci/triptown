@@ -14,7 +14,7 @@ registerGame('deferred-probe', 'whack-crash', { reveal: ['onCollect'] });
 registerGame('live-probe', 'whack-crash');
 
 const ORIGINS = ['https://operator.example'];
-const deferredProfile: JurisdictionProfile = { ...profileFromTemplate('regulated-uk', ORIGINS), name: 'deferred-test', crashReveal: 'onCollect' };
+const deferredProfile: JurisdictionProfile = { ...profileFromTemplate('ng-draft', ORIGINS), name: 'deferred-test', status: 'active', marketCountry: undefined, blockedRegions: undefined, crashReveal: 'onCollect' };
 const CONFIG: GameConfig = effectiveConfig('deferred-probe', deferredProfile);
 
 function roundWhere(predicate: (crashTime: number) => boolean, reveal: 'live' | 'onCollect', autoCashout: number | null = null): RoundRecord {

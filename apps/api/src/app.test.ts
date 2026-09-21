@@ -45,7 +45,7 @@ for (const [name, makeStore] of stores) {
 // createApp so the app builds a host for it.
 registerGame('deferred-probe', 'whack-crash', { reveal: ['onCollect'] });
 const DEFERRED = {
-  defaultProfile: { ...profileFromTemplate('regulated-uk', ['https://op.example']), name: 'deferred-test', minCycleMs: 0, crashReveal: 'onCollect' as const },
+  defaultProfile: { ...profileFromTemplate('ng-draft', ['https://op.example']), name: 'deferred-test', status: 'active' as const, marketCountry: undefined, blockedRegions: undefined, minCycleMs: 0, crashReveal: 'onCollect' as const },
 };
 
 async function deferredService(store: RoundStore) {

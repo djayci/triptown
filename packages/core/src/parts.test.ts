@@ -236,7 +236,7 @@ describe('events and secrecy (5.6)', () => {
   });
 
   it('never emits THROWN for single-paper rounds', async () => {
-    const s = setup({ ...profileFromTemplate('regulated-uk', ORIGIN), partialCashout: 'off' });
+    const s = setup({ ...profileFromTemplate('ng-draft', ORIGIN), status: 'active', crashReveal: undefined, marketCountry: undefined, blockedRegions: undefined, partialCashout: 'off' });
     const { sessionId } = await s.host.createSession(1_000_00);
     const round = await roundWhere(s, sessionId, (r) => r.outcome.crashTime > 2);
     at(s, round, 1);

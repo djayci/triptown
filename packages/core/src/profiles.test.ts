@@ -19,7 +19,13 @@ registerGame('paper-route');
 // Retired game config: resolvable for verification, no longer exported (design D2).
 const PAPER_ROUTE_CONFIG = resolveConfigId('paper-route/v1')!;
 
-const uk = () => profileFromTemplate('regulated-uk', ['https://casino.example']);
+// "A rising, regulated profile with origins" — the shape these cases need. Built from a template
+// rather than named after a market, so the market list can change without taking the coverage with it.
+const regulated = (over: Partial<JurisdictionProfile> = {}) => ({
+  ...profileFromTemplate('ng-draft', ['https://casino.example']),
+  crashReveal: undefined,
+  ...over,
+});
 
 describe('profile validation (1.1)', () => {
   it('accepts every template when origins are not required', () => {
@@ -29,10 +35,10 @@ describe('profile validation (1.1)', () => {
   });
 
   it('requires operator origins for regulated profiles', () => {
-    const result = validateProfile(profileFromTemplate('regulated-uk'));
+    const result = validateProfile(profileFromTemplate('ng-draft'));
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.errors.join()).toMatch(/operatorOrigins/);
-    expect(validateProfile(uk())).toEqual({ ok: true });
+    expect(validateProfile(regulated())).toEqual({ ok: true });
     expect(validateProfile(profileFromTemplate('light'))).toEqual({ ok: true });
   });
 
@@ -47,45 +53,45 @@ describe('profile validation (1.1)', () => {
     ['bad idle prompt', { idlePromptMs: 0 }, /idlePromptMs/],
     ['unknown partial cash-out mode', { partialCashout: 'halves' as never }, /partialCashout/],
   ])('rejects %s and names the field', (_n, patch, field) => {
-    const result = validateProfile({ ...uk(), ...patch });
+    const result = validateProfile({ ...regulated(), ...patch });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.errors.join()).toMatch(field);
   });
 });
 
 describe('partial cash-out flag', () => {
-  it('is off for Portugal and stakeParts elsewhere', () => {
-    expect(profileFromTemplate('pt-draft').partialCashout).toBe('off');
-    expect(profileFromTemplate('regulated-uk').partialCashout).toBe('parts');
+  it('defaults to parts and can be turned off per market', () => {
+    expect(profileFromTemplate('ng-draft').partialCashout).toBe('parts');
+    expect(regulated({ partialCashout: 'off' }).partialCashout).toBe('off');
   });
 });
 
 describe('effective configs (1.2)', () => {
   it('maps setbacks modes to registered config ids for both games', () => {
-    expect(effectiveConfig('whack-crash', uk()).id).toBe('whack-crash/v3-rising');
+    expect(effectiveConfig('whack-crash', regulated()).id).toBe('whack-crash/v3-rising');
     // Paper Route has no boosted config, so the boosted light profile is only valid for whack-crash.
     expect(effectiveConfig('paper-route', { ...profileFromTemplate('light'), boostsMode: 'off' }).id).toBe('paper-route/v1');
     expect(effectiveConfig('whack-crash', profileFromTemplate('light')).id).toBe('whack-crash/v4');
     expect(effectiveConfig('whack-crash', { ...profileFromTemplate('light'), boostsMode: 'off' }).id).toBe('whack-crash/v3');
-    expect(effectiveConfig('whack-crash', { ...uk(), boostsMode: 'boost' }).id).toBe('whack-crash/v4-rising');
-    expect(effectiveConfig('paper-route', uk()).id).toBe('paper-route/v1-rising');
+    expect(effectiveConfig('whack-crash', { ...regulated(), boostsMode: 'boost' }).id).toBe('whack-crash/v4-rising');
+    expect(effectiveConfig('paper-route', regulated()).id).toBe('paper-route/v1-rising');
   });
 
   it('rising configs have no setbacks and otherwise match their base', () => {
-    const rising = effectiveConfig('whack-crash', uk());
+    const rising = effectiveConfig('whack-crash', regulated());
     expect(rising.lambda).toBe(0);
     // The rising id is the slow-pace family's, so it matches that base, not the original v1 rates.
     const slowBase = resolveConfigId('whack-crash/v3')!;
     expect({ ...rising, id: slowBase.id, lambda: slowBase.lambda }).toEqual(slowBase);
-    const paper = effectiveConfig('paper-route', uk());
+    const paper = effectiveConfig('paper-route', regulated());
     expect(paper).toMatchObject({ lambda: 0, stakeParts: PAPER_ROUTE_CONFIG.stakeParts });
     expect(validateConfig(rising)).toEqual({ ok: true });
     expect(validateConfig(paper)).toEqual({ ok: true });
   });
 
   it('derives +cap ids when the profile caps lower than the config', () => {
-    const pt = profileFromTemplate('pt-draft', ['https://pt.example']);
-    const cfg = effectiveConfig('whack-crash', pt);
+    const capped = regulated({ maxMultiplier: 100 });
+    const cfg = effectiveConfig('whack-crash', capped);
     expect(cfg).toMatchObject({ id: 'whack-crash/v3-rising+cap100', maxWinMultiplier: 100, lambda: 0 });
     expect(resolveConfigId('paper-route/v1-rising+cap100')).toMatchObject({ stakeParts: 5, maxWinMultiplier: 100 });
     expect(resolveConfigId('whack-crash/v1+cap20000')).toBeNull();
@@ -96,12 +102,12 @@ describe('effective configs (1.2)', () => {
 describe('report gating (1.4)', () => {
   it('fails when an effective config has no passing report', () => {
     const index = { 'whack-crash/v3-rising': { pass: true, rounds: 10_000_000, date: '2026-09-17' } };
-    const onlyWhack = validateProfile(uk(), { reportIndex: index, games: ['whack-crash'] });
+    const onlyWhack = validateProfile(regulated(), { reportIndex: index, games: ['whack-crash'] });
     expect(onlyWhack).toEqual({ ok: true });
-    const both = validateProfile(uk(), { reportIndex: index });
+    const both = validateProfile(regulated(), { reportIndex: index });
     expect(both.ok).toBe(false);
     if (!both.ok) expect(both.errors.join()).toMatch(/paper-route\/v1-rising has no passing RTP report/);
-    const failing = validateProfile(uk(), { reportIndex: { 'whack-crash/v3-rising': { pass: false, rounds: 1, date: 'x' } }, games: ['whack-crash'] });
+    const failing = validateProfile(regulated(), { reportIndex: { 'whack-crash/v3-rising': { pass: false, rounds: 1, date: 'x' } }, games: ['whack-crash'] });
     expect(failing.ok).toBe(false);
   });
 });

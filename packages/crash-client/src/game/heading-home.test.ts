@@ -12,7 +12,11 @@ import type { CrashView, CrashViewCallbacks } from './view-contract';
 registerGame('deferred-probe', 'whack-crash', { reveal: ['onCollect'] });
 
 const deferredProfile = {
-  ...profileFromTemplate('regulated-uk', ['https://op.example']),
+  ...profileFromTemplate('ng-draft', ['https://op.example']),
+  status: 'active' as const,
+  marketCountry: undefined,
+  blockedRegions: undefined,
+  dataTransferBasis: undefined,
   name: 'deferred-test',
   minCycleMs: 0,
   crashReveal: 'onCollect' as const,

@@ -16,7 +16,7 @@ describe('rules chance table', () => {
     expect(showsChances('chance-probe', session)).toBe(true);
     expect(showsChances('chance-live-probe', session)).toBe(false);
     expect(showsChances(undefined, session)).toBe(false);
-    const uk = profileFromTemplate('regulated-uk', origins);
+    const uk = { ...profileFromTemplate('ng-draft', origins), status: 'active' as const, crashReveal: undefined, marketCountry: undefined, blockedRegions: undefined, dataTransferBasis: undefined };
     expect(showsChances('chance-probe', { profile: uk, config: effectiveConfig('chance-probe', uk) })).toBe(false);
   });
 

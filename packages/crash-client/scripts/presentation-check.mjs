@@ -23,7 +23,7 @@ for (let i = 2; i < process.argv.length; i += 2) {
 }
 const url = args.get('url') ?? 'http://localhost:5173';
 const profile = args.get('profile');
-/** Keeps any query already on --url (e.g. ?profile=regulated-uk) and adds the scenario. */
+/** Keeps any query already on --url (e.g. ?profile=ng-draft) and adds the scenario. */
 const pageUrl = (force, betMinor) => {
   const u = new URL(url);
   if (force) u.searchParams.set('force', force);

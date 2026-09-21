@@ -1,7 +1,7 @@
 import { deriveRound } from '@triptown/fairness';
 import { describe, expect, it } from 'vitest';
 import { HostError, RoundHost, type ProfileSettings } from './host';
-import { profileFromTemplate, registerGame, type GameId } from './profiles';
+import { profileFromTemplate, registerGame, type GameId, type JurisdictionProfile } from './profiles';
 import { MemoryRoundStore } from './store';
 
 // The split-stake code path still ships, but its only config belongs to a retired game. Tests register
@@ -13,6 +13,21 @@ const clock = { t: 1_700_000_000_000, now() { return this.t; } };
 const sleep = async () => {};
 const ORIGIN = ['https://casino.example'];
 
+// "An active regulated profile with origins", which is what most of these cases need. The shipped
+// regulated templates are drafts, and a draft is refused without the override — so a fixture states
+// the status these cases depend on instead of relying on some market happening to be active.
+const regulated = (over: Partial<JurisdictionProfile> = {}) => ({
+  ...profileFromTemplate('ng-draft', ORIGIN),
+  name: 'regulated-test',
+  status: 'active' as const,
+  crashReveal: undefined,
+  marketCountry: undefined,
+  blockedRegions: undefined,
+  hostingRegions: undefined,
+  dataTransferBasis: undefined,
+  ...over,
+});
+
 function host(profiles: ProfileSettings, game: GameId = 'whack-crash') {
   const store = new MemoryRoundStore();
   return { store, host: new RoundHost({ store, clock, sleep, profiles, game }) };
@@ -20,41 +35,42 @@ function host(profiles: ProfileSettings, game: GameId = 'whack-crash') {
 
 describe('profile binding (1.5)', () => {
   it('binds the default profile and exposes it with the effective config', async () => {
-    const { host: h } = host({ defaultProfile: profileFromTemplate('regulated-uk', ORIGIN) });
+    const { host: h } = host({ defaultProfile: regulated() });
     const info = await h.createSession(100_00);
-    expect(info.profile.name).toBe('regulated-uk');
+    expect(info.profile.name).toBe('regulated-test');
     expect(info.config.id).toBe('whack-crash/v3-rising');
   });
 
   it('binds an operator profile by operator id and rejects unknown operators', async () => {
     const { host: h } = host({
       defaultProfile: profileFromTemplate('light'),
-      operators: { acme: profileFromTemplate('regulated-on', ORIGIN) },
+      operators: { acme: regulated({ name: 'regulated-other' }) },
     });
-    expect((await h.createSession(100_00, { operatorId: 'acme' })).profile.name).toBe('regulated-on');
+    expect((await h.createSession(100_00, { operatorId: 'acme' })).profile.name).toBe('regulated-other');
     await expect(h.createSession(100_00, { operatorId: 'nope' })).rejects.toMatchObject({ code: 'forbidden' });
   });
 
   it('refuses profile overrides unless the dev override is on', async () => {
     const prod = host({ defaultProfile: profileFromTemplate('light') }).host;
-    const err = await prod.createSession(100_00, { profile: 'regulated-uk' }).catch((e) => e);
+    const err = await prod.createSession(100_00, { profile: 'ng-draft' }).catch((e) => e);
     expect(err).toBeInstanceOf(HostError);
     expect(err).toMatchObject({ code: 'profile_not_allowed' });
     const dev = host({ defaultProfile: profileFromTemplate('light'), allowOverride: true }).host;
-    expect((await dev.createSession(100_00, { profile: 'pt-draft' })).config.id).toBe('whack-crash/v3-rising+cap100');
+    // ng-draft gates on player region, so the override path has to send one to reach the config.
+    expect((await dev.createSession(100_00, { profile: 'ng-draft', playerRegion: 'NG-LA' })).config.id).toBe('whack-crash/v3-rising');
   });
 
   it('refuses draft or origin-less regulated profiles without the override', () => {
-    expect(() => host({ defaultProfile: profileFromTemplate('pt-draft', ORIGIN) })).toThrow(/draft/);
-    expect(() => host({ defaultProfile: profileFromTemplate('regulated-uk') })).toThrow(/operatorOrigins/);
+    expect(() => host({ defaultProfile: profileFromTemplate('ng-draft', ORIGIN) })).toThrow(/draft/);
+    expect(() => host({ defaultProfile: regulated({ operatorOrigins: [] }) })).toThrow(/operatorOrigins/);
   });
 
   it('gates profiles on the RTP report index', () => {
-    expect(() => host({ defaultProfile: profileFromTemplate('regulated-uk', ORIGIN), reportIndex: {} })).toThrow(/no passing RTP report/);
+    expect(() => host({ defaultProfile: regulated(), reportIndex: {} })).toThrow(/no passing RTP report/);
   });
 
   it('rising profiles produce rounds without setbacks', async () => {
-    const { host: h, store } = host({ defaultProfile: profileFromTemplate('regulated-uk', ORIGIN) });
+    const { host: h, store } = host({ defaultProfile: regulated() });
     const info = await h.createSession(1_000_00);
     for (let i = 0; i < 40; i++) {
       const { round } = await h.startRound(info.sessionId, { betMinor: 1_00 });
@@ -72,7 +88,7 @@ describe('profile binding (1.5)', () => {
   });
 
   it('works for paper-route configs too', async () => {
-    const { host: h } = host({ defaultProfile: profileFromTemplate('regulated-uk', ORIGIN) }, 'paper-route');
+    const { host: h } = host({ defaultProfile: regulated() }, 'paper-route');
     const info = await h.createSession(100_00);
     expect(info.config).toMatchObject({ id: 'paper-route/v1-rising', stakeParts: 5, lambda: 0 });
   });
@@ -134,7 +150,7 @@ describe('kill switch (1.7)', () => {
 
 describe('player lock and minimum game cycle (2.1, 2.2)', () => {
   it('locks one active round per player across sessions', async () => {
-    const { host: h } = host({ defaultProfile: profileFromTemplate('light'), operators: { acme: profileFromTemplate('regulated-uk', ORIGIN) } });
+    const { host: h } = host({ defaultProfile: profileFromTemplate('light'), operators: { acme: regulated() } });
     const phone = await h.createSession(100_00, { operatorId: 'acme', playerId: 'player-7' });
     const laptop = await h.createSession(100_00, { operatorId: 'acme', playerId: 'player-7' });
     for (let i = 0; i < 50; i++) {
@@ -150,7 +166,7 @@ describe('player lock and minimum game cycle (2.1, 2.2)', () => {
   });
 
   it('rejects a start 1.2 s after an instant bust with about 3.8 s remaining, then accepts at 5 s', async () => {
-    const { host: h, store } = host({ defaultProfile: profileFromTemplate('regulated-uk', ORIGIN) });
+    const { host: h, store } = host({ defaultProfile: regulated() });
     const info = await h.createSession(100_00);
     const session = (await store.getSession(info.sessionId))!;
     for (let i = 0; i < 5000; i++) {
@@ -173,7 +189,7 @@ describe('player lock and minimum game cycle (2.1, 2.2)', () => {
   });
 
   it('does not charge the pacing clock when the bet fails', async () => {
-    const { host: h } = host({ defaultProfile: profileFromTemplate('light'), operators: { acme: profileFromTemplate('regulated-uk', ORIGIN) } });
+    const { host: h } = host({ defaultProfile: profileFromTemplate('light'), operators: { acme: regulated() } });
     const info = await h.createSession(50, { operatorId: 'acme', playerId: 'p1' });
     await expect(h.startRound(info.sessionId, { betMinor: 1_00 })).rejects.toMatchObject({ code: 'insufficient_funds' });
     const rich = await h.createSession(100_00, { operatorId: 'acme', playerId: 'p1' });

@@ -23,7 +23,7 @@ describe('OperatorBridge', () => {
   it('sends lifecycle events in order to the pinned origin with the correct net', () => {
     const { win, posted } = fakeWindow(OPERATOR);
     const bridge = new OperatorBridge({ allowedOrigins: [OPERATOR], win });
-    bridge.gameReady('1.0.0+abc', 'paper-route/v1-rising', 'regulated-uk');
+    bridge.gameReady('1.0.0+abc', 'paper-route/v1-rising', 'ng-draft');
     bridge.roundStarted('r1', 10_00);
     bridge.roundEnded('r1', 10_00, 24_00);
     bridge.balance(114_00, 'USD');

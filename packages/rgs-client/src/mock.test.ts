@@ -22,7 +22,7 @@ paperRouteSuite('MockRoundService (paper-route)', async () => new MockRoundServi
 // Deferred reveal (gate-odds-mvp): a test game that opts in, on a rising profile that enables it.
 registerGame('deferred-probe', 'whack-crash', { reveal: ['onCollect'] });
 const deferred = {
-  defaultProfile: { ...profileFromTemplate('regulated-uk', ['https://op.example']), name: 'deferred-test', minCycleMs: 0, crashReveal: 'onCollect' as const },
+  defaultProfile: { ...profileFromTemplate('ng-draft', ['https://op.example']), name: 'deferred-test', status: 'active' as const, marketCountry: undefined, blockedRegions: undefined, minCycleMs: 0, crashReveal: 'onCollect' as const },
 };
 deferredRevealSuite('MockRoundService', async () => new MockRoundService({ initialBalanceMinor: 500_00, profiles: deferred, game: 'deferred-probe' }));
 

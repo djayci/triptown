@@ -79,40 +79,6 @@ importers:
         specifier: ^4.23.13
         version: 4.23.13
 
-  apps/cable-car:
-    dependencies:
-      '@fontsource/bricolage-grotesque':
-        specifier: ^5.3.0
-        version: 5.3.0
-      '@fontsource/lilita-one':
-        specifier: ^5.3.0
-        version: 5.3.0
-      '@triptown/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@triptown/crash-client':
-        specifier: workspace:*
-        version: link:../../packages/crash-client
-      '@triptown/engine':
-        specifier: workspace:*
-        version: link:../../packages/engine
-      '@triptown/fairness':
-        specifier: workspace:*
-        version: link:../../packages/fairness
-      '@triptown/rgs-client':
-        specifier: workspace:*
-        version: link:../../packages/rgs-client
-      gsap:
-        specifier: ^3.15.0
-        version: 3.15.0
-      pixi.js:
-        specifier: ^8.20.1
-        version: 8.20.1
-    devDependencies:
-      vite:
-        specifier: ^8.3.0
-        version: 8.3.0(@types/node@22.20.2)(esbuild@0.28.2)(tsx@4.23.13)
-
   apps/gate:
     dependencies:
       '@fontsource/barlow-condensed':

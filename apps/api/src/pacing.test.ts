@@ -23,7 +23,7 @@ describe.each(stores)('player lock and pacing over the API (%s)', (_name, makeSt
       keepAliveMs: 60_000,
       profiles: {
         defaultProfile: profileFromTemplate('light'),
-        operators: { acme: profileFromTemplate('regulated-uk', ['https://acme.example']) },
+        operators: { acme: { ...profileFromTemplate('ng-draft', ['https://acme.example']), status: 'active' as const, crashReveal: undefined, marketCountry: undefined, blockedRegions: undefined, dataTransferBasis: undefined } },
       },
       operatorKeys: { acme: createHash('sha256').update('acme-key').digest('hex') },
     });

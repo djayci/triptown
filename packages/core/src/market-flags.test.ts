@@ -21,7 +21,7 @@ describe('market profile flags', () => {
   });
 
   it('leaves existing profiles unchanged (no market flags set)', () => {
-    for (const name of ['light', 'regulated-uk', 'regulated-on', 'regulated-br', 'pt-draft']) {
+    for (const name of ['light']) {
       const p = profileFromTemplate(name, origins);
       expect(p.blockedRegions).toBeUndefined();
       expect(p.hostingRegions).toBeUndefined();
@@ -36,8 +36,18 @@ describe('market profile flags', () => {
   });
 
   it('validates flag values', () => {
-    const uk = profileFromTemplate('regulated-uk', origins);
-    const bad = (patch: Partial<JurisdictionProfile>) => validateProfile({ ...uk, ...patch });
+    // An active profile with no market flags set: the transfer-basis rule only bites once a profile
+    // is active, so a draft template cannot stand in here.
+    const flat = {
+      ...profileFromTemplate('ng-draft', origins),
+      status: 'active' as const,
+      crashReveal: undefined,
+      marketCountry: undefined,
+      blockedRegions: undefined,
+      hostingRegions: undefined,
+      dataTransferBasis: undefined,
+    };
+    const bad = (patch: Partial<JurisdictionProfile>) => validateProfile({ ...flat, ...patch });
     expect(bad({ blockedRegions: ['Kano'] }).ok).toBe(false);
     expect(bad({ liveBetsFeed: true }).ok).toBe(false);
     expect(bad({ marketCountry: 'Nigeria' }).ok).toBe(false);
@@ -63,7 +73,7 @@ describe('market profile flags', () => {
       store,
       clock: { now: () => 1 },
       sleep: async () => {},
-      profiles: { defaultProfile: profileFromTemplate('regulated-uk', origins), allowOverride: true },
+      profiles: { defaultProfile: profileFromTemplate('light'), allowOverride: true },
     });
     await expect(host.createSession(100, { profile: 'ng-draft', playerRegion: 'NG-KN' })).rejects.toSatisfy((e: unknown) => e instanceof HostError && e.code === 'region_blocked');
     await expect(host.createSession(100, { profile: 'ng-draft', playerRegion: 'NG-LA' })).resolves.toMatchObject({ profile: { name: 'ng-draft' } });

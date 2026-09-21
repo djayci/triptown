@@ -13,12 +13,23 @@ const PAPER_ROUTE_CONFIG = resolveConfigId('paper-route/v1')!;
 
 
 const O = ['https://op.example'];
+
+// These cases test what a *flag combination* produces, not what a market produces. Naming a market
+// here made the coverage hostage to the market list: removing the non-African profiles took the only
+// `partialCashout: 'off'`, `cashout-at-disconnect` and x100-cap profiles with it, and every one of
+// those code paths still ships. A fixture states the behaviour under test directly.
+const fixture = (over: Partial<ReturnType<typeof profileFromTemplate>> = {}) => ({
+  ...profileFromTemplate('ng-draft', O),
+  crashReveal: undefined,
+  ...over,
+});
+
 const keys = (items: { key: string }[]) => items.map((i) => i.key);
 const param = (items: { key: string; params: Record<string, unknown> }[], key: string) => items.find((i) => i.key === key)?.params;
 
 describe('describeRules (compliance-baseline 6.1)', () => {
   it('has no setback or below-stake items for a rising profile', () => {
-    const p = profileFromTemplate('regulated-uk', O);
+    const p = fixture();
     const items = describeRules(effectiveConfig('whack-crash', p), p, DEFAULT_CURRENCY);
     expect(keys(items)).not.toContain('setbacks');
     expect(keys(items)).not.toContain('belowStakeReturns');
@@ -49,15 +60,15 @@ describe('describeRules (compliance-baseline 6.1)', () => {
     expect(param(describeRules(config, p, DEFAULT_CURRENCY, { roundingBand: { minRtp: 0.9463, maxRtp: 0.9937, stakeMinor: 20 } }), 'rtp')).toMatchObject({ bandMinRtp: 0.9463 });
   });
 
-  it('reflects the effective x100 cap of the Portugal draft', () => {
-    const p = profileFromTemplate('pt-draft', O);
+  it('reflects an effective x100 cap from the profile', () => {
+    const p = fixture({ maxMultiplier: 100 });
     const items = describeRules(effectiveConfig('whack-crash', p), p, DEFAULT_CURRENCY);
     expect(param(items, 'maxMultiplier')).toEqual({ multiplier: 100 });
     expect(param(items, 'autoCashout')).toMatchObject({ maximum: 100 });
   });
 
   it('adds the part items right after minCashout for partial cash-out games', () => {
-    const p = profileFromTemplate('regulated-uk', O);
+    const p = fixture();
     const items = describeRules(effectiveConfig('paper-route', p), p, DEFAULT_CURRENCY);
     const k = keys(items);
     const at = k.indexOf('minCashout');
@@ -69,7 +80,7 @@ describe('describeRules (compliance-baseline 6.1)', () => {
   });
 
   it('leaves the part items out when the profile turns partial cash-out off', () => {
-    const p = profileFromTemplate('pt-draft', O);
+    const p = fixture({ partialCashout: 'off', disconnectPolicy: 'cashout-at-disconnect' });
     const items = describeRules({ ...PAPER_ROUTE_CONFIG, maxWinMultiplier: 100 }, p, DEFAULT_CURRENCY);
     expect(keys(items)).not.toContain('stakeParts');
     expect(keys(items)).not.toContain('landingIsDecoration');
