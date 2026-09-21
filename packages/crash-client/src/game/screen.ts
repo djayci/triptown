@@ -53,6 +53,8 @@ export interface ScreenLook {
   hideValueOnResult: boolean;
   /** True when the betting screen is only an invitation to play, as on Whack Crash: no x1.00 until the round starts. */
   hideValueWhileBetting: boolean;
+  /** Draw the action button's second line (what the press does, "Same bet"), not only read it out. */
+  buttonSub: boolean;
   /** The empty band the lobby invitation is centred in: from the last HUD row above it to the scene below. */
   lobby: { top: number; bottom: number };
 }
@@ -68,6 +70,7 @@ export const DEFAULT_LOOK: ScreenLook = {
   resultCard: { x: 28, y: 360, w: 334, h: 118, titleY: 20, lineY: 70 },
   hideValueOnResult: false,
   hideValueWhileBetting: false,
+  buttonSub: false,
   lobby: { top: 150, bottom: 340 },
 };
 
@@ -137,6 +140,8 @@ export interface ScreenWords {
   logo: [string, string];
   /** The cash-out verb, e.g. `GET OUT!`. */
   collect: string;
+  /** Optional line under the verb saying what the press does, for a game whose verb alone would not. */
+  collectSub?: string;
   /** Label under the live payout while a round runs. */
   liveLabel: string;
   /** Subtitle on the betting screen. */
@@ -265,6 +270,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
       fill: COLORS.sky,
       radius: 26,
       label: t('button.bet', { amount: '' }),
+      ...(this.look.buttonSub ? { sub: '' } : {}),
       labelSize: 40,
       shadow: 8,
       border: 5,
@@ -621,6 +627,14 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     this.phase = 'starting';
     this.resultCard.visible = false;
     this.setControlsHidden(true);
+    // A quick-replay profile goes straight from a settled round to the next one without passing
+    // through the betting screen, so this is the only place every new round is guaranteed to reach.
+    // Resetting the scene only in `showBetting` left the previous round's state — a crashed scene, a
+    // finished animation — visible underneath the new round on every market with quick replay on.
+    this.multiplier = 1;
+    this.stage.setMultiplier(1);
+    this.stage.reset();
+    this.stage.setEffectsEnabled(this.intensityEffects);
   }
 
   showRunning(): void {
@@ -631,9 +645,10 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     // Back to the look's own places after the lobby's centred invitation.
     this.layout();
     this.bigButton.setFill(this.actionColors().running);
-    this.bigButton.setLabel(this.words.collect, '');
+    const sub = this.words.collectSub ?? '';
+    this.bigButton.setLabel(this.words.collect, sub);
     this.bigButton.setEnabled(true);
-    this.setActionLabel({ label: this.words.collect, sub: '', enabled: true });
+    this.setActionLabel({ label: this.words.collect, sub, enabled: true });
   }
 
   /** Deferred reveal: the round's chance line, or null to hide it. */

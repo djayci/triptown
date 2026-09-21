@@ -70,7 +70,30 @@ const IDLE_X = 292;
  */
 const INSIDE_X = GATE_LEFT - 115;
 /** Seconds the gate takes to come back into view at the reveal: the departure played in reverse. */
-const ARRIVE_SECONDS = 1;
+const ARRIVE_SECONDS = 1.6;
+/** Fence posts either side of the gate, in reference units apart; the fence runs on past both screen edges. */
+const FENCE_SPACING = 52;
+/** The right-hand side fence stands just past the screen edge, out of view while the gate is home, and runs straight back. */
+const FENCE_INSET = -12;
+/** Horses at grass in the paddock: how many, and how fast one walks, in reference units per second. */
+const GRAZERS = 3;
+const WALK_SPEED = 22;
+/** The horse drawings are 400 wide but declared smaller in the atlas (art/art.mjs): the stage scales them back. */
+const RIDDEN_ART_SCALE = 400 / 300;
+const PADDOCK_ART_SCALE = 400 / 152;
+
+/** One horse at grass. `x` is in reference units in the yard; `depth` 0 is at the back rail, 1 at the fence. */
+interface Grazer {
+  sprite: AnimatedSprite;
+  coat: number;
+  x: number;
+  depth: number;
+  facing: 1 | -1;
+  state: 'graze' | 'look' | 'walk';
+  /** Seconds left in the current state. */
+  timer: number;
+  target: { x: number; depth: number };
+}
 /** Seconds the doors take to swing open when a round starts. */
 const OPEN_SECONDS = 0.8;
 
@@ -106,6 +129,10 @@ export class GateStage extends Container {
   private readonly latch: Sprite;
   /** Barn, posts, panels and latch, moved as one so Gate Rush can leave the gate behind and bring it back. */
   private readonly yard = new Container();
+  /** The paddock fence, in the yard so it leaves and returns with the gate, and the horses behind it. */
+  private readonly fence = new Graphics();
+  private readonly paddock = new Container();
+  private readonly grazers: Grazer[] = [];
   private readonly c: StagePalette;
   /** The candy stage is a sunburst; the broadcast stage is a graded night sky. */
   private readonly rays: boolean;
@@ -177,9 +204,18 @@ export class GateStage extends Container {
     this.latch.anchor.set(0.5);
     this.barn.anchor.set(0, 1);
 
+    for (let i = 0; i < GRAZERS; i++) {
+      const coat = i % 3;
+      const sprite = new AnimatedSprite([frames(`graze-${coat}-0`), frames(`graze-${coat}-1`)]);
+      sprite.anchor.set(0.5, 0.94);
+      this.paddock.addChild(sprite);
+      this.grazers.push({ sprite, coat, x: 0, depth: 0, facing: 1, state: 'graze', timer: 0, target: { x: 0, depth: 0 } });
+    }
+    this.scatterGrazers();
     // The horse lives in the yard's layer so it can pass through the gate: in front of the right door and
-    // the right post, behind the left door and the left post, going out and coming back.
-    this.yard.addChild(this.barn, this.panels[1], this.posts[1], this.horse, this.posts[0], this.panels[0], this.latch);
+    // the right post, behind the left door and the left post, going out and coming back. The paddock and
+    // its fence sit behind everything else in the yard: a horse at grass is always behind the fence.
+    this.yard.addChild(this.paddock, this.fence, this.barn, this.panels[1], this.posts[1], this.horse, this.posts[0], this.panels[0], this.latch);
     // Back to front: sky, beams, lights, crowd, turf, rail, yard (barn, gate and the horse), dust, tint.
     this.addChild(
       this.sky,
@@ -465,6 +501,7 @@ export class GateStage extends Container {
 
     // The yard may be moving; keep the horse where it is on screen, and the clip on the post.
     this.placeHorse();
+    this.grazeStep(dtSeconds);
 
     // Crowd camera flashes: rate follows the multiplier only.
     if (this.mode === 'out' && this.effectsOn && !this.reduced) {
@@ -556,6 +593,8 @@ export class GateStage extends Container {
 
     this.barn.scale.set(0.8 * u);
     this.barn.position.set(-6 * u, ground - 150 * u);
+    this.drawFence();
+    for (const g of this.grazers) this.placeGrazer(g);
 
     const postScale = 0.85 * u;
     this.posts[0].scale.set(postScale);
@@ -565,7 +604,7 @@ export class GateStage extends Container {
     this.latch.scale.set(0.6 * u);
     this.setGateOpen(this.gateOpen);
 
-    this.horse.scale.set(0.52 * u);
+    this.horse.scale.set(0.52 * u * RIDDEN_ART_SCALE);
     this.placeHorse();
     this.crashTint.clear().rect(0, 0, w, h).fill(this.c.crash);
   }
@@ -677,10 +716,11 @@ export class GateStage extends Container {
    * open door flares past its post), so moving or widening the gate can't leave part of it on screen.
    */
   private yardAway(): number {
-    // The gate's own parts only: the horse shares this layer and must not push the gate further away.
+    // The gate and its fence only: the horse shares this layer and must not push the gate further away.
     const rightDoor = this.panels[1].getLocalBounds().maxX;
     const rightPost = this.posts[1].x + this.posts[1].width / 2;
-    return -(Math.max(rightDoor, rightPost) + 16 * this.u);
+    const fenceEnd = this.w + (7 - FENCE_INSET) * this.u;
+    return -(Math.max(rightDoor, rightPost, fenceEnd) + 16 * this.u);
   }
 
   /**
@@ -749,6 +789,175 @@ export class GateStage extends Container {
     gsap.killTweensOf(this.yard);
     gsap.killTweensOf(this.gateSwing);
     gsap.killTweensOf(this.crashTint);
+  }
+
+  // ---------- the paddock ----------
+
+  /**
+   * Post-and-rail fence on the gate's line, cream like the gate posts, with two rails. It runs from well
+   * off the left edge to the left post and from the right post past the right edge, so the gate is its
+   * only opening. Drawn in the yard, so it goes and comes back with the gate.
+   */
+  private drawFence(): void {
+    const { u, w } = this;
+    const ground = this.groundY();
+    const g = this.fence.clear();
+    const { far } = this.paddockDepth();
+    const ink = { color: this.c.ink, width: 3 };
+    const postH = 60 * u;
+    const railY = [-46, -24];
+    const railT = 9 * u;
+    const post = (x: number, y: number, k: number) => g.roundRect(x - 7 * u * k, y - (postH - 4 * u) * k, 14 * u * k, postH * k, 3 * u).fill(this.c.cream).stroke(ink);
+    const rail = (x0: number, y0: number, k0: number, x1: number, y1: number, k1: number, ry: number) => {
+      const a = y0 + ry * u * k0;
+      const b = y1 + ry * u * k1;
+      g.poly([x0, a - (railT / 2) * k0, x1, b - (railT / 2) * k1, x1, b + (railT / 2) * k1, x0, a + (railT / 2) * k0]).fill(this.c.cream).stroke(ink);
+    };
+    // The right-hand side runs from the front line straight back to the rail, shrinking with distance
+    // like the mown stripes it follows. The left runs off the screen edge: the pen carries on that way.
+    const sideX = w - FENCE_INSET * u;
+    const backY = far - 10 * u;
+    const steps = 5;
+    const at = (n: number) => {
+      const d = n / steps;
+      return { x: sideX, y: ground + (backY - ground) * d, k: 1 - 0.42 * d };
+    };
+    for (let n = 0; n < steps; n++) {
+      const p0 = at(n);
+      const p1 = at(n + 1);
+      for (const ry of railY) rail(p0.x, p0.y, p0.k, p1.x, p1.y, p1.k, ry);
+    }
+    for (let n = steps; n > 0; n--) {
+      const p = at(n);
+      post(p.x, p.y, p.k);
+    }
+    // The front: a rail either side of the gate, with posts stepping out from the gate posts so none
+    // lands in the opening.
+    const spans: [number, number][] = [
+      [-w - 20 * u, GATE_LEFT * u],
+      [GATE_RIGHT * u, sideX],
+    ];
+    for (const [x0, x1] of spans) for (const ry of railY) rail(x0, ground, 1, x1, ground, 1, ry);
+    for (let x = (GATE_LEFT - FENCE_SPACING) * u; x > -w; x -= FENCE_SPACING * u) post(x, ground, 1);
+    for (let x = (GATE_RIGHT + FENCE_SPACING) * u; x < sideX - 10 * u; x += FENCE_SPACING * u) post(x, ground, 1);
+    post(sideX, ground, 1);
+  }
+
+  /** The strip of grass between the back rail and the fence, as hoof lines in screen pixels: far and near. */
+  private paddockDepth(): { far: number; near: number } {
+    const crowdY = this.rays ? this.h * 0.43 : this.h * 0.3555;
+    return { far: crowdY + 118 * this.u, near: this.groundY() - 34 * this.u };
+  }
+
+  /**
+   * Somewhere behind the fence, mostly in view: a horse may stand partly behind the right-hand door, but
+   * never so far that only its rump shows, and never inside the side fence. Tries a few times to keep
+   * clear of the others, so two never graze on the same spot.
+   */
+  private grazeSpot(self?: Grazer): { x: number; depth: number } {
+    let best = { x: GATE_RIGHT + 60, depth: 0.5 };
+    for (let tries = 0; tries < 8; tries++) {
+      const depth = 0.1 + Math.random() * 0.9;
+      const half = (0.24 + 0.16 * depth) * 200;
+      const lo = GATE_RIGHT + 24 + 0.35 * half;
+      const hi = this.w / this.u - half;
+      best = { x: lo + Math.random() * Math.max(10, hi - lo), depth };
+      const crowded = this.grazers.some((o) => o !== self && Math.abs(o.target.x - best.x) < 75 && Math.abs(o.target.depth - depth) < 0.35);
+      if (!crowded) break;
+    }
+    return best;
+  }
+
+  private scatterGrazers(): void {
+    this.grazers.forEach((g, i) => {
+      // Spread the first three so they never start on top of each other.
+      g.x = [GATE_RIGHT + 55, GATE_RIGHT + 145, GATE_RIGHT + 105][i] ?? GATE_RIGHT + 60;
+      g.depth = [0.85, 0.2, 0.5][i] ?? 0.5;
+      g.target = { x: g.x, depth: g.depth };
+      g.facing = Math.random() < 0.5 ? 1 : -1;
+      g.state = 'graze';
+      g.timer = 2 + Math.random() * 5;
+      g.sprite.animationSpeed = 0.025;
+      g.sprite.play();
+    });
+    this.sortPaddock();
+  }
+
+  private placeGrazer(g: Grazer): void {
+    const { far, near } = this.paddockDepth();
+    const scale = (0.24 + 0.16 * g.depth) * this.u * PADDOCK_ART_SCALE;
+    g.sprite.position.set(g.x * this.u, far + (near - far) * g.depth);
+    g.sprite.scale.set(scale * g.facing, scale);
+  }
+
+  /** Nearer horses draw in front. */
+  private sortPaddock(): void {
+    this.paddock.children.sort((a, b) => a.y - b.y);
+  }
+
+  private setGrazerFrames(g: Grazer, state: Grazer['state']): void {
+    const { frames, coat } = { frames: this.frames, coat: g.coat };
+    g.state = state;
+    if (state === 'graze') {
+      g.sprite.textures = [frames(`graze-${coat}-0`), frames(`graze-${coat}-1`)];
+      g.sprite.animationSpeed = 0.025;
+    } else if (state === 'walk') {
+      g.sprite.textures = [frames(`walk-${coat}-0`), frames(`walk-${coat}-1`)];
+      g.sprite.animationSpeed = 0.07;
+    } else {
+      g.sprite.textures = [frames(`loose-${coat}`)];
+    }
+    if (this.reduced) g.sprite.gotoAndStop(0);
+    else g.sprite.play();
+  }
+
+  /**
+   * Horses at grass: graze a while, look up, sometimes wander to another spot, graze again. Cosmetic and
+   * random, with nothing from the round in it; under reduced motion they stand still at grass.
+   */
+  private grazeStep(dt: number): void {
+    if (this.reduced) {
+      for (const g of this.grazers) if (g.sprite.playing) g.sprite.gotoAndStop(0);
+      return;
+    }
+    let moved = false;
+    for (const g of this.grazers) {
+      if (!g.sprite.playing) g.sprite.play();
+      if (g.state === 'walk') {
+        const dx = g.target.x - g.x;
+        const step = WALK_SPEED * dt;
+        if (Math.abs(dx) <= step) {
+          g.x = g.target.x;
+          g.depth = g.target.depth;
+          this.setGrazerFrames(g, 'graze');
+          g.timer = 3 + Math.random() * 6;
+        } else {
+          const total = Math.abs(g.target.x - g.x) + step;
+          g.x += Math.sign(dx) * step;
+          g.depth += (g.target.depth - g.depth) * (step / total);
+        }
+        this.placeGrazer(g);
+        moved = true;
+        continue;
+      }
+      g.timer -= dt;
+      if (g.timer > 0) continue;
+      if (g.state === 'graze') {
+        this.setGrazerFrames(g, 'look');
+        g.timer = 1 + Math.random() * 1.8;
+        if (Math.random() < 0.3) g.facing = g.facing === 1 ? -1 : 1;
+        this.placeGrazer(g);
+      } else if (Math.random() < 0.6) {
+        g.target = this.grazeSpot(g);
+        g.facing = g.target.x >= g.x ? 1 : -1;
+        this.setGrazerFrames(g, 'walk');
+        this.placeGrazer(g);
+      } else {
+        this.setGrazerFrames(g, 'graze');
+        g.timer = 3 + Math.random() * 6;
+      }
+    }
+    if (moved) this.sortPaddock();
   }
 
   /**

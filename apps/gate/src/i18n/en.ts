@@ -15,9 +15,10 @@ export const EN = {
   // The whole game in one line. Nothing about timing or skill: the gate is decided before the ride starts.
   'stage.readySubRush': 'The further you ride, the more it pays, if the gate is open.',
   'button.bet': 'BET {amount}',
-  'button.collect': 'IN!',
-  'button.cashOut': 'In for {amount}',
-  'button.cashingOut': 'Heading in {amount}…',
+  'button.collect': 'RIDE HOME',
+  'button.collectSub': 'Lock the value and see the gate',
+  'button.cashOut': 'Ride home for {amount}',
+  'button.cashingOut': 'Riding home with {amount}…',
   'button.playAgain': 'RIDE AGAIN',
   'button.playAgainSub': 'Same bet',
   'button.continue': 'CONTINUE',
@@ -40,7 +41,7 @@ export const EN = {
   'bet.lossLimit': 'LOSS LIMIT',
   'bet.insufficient': 'INSUFFICIENT BALANCE',
 
-  'run.winNow': 'IN NOW {amount}',
+  'run.winNow': 'HOME NOW {amount}',
   'run.ifOpen': 'IF THE GATE IS OPEN',
   'run.chanceTable': 'GATE OPEN AT',
   'run.chanceHeadChance': 'CHANCE',
@@ -49,7 +50,7 @@ export const EN = {
   // The label above it already says LOCKED; this restates the chance at the locked value, one line.
   'run.revealChanceLocked': 'OPEN ON {chance}',
   'run.headingHome': 'LOCKED · HEADING HOME',
-  'button.headingHome': 'RIDING IN…',
+  'button.headingHome': 'RIDING HOME…',
   'button.headingHomeSub': 'The result was fixed when the round started',
   'result.cashedOut': 'HOME SAFE',
   'result.gateOpen': 'GATE OPEN',
@@ -59,20 +60,20 @@ export const EN = {
   'result.returnedBelow': 'Returned {amount} · Net {net}',
   'result.crashed': 'GATE SHUT',
 
-  'error.slowConnection': 'Slow connection — IN! is judged when the server receives it.',
+  'error.slowConnection': 'Slow connection — RIDE HOME is judged when the server receives it.',
 
   'rules.title': 'How this game works',
   'rules.intro':
-    'The value rises from x1.00 while the horse is out in the field. Press IN! before the gate slams and you keep the value at the moment the server receives your press.',
+    'The value rises from x1.00 while the horse is out in the field. Press RIDE HOME before the gate slams and you keep the value at the moment the server receives your press.',
   'rules.outcomeFixed':
     'The outcome of every round is fixed before the round starts, by the seeds shown in the fairness panel. The horse, the gate and the crowd are decoration: nothing you tap, and nothing on screen, changes or predicts when the gate slams.',
   'rules.introDeferred':
-    'The value rises from x1.00 while the horse is out in the field. Press IN! and your value locks at the moment the server receives your press; the horse turns for home, and the gate shows whether you win. Open pays your stake times the locked value. Shut loses your stake.',
+    'The value rises from x1.00 while the horse is out in the field. Press RIDE HOME and your value locks at the moment the server receives your press; the horse turns for home, and the gate shows whether you win. Open pays your stake times the locked value. Shut loses your stake.',
   'rules.outcomeFixedDeferred':
     'The outcome of every round is fixed before the round starts, by the seeds shown in the fairness panel. The horse, the gate and the field are decoration: nothing you tap, and nothing on screen, changes or predicts whether the gate is open. The ride home takes the same time and looks the same whatever the result.',
   'rules.chance.title': 'Chance the gate is open',
   'rules.chance.intro':
-    'If you press IN! at a value, the chance the gate is open is {rtp}% divided by that value. Chance times value is {rtp}% on every row, so no value is a better time to go in than another.',
+    'If you press RIDE HOME at a value, the chance the gate is open is {rtp}% divided by that value. Chance times value is {rtp}% on every row, so no value is a better time to go in than another.',
   'rules.chance.value': 'Value',
   'rules.chance.chance': 'Chance open',
   'rules.chance.return': 'Return on {stake}',
@@ -81,25 +82,25 @@ export const EN = {
   'rules.chance.yours':
     'While you ride, the table also counts your own rides this session at each value: how many found the gate open out of how many reached it. It is a record of what happened. Every ride is settled on its own seeds before it starts, so your record does not change what the next gate does.',
   'rules.chance.onScreen':
-    'The value keeps rising for the whole ride, so the amount on screen is paid only if the gate is open. The chance beside it tells you how likely that is, and it stays on screen after you press IN! until the gate is shown.',
+    'The value keeps rising for the whole ride, so the amount on screen is paid only if the gate is open. The chance beside it tells you how likely that is, and it stays on screen after you press RIDE HOME until the gate is shown.',
   'rules.growth': 'The value speeds up over the first {tRamp} seconds, then keeps that speed.',
   'rules.setbacks': 'A setback appears about every {every} seconds on average and halves the current value. There is no warning.',
   'rules.boosts': 'A boost appears about every {every} seconds on average and raises the value by {percent}%. There is no warning.',
   'rules.instantBust': 'About {percent}% of rounds end immediately at x1.00.',
-  'rules.rtp': 'Return to player is {rtp}% over a very large number of rounds, and is the same whenever you press IN!.',
+  'rules.rtp': 'Return to player is {rtp}% over a very large number of rounds, and is the same whenever you press RIDE HOME.',
   'rules.rtpBand':
     'Payouts are rounded to whole {currency}, so at the smallest stake of {stake} the measured return ranges from {low}% to {high}%. Larger stakes sit closer to {rtp}%.',
   'rules.rtpBandMissing': 'Measured band unavailable for this configuration — this figure is incomplete.',
   'rules.maxMultiplier': 'The most a round can pay is x{multiplier}; the round ends there automatically.',
   'rules.tMax': 'A round ends automatically after {seconds} seconds.',
-  'rules.minCashout': 'You can press IN! from x{multiplier}.',
-  'rules.minCashoutNone': 'You can press IN! at any value.',
-  'rules.autoCashout': 'Auto IN! ends the round for you at a value between x{min} and x{max}. It affects nothing else.',
+  'rules.minCashout': 'You can press RIDE HOME from x{multiplier}.',
+  'rules.minCashoutNone': 'You can press RIDE HOME at any value.',
+  'rules.autoCashout': 'Auto RIDE HOME ends the round for you at a value between x{min} and x{max}. It affects nothing else.',
   'rules.rounding': 'Payouts are worked out exactly and rounded to the nearest whole {currency} once per round.',
-  'rules.belowStakeReturns': 'A setback can halve the value, so pressing IN! can return less than your stake.',
+  'rules.belowStakeReturns': 'A setback can halve the value, so pressing RIDE HOME can return less than your stake.',
   'rules.minCycle': 'There is a minimum of {seconds} seconds between rounds, and you must release and press again to start one.',
   'rules.latency':
-    'IN! is judged at the time the server receives it, not the time you tapped. There is no allowance for connection delay.',
+    'RIDE HOME is judged at the time the server receives it, not the time you tapped. There is no allowance for connection delay.',
   'rules.disconnect.lose': 'If you disconnect during a round, the round continues and settles on the server.',
   'rules.disconnect.cashoutAtDisconnect': 'If you disconnect during a round, the round is ended for you at the moment the disconnection is detected.',
   'rules.voidRefund': 'If a system failure prevents a round from settling, the round is voided and your stake is returned.',

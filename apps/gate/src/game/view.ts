@@ -94,6 +94,7 @@ const BROADCAST_LOOK: Partial<ScreenLook> = {
   resultCard: { x: BC.margin, y: BC.data, w: BC.right - BC.margin, h: BC.dataH, titleY: 34, lineY: 96 },
   hideValueOnResult: true,
   hideValueWhileBetting: true,
+  buttonSub: true,
   // Between the control row (ends 88) and the stand (starts 300).
   lobby: { top: 88, bottom: 300 },
 };
@@ -126,6 +127,7 @@ export class GateView extends CrashScreen {
       {
         logo: rush ? [t('logo.gate'), t('logo.rush')] : [t('logo.beatThe'), t('logo.gate')],
         collect: t('button.collect'),
+        collectSub: t('button.collectSub'),
         liveLabel: rush ? t('run.ifOpen') : t('run.winNow', { amount: '' }),
         // Gate Rush says nothing under the multiplier while betting: the chance belongs to the ride and to
         // the rules screen, which is one tap away before every bet.

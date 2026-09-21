@@ -19,6 +19,11 @@ const PALETTES = {
     DUST: '#f6ead2',
     BARN: ['#e03131', '#8a1c1c'],
     horse: { coat: '#a0602f', shade: '#6f3e1d', light: '#c98a55', mane: '#2a1712', blaze: '#f6ead2', tack: '#2a1712', silks: '#3ec6ff', silks2: '#fff4d6', cloth: '#ff3d8b', skin: '#7a4a2b' },
+    paddock: [
+      { coat: '#c9c2b8', shade: '#9a9188', light: '#e6e0d6', mane: '#4a423d', blaze: '#fff4d6' },
+      { coat: '#c2622e', shade: '#8a4220', light: '#e08a52', mane: '#c98a55', blaze: '#f6ead2' },
+      { coat: '#3a2f33', shade: '#241c20', light: '#5a4c52', mane: '#1d1424', blaze: '#f6ead2' },
+    ],
     halo: 0,
   },
   broadcast: {
@@ -30,6 +35,11 @@ const PALETTES = {
     BARN: ['#1b2130', '#0d0f14'],
     // A dark bay under floodlight, red and white silks: the colours a broadcast picture would show.
     horse: { coat: '#5a3a24', shade: '#3d2616', light: '#7d5434', mane: '#241609', blaze: '#e8eef5', tack: '#241609', silks: '#d90429', silks2: '#e8eef5', cloth: '#ffd166', skin: '#7a4a2b' },
+    paddock: [
+      { coat: '#a9a49c', shade: '#77726b', light: '#c9c4bc', mane: '#3a3633', blaze: '#e8eef5' },
+      { coat: '#8d4a25', shade: '#5e2f16', light: '#b06a3c', mane: '#c98a55', blaze: '#e8eef5' },
+      { coat: '#c9a15a', shade: '#8f6f3a', light: '#e2c185', mane: '#e8eef5', blaze: '#e8eef5' },
+    ],
     halo: 0.1,
   },
   adult: {
@@ -40,6 +50,11 @@ const PALETTES = {
     DUST: '#d9d2c6',
     BARN: ['#b8431a', '#5e1f0c'],
     horse: { coat: '#8c8279', shade: '#645b54', light: '#a89e94', mane: '#3b3431', blaze: '#f4f1ea', tack: '#3b3431', silks: '#2f5d73', silks2: '#e8e3d9', cloth: '#b98a3c', skin: '#7a4a2b' },
+    paddock: [
+      { coat: '#5c3d2a', shade: '#3f2819', light: '#7c5740', mane: '#241609', blaze: '#f4f1ea' },
+      { coat: '#a6733f', shade: '#75502a', light: '#c4925d', mane: '#3b3431', blaze: '#f4f1ea' },
+      { coat: '#8a4a30', shade: '#5e3020', light: '#a86a4c', mane: '#5e3020', blaze: '#f4f1ea' },
+    ],
     halo: 0.14,
   },
 };
@@ -71,6 +86,12 @@ function leg([a, b, c], fill, w1, w2, hoofAngle = 0) {
 }
 
 // ---------- horse body and rider (facing right, 400x300 space) ----------
+
+/**
+ * The ridden horse is drawn in a 400x300 space and declared at 300x225: the atlas rasterizes at 2x, and
+ * 600x450 is already twice what a 156px-tall sprite needs on a 2x phone. The stage scales it by 4/3.
+ */
+const riddenSvg = (body) => svg(300, 225, body, '0 0 400 300');
 
 const BODY =
   'M100 116 C130 108 165 126 200 114 C220 106 240 92 262 70 C278 54 290 42 300 36 L298 16 L314 34 C332 46 352 72 368 96 C374 108 362 118 350 113 C338 108 326 102 316 95 C306 99 300 108 292 118 C282 134 274 150 266 166 C258 186 240 194 220 190 C190 192 160 196 136 188 C112 186 92 178 84 158 C76 140 80 122 100 116 Z';
@@ -124,7 +145,7 @@ function riderUpright(c) {
 }
 
 /** Floodlight rim light, drawn first so it sits behind the legs as well as the body. */
-const halo = () => `<path d="${BODY}" fill="none" stroke="${CREAM}" stroke-width="18" stroke-linejoin="round" opacity="${P.halo}"/>`;
+const halo = (path = BODY) => `<path d="${path}" fill="none" stroke="${CREAM}" stroke-width="18" stroke-linejoin="round" opacity="${P.halo}"/>`;
 
 // Tail shapes: streaming at speed, hanging at rest.
 const TAIL_FLOW = 'M90 124 C58 118 34 134 14 168 C36 156 52 158 70 160 C60 170 54 182 50 196 C70 176 84 164 96 150 Z';
@@ -176,9 +197,7 @@ const GALLOP = [
 function gallop(c, frame) {
   const f = GALLOP[frame];
   const [farHind, farFore, nearHind, nearFore] = f.legs;
-  return svg(
-    400,
-    300,
+  return riddenSvg(
     `<g transform="translate(0 ${f.bob + 12})">${halo()}
     ${leg(farHind.slice(0, 3), c.shade, 26, 12, farHind[3])}
     ${leg(farFore.slice(0, 3), c.shade, 20, 11, farFore[3])}
@@ -189,14 +208,109 @@ function gallop(c, frame) {
 }
 
 function standing(c) {
-  return svg(
-    400,
-    300,
+  return riddenSvg(
     `${halo()}${leg([[132, 176], [128, 230], [130, 274]], c.shade, 26, 12)}
     ${leg([[252, 182], [254, 232], [256, 274]], c.shade, 20, 11)}
     ${leg([[116, 172], [106, 228], [110, 274]], c.coat, 28, 13)}
     ${leg([[236, 186], [238, 232], [238, 274]], c.coat, 22, 12)}
     ${body(c, TAIL_REST)}${riderUpright(c)}`,
+  );
+}
+
+// ---------- the paddock: horses at grass, no rider, no tack ----------
+
+/**
+ * A horse at grass is drawn in the ridden horse's 400x300 space but declared at 152x114: it shows at well
+ * under half the ridden horse's size, and fifteen frames at full size would overflow the atlas. The stage
+ * scales it back up by PADDOCK_ART_SCALE.
+ */
+const PADDOCK_W = 152;
+const PADDOCK_H = 114;
+const paddockSvg = (body) => svg(PADDOCK_W, PADDOCK_H, body, '0 0 400 300');
+
+/**
+ * The same barrel as BODY with the neck dropped to the grass: the head sits at the bottom right, muzzle
+ * down. Drawn without bridle or reins, so a horse at grass never reads as one about to be ridden.
+ */
+const GRAZE_BODY =
+  'M100 116 C130 108 165 122 196 112 C232 114 268 150 290 194 L294 172 L308 196 C324 210 336 238 338 260 C338 274 324 282 310 278 C298 274 290 264 288 250 C282 234 274 214 264 196 C254 178 244 170 234 170 C228 180 226 190 220 192 C190 194 160 196 136 188 C112 186 92 178 84 158 C76 140 80 122 100 116 Z';
+
+function grazeBody(c, tail, chew) {
+  return `
+  <path d="${tail}" fill="${c.mane}" stroke="${INK}" stroke-width="6" stroke-linejoin="round"/>
+  <path d="${GRAZE_BODY}" fill="${c.coat}" stroke="${INK}" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M108 134 C104 150 112 168 130 176" fill="none" stroke="${c.shade}" stroke-width="9" stroke-linecap="round" opacity="0.6"/>
+  <path d="M236 182 C246 186 256 196 262 208" fill="none" stroke="${c.shade}" stroke-width="8" stroke-linecap="round" opacity="0.6"/>
+  <path d="M150 128 C180 124 208 118 230 122" fill="none" stroke="${c.light}" stroke-width="7" stroke-linecap="round" opacity="0.45"/>
+  <path d="M212 112 C246 116 274 150 292 194 L278 198 C262 160 240 132 214 126 Z" fill="${c.mane}" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M314 216 C326 232 332 246 334 258" stroke="${c.blaze}" stroke-width="9" stroke-linecap="round" fill="none"/>
+  <path d="M302 208 C308 204 314 206 316 212" stroke="${INK}" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <circle cx="309" cy="214" r="4.5" fill="${INK}"/>
+  <path d="M316 ${272 + chew} C322 ${275 + chew} 328 ${274 + chew} 331 ${269 + chew}" stroke="${INK}" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+}
+
+/** Head down at the grass. Two frames: the jaw works and the tail swishes. */
+function grazing(c, frame) {
+  const tail = frame ? 'M92 124 C68 132 58 164 62 216 C74 198 84 186 92 178 C96 200 102 214 110 226 C110 194 108 162 102 140 Z' : TAIL_REST;
+  return paddockSvg(
+    `${halo(GRAZE_BODY)}${leg([[132, 176], [128, 230], [130, 274]], c.shade, 26, 12)}
+    ${leg([[236, 178], [246, 230], [250, 274]], c.shade, 20, 11)}
+    ${leg([[116, 172], [106, 228], [110, 274]], c.coat, 28, 13)}
+    ${leg([[222, 182], [216, 230], [212, 274]], c.coat, 22, 12)}
+    ${grazeBody(c, tail, frame ? 3 : 0)}`,
+  );
+}
+
+/** Head up, looking about, no rider or tack. */
+function loose(c) {
+  return paddockSvg(
+    `${halo()}${leg([[132, 176], [128, 230], [130, 274]], c.shade, 26, 12)}
+    ${leg([[252, 182], [254, 232], [256, 274]], c.shade, 20, 11)}
+    ${leg([[116, 172], [106, 228], [110, 274]], c.coat, 28, 13)}
+    ${leg([[236, 186], [238, 232], [238, 274]], c.coat, 22, 12)}
+    ${looseBody(c, TAIL_REST)}`,
+  );
+}
+
+/** BODY without bridle or reins: at grass the horse wears nothing. */
+function looseBody(c, tail) {
+  return `
+  <path d="${tail}" fill="${c.mane}" stroke="${INK}" stroke-width="6" stroke-linejoin="round"/>
+  <path d="${BODY}" fill="${c.coat}" stroke="${INK}" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M108 134 C104 150 112 168 130 176" fill="none" stroke="${c.shade}" stroke-width="9" stroke-linecap="round" opacity="0.6"/>
+  <path d="M232 170 C246 162 258 150 262 136" fill="none" stroke="${c.shade}" stroke-width="8" stroke-linecap="round" opacity="0.6"/>
+  <path d="M150 128 C180 126 214 118 236 104" fill="none" stroke="${c.light}" stroke-width="7" stroke-linecap="round" opacity="0.45"/>
+  <path d="M212 110 C236 96 262 72 300 38 L294 64 C274 82 252 102 232 118 Z" fill="${c.mane}" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M320 50 C334 66 348 84 358 104" stroke="${c.blaze}" stroke-width="9" stroke-linecap="round" fill="none"/>
+  <path d="M312 62 C318 58 326 58 330 64" stroke="${INK}" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <circle cx="321" cy="66" r="4.5" fill="${INK}"/>
+  <path d="M352 106 C356 102 362 102 364 106" stroke="${INK}" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+}
+
+/** A two-beat walk: diagonal pairs swing while the body stays level. */
+const WALK = [
+  [
+    [[132, 176], [120, 226], [106, 272]],
+    [[252, 182], [266, 230], [282, 272]],
+    [[116, 172], [122, 228], [134, 272]],
+    [[236, 186], [226, 232], [212, 272]],
+  ],
+  [
+    [[132, 176], [140, 226], [154, 272]],
+    [[252, 182], [242, 230], [230, 272]],
+    [[116, 172], [100, 228], [86, 272]],
+    [[236, 186], [250, 232], [264, 272]],
+  ],
+];
+
+function walking(c, frame) {
+  const [farHind, farFore, nearHind, nearFore] = WALK[frame];
+  return paddockSvg(
+    `${halo()}${leg(farHind, c.shade, 26, 12)}
+    ${leg(farFore, c.shade, 20, 11)}
+    ${leg(nearHind, c.coat, 28, 13)}
+    ${leg(nearFore, c.coat, 22, 12)}
+    ${looseBody(c, TAIL_REST)}`,
   );
 }
 
@@ -260,7 +374,18 @@ export function buildSprites(skin = 'candy') {
   if (!P) throw new Error(`unknown skin ${skin}`);
   ({ INK, CREAM, GOLD, RED } = P);
   const BAY = horseColors();
+  // Three at grass in the palette's other coats: none shares the ridden horse's, so it stands out.
+  const atGrass = P.paddock;
+  const paddock = {};
+  atGrass.forEach((c, i) => {
+    paddock[`graze-${i}-0`] = grazing(c, 0);
+    paddock[`graze-${i}-1`] = grazing(c, 1);
+    paddock[`loose-${i}`] = loose(c);
+    paddock[`walk-${i}-0`] = walking(c, 0);
+    paddock[`walk-${i}-1`] = walking(c, 1);
+  });
   return {
+    ...paddock,
     'horse-gallop-0': gallop(BAY, 0),
     'horse-gallop-1': gallop(BAY, 1),
     'horse-gallop-2': gallop(BAY, 2),
