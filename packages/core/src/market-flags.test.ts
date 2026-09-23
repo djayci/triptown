@@ -11,7 +11,7 @@ describe('market profile flags', () => {
     const ng = profileFromTemplate('ng-draft', origins);
     const gh = profileFromTemplate('gh-draft', origins);
     for (const p of [ng, gh]) {
-      expect(p).toMatchObject({ status: 'draft', minCycleMs: 5000, quickReplay: false, setbacksMode: 'off', skin: 'adult', showSessionClock: false, showNetPosition: false, liveBetsFeed: false });
+      expect(p).toMatchObject({ status: 'draft', minCycleMs: 5000, quickReplay: true, setbacksMode: 'off', skin: 'adult', showSessionClock: false, showNetPosition: false, liveBetsFeed: false });
       expect(validateProfile(p)).toEqual({ ok: true });
       expect(p.dataTransferBasis).toBeTruthy();
     }

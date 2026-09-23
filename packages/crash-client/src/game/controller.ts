@@ -78,6 +78,18 @@ export interface ControllerHooks {
   onIdlePrompt?: (done: () => void) => void;
   /** Sound effect key for the collect action. Each game names its own; defaults to `collect`. */
   collectSfx?: string;
+  /**
+   * Deferred reveal: how long heading home lasts from the press, for this game. Never below
+   * HEADING_HOME_MS. It is one fixed number for every round and outcome (gate-odds-mvp D6); a game
+   * lengthens it for suspense, never varies it.
+   */
+  headingHomeMs?: number;
+  /**
+   * Deferred reveal: a sound effect key played on the press in place of the round music, which stops
+   * there, so the wait for the reveal has its own cue. It starts on the press, before the result is
+   * known, so it is the same for every outcome.
+   */
+  headingHomeSfx?: string;
   /** Build version reported to the operator bridge. Apps inject it; the shared client cannot read
    *  a per-app Vite define. */
   clientVersion?: string;
@@ -496,6 +508,11 @@ export class GameController {
       // The value locks and heading home starts on the press, identically for every outcome.
       r.pressedAt = performance.now();
       this.view.showHeadingHome(formatMultiplier(m), payout);
+      if (this.hooks.headingHomeSfx) {
+        this.audio?.stopTone();
+        this.audio?.stopMusic(150);
+        this.audio?.playSfx(this.hooks.headingHomeSfx);
+      }
     } else {
       this.view.showCashing(payout);
     }
@@ -513,6 +530,11 @@ export class GameController {
           r.cashRequested = false;
           r.pressedAt = null;
           this.phase = 'running';
+          // The ride goes on, so its music comes back if heading home had replaced it.
+          if (r.deferred && this.hooks.headingHomeSfx) {
+            this.audio?.startMusic();
+            this.audio?.startTone();
+          }
           const min = (err as RoundServiceError).details?.minCashout;
           const now = displayMultiplier(this.elapsed(r), r.setbackTimes.size, this.config, r.boostTimes.size);
           this.view.cancelCashing(formatMoney(optimisticPayout(r.betMinor, now, this.config), this.currency()));
@@ -687,13 +709,18 @@ export class GameController {
     else this.balanceMinor = balanceMinor;
   }
 
+  /** This game's fixed heading-home length, never below the shared floor. */
+  private headingHomeMs(): number {
+    return Math.max(HEADING_HOME_MS, this.hooks.headingHomeMs ?? 0);
+  }
+
   private resolve(r: ActiveRound, s: Settlement) {
     if (r.resolved) return;
     // Deferred reveal: the result waits for the heading-home state to run its fixed length from the
     // press, so the reveal time is max(press + fixed, settlement received), never earlier for one
     // outcome than the other (gate-odds-mvp D6).
     if (r.deferred && r.pressedAt !== null) {
-      const wait = r.pressedAt + HEADING_HOME_MS - performance.now();
+      const wait = r.pressedAt + this.headingHomeMs() - performance.now();
       if (wait > 0) {
         if (!r.revealPending) {
           r.revealPending = true;

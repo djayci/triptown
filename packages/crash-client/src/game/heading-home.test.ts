@@ -42,12 +42,12 @@ function recordingView(calls: Call[]): (game: unknown, frames: unknown, cb: Cras
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function playDeferred(force: 'longRound' | 'quickCrash', pressAfterMs: number, latencyMs = 0) {
+async function playDeferred(force: 'longRound' | 'quickCrash', pressAfterMs: number, latencyMs = 0, headingHomeMs?: number) {
   const calls: Call[] = [];
   const ticks: (() => void)[] = [];
   const game = { app: { ticker: { add: (fn: () => void) => ticks.push(fn) } }, onVisibility() {}, onResize() {} };
   const service = new MockRoundService({ initialBalanceMinor: 500_00, profiles: { defaultProfile: deferredProfile }, game: 'deferred-probe' });
-  const controller = new GameController(game as never, (() => null) as never, service, null, recordingView(calls) as never);
+  const controller = new GameController(game as never, (() => null) as never, service, null, recordingView(calls) as never, { headingHomeMs });
   const ticker = setInterval(() => ticks.forEach((fn) => fn()), 16);
   try {
     await controller.init();
@@ -58,7 +58,7 @@ async function playDeferred(force: 'longRound' | 'quickCrash', pressAfterMs: num
     (service as unknown as { latencyMs: number }).latencyMs = latencyMs;
     const pressedAt = performance.now();
     controller.collect();
-    await wait(HEADING_HOME_MS + latencyMs + 800);
+    await wait(Math.max(HEADING_HOME_MS, headingHomeMs ?? 0) + latencyMs + 800);
     return { calls, pressedAt, state: controller.debugState() };
   } finally {
     clearInterval(ticker);
@@ -113,6 +113,16 @@ describe('deferred reveal: heading home', () => {
     const at = (r: typeof won, name: string) => r.calls.find((c) => c.at >= r.pressedAt && c.name === name)!.at - r.pressedAt;
     expect(at(won, 'showWin')).toBeGreaterThanOrEqual(1700 - 20);
     expect(at(lost, 'showCrash')).toBeGreaterThanOrEqual(1700 - 20);
+  }, 30_000);
+
+  it("holds a game's longer heading home for every outcome, and never shortens the shared floor", async () => {
+    const won = await playDeferred('longRound', 400, 0, 2500);
+    const lost = await playDeferred('quickCrash', 3200, 0, 2500);
+    const at = (r: typeof won, name: string) => r.calls.find((c) => c.at >= r.pressedAt && c.name === name)!.at - r.pressedAt;
+    expect(at(won, 'showWin')).toBeGreaterThanOrEqual(2500 - 20);
+    expect(at(lost, 'showCrash')).toBeGreaterThanOrEqual(2500 - 20);
+    const short = await playDeferred('longRound', 400, 0, 300);
+    expect(at(short, 'showWin')).toBeGreaterThanOrEqual(HEADING_HOME_MS - 20);
   }, 30_000);
 
   it('sets the reveal mode and odds at round start, and clears the odds with the result', async () => {

@@ -166,7 +166,9 @@ export const PROFILE_TEMPLATES: Readonly<Record<string, ProfileTemplate>> = Obje
       'docs/compliance/night-meet-2026-09-16.md (Lagos LSLGA Law 2021, RG Regs reg.7, ARCON, NDPA 2023 s.41)',
     ],
     minCycleMs: 5000,
-    quickReplay: false,
+    // One-tap same-stake replay on the result screen (user decision, 22 Sep 2026): no Lagos or Ghana rule
+    // found against it (night-meet-2026-09-16.md), and the 5 s gap between rounds still holds.
+    quickReplay: true,
     setbacksMode: 'off',
     skin: 'adult',
     // Sound on by default (user decision, 17 Sep 2026); no Nigerian or Ghanaian rule found requiring muted.
@@ -194,7 +196,9 @@ export const PROFILE_TEMPLATES: Readonly<Record<string, ProfileTemplate>> = Obje
     regulated: true,
     sources: ['docs/compliance/night-meet-2026-09-16.md (Gaming Act 2006, GCG advertising guidelines, Act 843, Act 1129)'],
     minCycleMs: 5000,
-    quickReplay: false,
+    // One-tap same-stake replay on the result screen (user decision, 22 Sep 2026): no Lagos or Ghana rule
+    // found against it (night-meet-2026-09-16.md), and the 5 s gap between rounds still holds.
+    quickReplay: true,
     setbacksMode: 'off',
     skin: 'adult',
     // Sound on by default (user decision, 17 Sep 2026); no Nigerian or Ghanaian rule found requiring muted.

@@ -1,6 +1,6 @@
 import { Container, Graphics, type Application, type Text, type Texture } from 'pixi.js';
 import type { ResultKind } from '@triptown/core';
-import { prefersReducedMotion, type GameApp } from '@triptown/engine';
+import { gsap, prefersReducedMotion, type GameApp } from '@triptown/engine';
 import { t } from '../i18n';
 import { BalancePill, HistoryStrip, Logo, SessionStrip } from '../ui/hud';
 import { IconButton, StatBox, StickerButton, bodyStyle, displayStyle, drawSticker, labelStyle, text } from '../ui/primitives';
@@ -10,6 +10,9 @@ import type { BetUi, CrashView, CrashViewCallbacks, Frames, SessionHud } from '.
 
 const W = 390;
 const H = 844;
+/** The stake row's top, and how far it drops to leave the screen while a round runs. */
+const STAKE_ROW_Y = H - 168;
+const STAKE_ROW_DROP = H + 20 - STAKE_ROW_Y;
 const PAD = 12;
 /** Stake row widths: [-] 44, stake, [+] 44, auto, with 6 px gaps inside and 8 before auto. */
 const STAKE_W = 150;
@@ -55,6 +58,8 @@ export interface ScreenLook {
   hideValueWhileBetting: boolean;
   /** Draw the action button's second line (what the press does, "Same bet"), not only read it out. */
   buttonSub: boolean;
+  /** Slide the stake row away behind the action button while a round runs, and bring it back with the result. */
+  hideStakeInRound: boolean;
   /** The empty band the lobby invitation is centred in: from the last HUD row above it to the scene below. */
   lobby: { top: number; bottom: number };
 }
@@ -71,6 +76,7 @@ export const DEFAULT_LOOK: ScreenLook = {
   hideValueOnResult: false,
   hideValueWhileBetting: false,
   buttonSub: false,
+  hideStakeInRound: false,
   lobby: { top: 150, bottom: 340 },
 };
 
@@ -225,6 +231,12 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
   private audioAvailable = true;
   private readonly minusBtn: IconButton;
   private readonly plusBtn: IconButton;
+  private stakeRowHidden = false;
+  /** True while the row is sliding, so a layout in between leaves its y to the slide. */
+  private stakeRowSliding = false;
+  /** The last stake row state, and the stake the running round was placed at, for the result button. */
+  private lastBetUi: BetUi | null = null;
+  private roundStake: string | null = null;
   private readonly bigButton: StickerButton;
 
   private multiplier = 1;
@@ -302,12 +314,13 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
       this.counter,
       this.demoBadge,
       this.resultCard,
+      ...this.controls,
+      this.bigButton,
+      // The stake row is drawn over the button: it slides down past it and off the screen during a round.
       this.statBet,
       this.minusBtn,
       this.plusBtn,
-      ...this.controls,
       this.statAuto,
-      this.bigButton,
     );
     app.stage.addChild(this.root);
 
@@ -487,8 +500,10 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     this.resultTitle.position.set(look.resultCard.w / 2, look.resultCard.titleY);
     this.resultLine.position.set(look.resultCard.w / 2, look.resultCard.lineY);
 
-    // Stake row: [-] stake [+] auto, or [-] stake [+] across the row when the game offers no auto.
-    const rowY = H - 168;
+    // Stake row: [-] stake [+] auto, or [-] stake [+] across the row when the game offers no auto. A row
+    // on its way off or back on to the screen keeps the y its slide has reached (showRunning lays out
+    // right after showStarting starts the slide).
+    const rowY = this.stakeRowSliding ? this.minusBtn.y : STAKE_ROW_Y + (this.stakeRowHidden ? STAKE_ROW_DROP : 0);
     const stakeW = this.hasAutoCashout() ? STAKE_W : STAKE_W_ALONE;
     this.minusBtn.position.set(PAD, rowY);
     this.statBet.resize(stakeW, 44);
@@ -536,6 +551,41 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     this.placeControls();
   }
 
+  /**
+   * A look may take the stake row off the screen while the horse is out: it slides down past the action
+   * button and off the bottom, fading, and slides back with the result so the next stake can be set there.
+   * Stepping the stake is refused by the controller during a round anyway; this only clears the space.
+   */
+  private setStakeRowHidden(hidden: boolean): void {
+    if (!this.look.hideStakeInRound || hidden === this.stakeRowHidden) return;
+    this.stakeRowHidden = hidden;
+    // The auto box only exists for a game that offers auto cash-out; it must not reappear otherwise.
+    const parts = [this.minusBtn, this.statBet, this.plusBtn, ...(this.hasAutoCashout() ? [this.statAuto] : [])];
+    const y = STAKE_ROW_Y + (hidden ? STAKE_ROW_DROP : 0);
+    gsap.killTweensOf(parts);
+    this.stakeRowSliding = false;
+    if (!hidden) for (const p of parts) p.visible = true;
+    if (prefersReducedMotion()) {
+      for (const p of parts) {
+        p.y = y;
+        p.alpha = 1;
+        p.visible = !hidden;
+      }
+      return;
+    }
+    this.stakeRowSliding = true;
+    gsap.to(parts, {
+      y,
+      alpha: hidden ? 0 : 1,
+      duration: 0.45,
+      ease: hidden ? 'power2.in' : 'power2.out',
+      onComplete: () => {
+        this.stakeRowSliding = false;
+        if (hidden) for (const p of parts) p.visible = false;
+      },
+    });
+  }
+
   private setControlsHidden(hidden: boolean): void {
     const next = hidden && this.hideControlsInRound();
     if (next === this.controlsHidden) return;
@@ -570,10 +620,14 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
   }
 
   setBetUi(ui: BetUi): void {
+    this.lastBetUi = ui;
     this.statBet.set(t('label.stake'), ui.bet);
     this.statAuto.set(t('label.auto'), ui.autoOn ? ui.auto : '—');
-    if (this.phase !== 'betting') return;
-    this.setActionLabel({ label: ui.reason ?? t('button.bet', { amount: ui.bet }), sub: '', enabled: ui.canBet });
+    if (this.phase === 'won' || this.phase === 'lost') {
+      // The stake can be changed on the result screen; the button says what the next tap will bet.
+      this.setActionLabel(this.resultAction());
+    } else if (this.phase !== 'betting') return;
+    else this.setActionLabel({ label: ui.reason ?? t('button.bet', { amount: ui.bet }), sub: '', enabled: ui.canBet });
     if (!this.counting) {
       this.bigButton.setLabel(this.actionLabel.label, this.actionLabel.sub);
       this.bigButton.setEnabled(this.actionLabel.enabled);
@@ -588,6 +642,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
   showBetting(): void {
     this.phase = 'betting';
     this.setControlsHidden(false);
+    this.setStakeRowHidden(false);
     this.revealChance.text = '';
     this.resultCard.visible = false;
     this.payout.text = '';
@@ -626,7 +681,9 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
   showStarting(): void {
     this.phase = 'starting';
     this.resultCard.visible = false;
+    this.roundStake = this.lastBetUi?.bet ?? null;
     this.setControlsHidden(true);
+    this.setStakeRowHidden(true);
     // A quick-replay profile goes straight from a settled round to the next one without passing
     // through the betting screen, so this is the only place every new round is guaranteed to reach.
     // Resetting the scene only in `showBetting` left the previous round's state — a crashed scene, a
@@ -690,6 +747,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
   showWin(multiplier: string, payout: string, _big: boolean, kind: ResultKind, net: string): void {
     this.phase = 'won';
     this.setControlsHidden(false);
+    this.setStakeRowHidden(false);
     // The rule lives in the base; this only draws what it returns.
     const { celebrate, line } = this.resultPresentation(kind, payout, net);
     this.resultTitle.text = this.words.settledTitle;
@@ -713,6 +771,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
   showCrash(multiplier: string, loss: string, instant: boolean): void {
     this.phase = 'lost';
     this.setControlsHidden(false);
+    this.setStakeRowHidden(false);
     this.mult.visible = !this.look.hideValueOnResult;
     this.resultTitle.text = this.words.crashedTitle;
     this.resultLine.text = instant ? loss : `${multiplier} · ${loss}`;
@@ -729,14 +788,25 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     this.replay(false);
   }
 
+  /**
+   * What the button offers on the result screen. With quick replay: the same stake again, or, once the
+   * stake has been stepped there, the new amount, so the tap never bets a figure the button did not show.
+   * Without it: back to the betting screen, one deliberate bet each round.
+   */
+  private resultAction(): { label: string; sub: string; enabled: boolean } {
+    if (!this.quickReplay) return { label: t('button.continue'), sub: t('button.continueSub'), enabled: true };
+    const ui = this.lastBetUi;
+    if (ui?.reason) return { label: ui.reason, sub: '', enabled: false };
+    const same = ui === null || ui.bet === this.roundStake;
+    return { label: t('button.playAgain'), sub: same ? t('button.playAgainSub') : t('button.bet', { amount: ui.bet }), enabled: ui?.canBet ?? true };
+  }
+
   private replay(celebrate: boolean): void {
-    const next = this.quickReplay
-      ? { label: t('button.playAgain'), sub: t('button.playAgainSub') }
-      : { label: t('button.continue'), sub: t('button.continueSub') };
+    const next = this.resultAction();
     this.bigButton.setFill(celebrate ? this.actionColors().celebrate : this.actionColors().ready);
     this.bigButton.setLabel(next.label, next.sub);
-    this.bigButton.setEnabled(true);
-    this.setActionLabel({ ...next, enabled: true });
+    this.bigButton.setEnabled(next.enabled);
+    this.setActionLabel(next);
   }
 
   frame(multiplier: string, payout: string, _level: number, _intensity: string, _pace: number, belowStake: boolean): void {

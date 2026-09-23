@@ -62,7 +62,9 @@ async function audit(label) {
     const centred = row.every((o) => Math.abs(o.x + o.w / 2 - (M + R) / 2) <= 2);
     // The history strip grows from the left as rides happen; alone in its row it need not reach the right.
     const historyAlone = row.length === 1 && row[0].name === 'history';
-    if (!centred && !historyAlone && (Math.abs(left - M) > 2 || Math.abs(right - R) > 2)) problems.push(`MARGIN row [${row.map((o) => o.name).join(', ')}] spans ${Math.round(left)}..${Math.round(right)}, not ${M}..${R}`);
+    // Before the first ride the strip is empty, leaving the controls alone on their row's right margin.
+    const controlsAlone = row.every((o) => o.name.startsWith('control')) && Math.abs(right - R) <= 2;
+    if (!centred && !historyAlone && !controlsAlone && (Math.abs(left - M) > 2 || Math.abs(right - R) > 2)) problems.push(`MARGIN row [${row.map((o) => o.name).join(', ')}] spans ${Math.round(left)}..${Math.round(right)}, not ${M}..${R}`);
   }
   console.info(`${label}: ${boxes.length} boxes, ${problems.length ? `${problems.length} problems` : 'clean'}`);
   for (const p of problems) console.info(`  ${p}`);
@@ -77,20 +79,11 @@ async function startRound() {
   if ((await phase()) !== 'running') throw new Error('the round never started');
 }
 
-// One ride first, then CONTINUE: the waiting screen between rides, with the history strip filled. (A
-// reload would start a fresh demo session with no history.)
+// The lobby first: with quick replay on, it is only seen before the first ride, the result screen
+// standing in for it between rides (audited below as 5 and 6).
 await page.goto(pageUrl('longRound'), { waitUntil: 'networkidle' });
 await page.waitForTimeout(2500);
-await startRound();
-await page.waitForTimeout(1500);
-await page.mouse.click(195, 783);
-await page.waitForFunction(() => ['won', 'lost'].includes(window.__triptownView().phase), null, { polling: 10, timeout: 15000 });
-await page.waitForTimeout(2500);
-await page.mouse.click(195, 783);
-await page.waitForFunction(() => window.__triptownView().phase === 'betting', null, { polling: 10, timeout: 15000 });
-await page.waitForTimeout(800);
 await audit('1-waiting');
-await page.waitForTimeout(5000);
 await startRound();
 await page.waitForTimeout(2500);
 await audit('2-riding-early');

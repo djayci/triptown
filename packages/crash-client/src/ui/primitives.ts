@@ -193,8 +193,7 @@ export class StickerButton extends Container {
     // The measured width includes the drop shadow, which extends only to the right, so centring on it
     // pushes every label half a shadow off-centre.
     const SHADOW = 4;
-    const textW = Math.max(this.labelText.width, this.subText?.width ?? 0);
-    const total = iconSize + gap + textW;
+    const total = iconSize + gap + this.labelText.width;
     let x = (w - total) / 2 - SHADOW / 2;
     if (this.iconSprite?.visible) {
       this.iconSprite.width = this.iconSprite.height = iconSize;
@@ -205,7 +204,9 @@ export class StickerButton extends Container {
     this.labelText.position.set(x, hasSub ? h / 2 - 10 : h / 2);
     if (this.subText) {
       this.subText.visible = hasSub;
-      this.subText.position.set(x + 2, h / 2 + this.labelText.height / 2 - 2);
+      // Centred under the label's ink, whichever of the two is wider.
+      const centre = x + (this.labelText.width - SHADOW) / 2;
+      this.subText.position.set(centre - this.subText.width / 2, h / 2 + this.labelText.height / 2 - 2);
     }
   }
 }
