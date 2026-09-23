@@ -18,10 +18,12 @@ import {
   sfxBigWin,
   sfxCollect,
   sfxGateSlam,
+  sfxHeading,
   sfxReturn,
   sfxSetback,
   sfxTick,
   sfxWin,
+  setSeed,
   stemBase,
   stemDrums,
   stemLead,
@@ -52,7 +54,7 @@ function mp3(f32, kbps) {
 
 // --- sfx sprite ---
 const GAP = 0.25;
-const effects = { tick: sfxTick(), bet: sfxBet(), collect: sfxCollect(), setback: sfxSetback(), boost: sfxBoost(), return: sfxReturn(), win: sfxWin(), bigwin: sfxBigWin(), crash: sfxGateSlam() };
+const effects = { tick: sfxTick(), bet: sfxBet(), collect: sfxCollect(), setback: sfxSetback(), boost: sfxBoost(), return: sfxReturn(), win: sfxWin(), bigwin: sfxBigWin(), crash: sfxGateSlam(), heading: sfxHeading() };
 let total = Math.round(GAP * SR);
 for (const b of Object.values(effects)) total += b.length + Math.round(GAP * SR);
 const sprite = new Float32Array(total);
@@ -63,6 +65,11 @@ for (const [name, b] of Object.entries(effects)) {
   spriteMap[name] = [Math.round((cursor / SR) * 1000), Math.round((b.length / SR) * 1000)];
   cursor += b.length + Math.round(GAP * SR);
 }
+
+// The round music, lobby and gallop were generated from the noise sequence the effects left behind when they
+// were first built. Pin it, so re-voicing an effect can never change a byte of the music.
+const MUSIC_SEED = 23410330;
+setSeed(MUSIC_SEED);
 
 const loopRegion = (seconds) => [Math.round((seconds / 2) * 1000), Math.round(seconds * 1000)];
 const files = {

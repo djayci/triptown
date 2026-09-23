@@ -13,10 +13,10 @@ import {
   type ScreenLook,
 } from '@triptown/crash-client';
 import type { ResultKind, RevealMode } from '@triptown/core';
-import { gsap, pop, prefersReducedMotion, type GameApp } from '@triptown/engine';
+import { Confetti, gsap, pop, prefersReducedMotion, shake, type GameApp } from '@triptown/engine';
 import { Container, Graphics, type Text } from 'pixi.js';
 import { t } from '../i18n/en';
-import { GateStage, type StageSkin } from './stage';
+import { GateStage, HEADING_CUE, type StageSkin } from './stage';
 
 /**
  * The horse game. The layout belongs to `CrashScreen` and every compliance behaviour to
@@ -95,11 +95,14 @@ const BROADCAST_LOOK: Partial<ScreenLook> = {
   hideValueOnResult: true,
   hideValueWhileBetting: true,
   buttonSub: true,
+  hideStakeInRound: true,
   // Between the control row (ends 88) and the stand (starts 300).
   lobby: { top: 88, bottom: 300 },
 };
 const BROADCAST_TOWER = { x: BC.margin, y: BC.data, w: 172, rowH: 28, headH: 38 };
 const BROADCAST_GAUGE = { x: 200, y: 246, w: 176, h: 4 };
+/** The ride home's bar: in the stake row's place, which is empty during a ride, just above the button. */
+const REVEAL_BAR = { x: 14, y: 712, w: 362, h: 6 };
 
 export class GateView extends CrashScreen {
   private readonly gate: GateStage;
@@ -117,6 +120,14 @@ export class GateView extends CrashScreen {
   private towerRows: { multiplier: number; value: Text; chance: Text; yours: Text }[] = [];
   /** The table's title and column heads, built once; only the rows are rebuilt on an update. */
   private towerHead: Text[] = [];
+  /** Heading home: a bar that fills over the fixed length, and the pulses timed to the drumroll's hits. */
+  private readonly revealBar = new Graphics();
+  private readonly revealFill = { p: 0 };
+  private buildCalls: gsap.core.Tween[] = [];
+  /** Win confetti, on top of everything so no panel hides it. */
+  private readonly confetti: Confetti;
+  /** Screen shakes shown, read by the presentation check: a shake must only ever follow a celebrated win. */
+  shakesShown = 0;
 
   constructor(game: GameApp, frames: Frames, handlers: CrashViewCallbacks, presentation: RevealMode = 'live', skin: StageSkin = 'candy') {
     const gate = new GateStage(game.app, frames, skin);
@@ -147,6 +158,10 @@ export class GateView extends CrashScreen {
     this.baseFill = COLORS.sun;
     this.gauge.visible = false;
     this.effects.addChild(this.gauge);
+    this.revealBar.visible = false;
+    this.effects.addChild(this.revealBar);
+    this.confetti = new Confetti(game.app.ticker);
+    this.root.addChild(this.confetti);
     this.tower.addChild(this.towerBg, this.towerMark);
     this.tower.visible = false;
     this.tower.position.set(this.bounds().x, this.bounds().y);
@@ -164,6 +179,7 @@ export class GateView extends CrashScreen {
     const box = this.bounds();
     if (this.tower.visible) out.push({ name: 'table', x: box.x, y: box.y, w: box.w, h: box.headH + this.towerRows.length * box.rowH + 8 });
     if (this.gauge.visible) out.push({ name: 'gauge', ...BROADCAST_GAUGE });
+    if (this.revealBar.visible) out.push({ name: 'reveal', ...REVEAL_BAR });
     return out;
   }
 
@@ -267,7 +283,8 @@ export class GateView extends CrashScreen {
   /** Broadcast: one action colour, the red of the flash tag. Paddock keeps the shared defaults. */
   protected override actionColors(): { ready: number; running: number; celebrate: number } {
     if (this.skin !== 'broadcast') return super.actionColors();
-    return { ready: 0xd90429, running: 0xd90429, celebrate: 0xffd166 };
+    // One red for every state: the broadcast look carries the result on the card, not the button.
+    return { ready: 0xd90429, running: 0xd90429, celebrate: 0xd90429 };
   }
 
   /** No auto cash-out: IN! is the only way a ride ends before the automatic reveal. */
@@ -285,6 +302,7 @@ export class GateView extends CrashScreen {
 
   override showBetting(): void {
     super.showBetting();
+    this.endBuild();
     // Paddock keeps the table up between rounds. Broadcast's lobby only invites the player to ride: the
     // chances are on the rules screen before any bet, and on the screen once the rider is out.
     this.tower.visible = this.skin !== 'broadcast' && this.towerRows.length > 0;
@@ -292,7 +310,7 @@ export class GateView extends CrashScreen {
     this.multiplierText.style.fill = this.baseFill;
     // Milestone badges and flying numbers only: the tower and the gauge live here too and are reused.
     for (const child of [...this.effects.children]) {
-      if (child === this.tower || child === this.gauge) continue;
+      if (child === this.tower || child === this.gauge || child === this.revealBar) continue;
       this.effects.removeChild(child);
       child.destroy({ children: true });
     }
@@ -376,22 +394,79 @@ export class GateView extends CrashScreen {
   override showHeadingHome(multiplier: string, payoutIfWon: string): void {
     super.showHeadingHome(multiplier, payoutIfWon);
     this.gate.headHome();
+    this.startBuild();
+  }
+
+  /**
+   * The ride home builds with its drumroll: the bar fills over the fixed length and the value pulses on
+   * each of the cue's hits, a little harder each time. Everything here runs on the clock from the press and
+   * starts before the result is known, so it is the same for a win and a loss; if the settlement is late
+   * the bar waits full.
+   */
+  private startBuild(): void {
+    this.endBuild();
+    this.revealBar.visible = true;
+    this.revealFill.p = 0;
+    this.drawRevealBar();
+    this.buildCalls.push(gsap.to(this.revealFill, { p: 1, duration: HEADING_CUE.seconds, ease: 'none', onUpdate: () => this.drawRevealBar() }));
+    if (prefersReducedMotion()) return;
+    HEADING_CUE.hits.forEach((at, i) => {
+      this.buildCalls.push(gsap.delayedCall(at, () => pop(this.multiplierText, 1.05 + 0.025 * i, 0.14)));
+    });
+  }
+
+  private endBuild(): void {
+    for (const c of this.buildCalls) c.kill();
+    this.buildCalls = [];
+    this.revealBar.visible = false;
+    this.revealBar.clear();
+  }
+
+  private drawRevealBar(): void {
+    const { x, y, w, h } = REVEAL_BAR;
+    this.revealBar.clear();
+    this.revealBar.roundRect(x, y, w, h, h / 2).fill({ color: COLORS.cream, alpha: 0.25 });
+    if (this.revealFill.p > 0) this.revealBar.roundRect(x, y, Math.max(h, w * this.revealFill.p), h, h / 2).fill(COLORS.sun);
+  }
+
+  /**
+   * A celebrated win: the gate bursts with light and fireworks go up (the scene), confetti from the pitch,
+   * a second volley from both sides, and one shake. Only called after the celebrate decision.
+   */
+  private party(big: boolean): void {
+    this.gate.celebrate(big);
+    if (!this.intensityEffects || prefersReducedMotion()) return;
+    const colors = [0xffd166, 0xffffff, 0xd90429, 0xff7a5c, 0x7cc4b2];
+    // Launch speeds keep every piece below the result card (it ends at 250): the amount won must stay
+    // readable, so the confetti peaks over the stand, not over the card.
+    this.confetti.burst({ x: FRAME_W / 2, y: 620, count: big ? 150 : 90, speed: 900, colors, outline: 0x0d0f14 });
+    gsap.delayedCall(0.35, () => {
+      this.confetti.burst({ x: 20, y: 660, count: big ? 60 : 35, speed: 880, colors, outline: 0x0d0f14 });
+      this.confetti.burst({ x: FRAME_W - 20, y: 660, count: big ? 60 : 35, speed: 880, colors, outline: 0x0d0f14 });
+    });
+    if (shake(this.root, big ? 9 : 6, 0.35)) this.shakesShown++;
   }
 
   /** A refused IN! (below the minimum) puts the horse back out on the field. */
   override cancelCashing(payout: string): void {
     super.cancelCashing(payout);
+    this.endBuild();
     if (this.roundReveal === 'onCollect') this.gate.rideOut();
   }
 
   override showCrash(multiplier: string, loss: string, instant: boolean): void {
     super.showCrash(multiplier, loss, instant);
+    this.endBuild();
     this.tower.visible = false;
     this.gauge.visible = false;
   }
 
   override showWin(multiplier: string, payout: string, big: boolean, kind: ResultKind, net: string): void {
     super.showWin(multiplier, payout, big, kind, net);
+    this.endBuild();
+    // The party asks the base's celebrate decision, the one place the rule lives: a return at or below the
+    // stake gets none of it (UK RTS 14F, AGCO 2.20).
+    if (this.resultPresentation(kind, payout, net).celebrate) this.party(big);
     this.tower.visible = false;
     this.gauge.visible = false;
     if (this.roundReveal === 'onCollect') this.gate.revealOpen();

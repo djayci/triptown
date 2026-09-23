@@ -18,7 +18,7 @@ import {
 import bands from '@triptown/fairness/reports/bands.json';
 import type { BandsByConfig } from '@triptown/fairness';
 import { t } from './i18n/en';
-import { STAGE_PALETTES } from './game/stage';
+import { HEADING_CUE, STAGE_PALETTES } from './game/stage';
 import { GateView } from './game/view';
 import { createRoundService, demoBetMinor, DEMO } from './services';
 
@@ -119,6 +119,11 @@ async function boot() {
   const controller = new GameController(game, frames, service, audio, (app, f, cb) => (view = new GateView(app, f, cb, presentation, skin)), {
     game: GAME_ID,
     collectSfx: 'collect',
+    // Gate Rush's suspense: a fixed ride home from every press, whatever the result (user decision,
+    // 23 Sep 2026), with its own drumroll in place of the round music. The length comes from the cue file
+    // the sound is built from, so the wait, the screen's build and the drumroll can't drift apart.
+    headingHomeMs: HEADING_CUE.seconds * 1000,
+    headingHomeSfx: 'heading',
     clientVersion: __APP_VERSION__,
     initialBetMinor: demoBetMinor(),
     onFairness: () => void fairness?.open(),

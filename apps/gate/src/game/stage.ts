@@ -1,5 +1,6 @@
 import { AnimatedSprite, Container, Graphics, PerspectiveMesh, Rectangle, Sprite, TilingSprite, type Application, type Texture } from 'pixi.js';
 import { gsap } from '@triptown/engine';
+import CUE from './heading-cue.json';
 
 /** The shared screen's fixed design size; the stage fills it behind the HUD. */
 const SCREEN_W = 390;
@@ -13,7 +14,7 @@ const REF_W = 358;
 const REF_H = 542;
 
 /** One lap of the field, in seconds. Fixed: the lap never knows anything about the round. */
-export const LAP_SECONDS = 5;
+export const LAP_SECONDS = 3.2;
 
 /**
  * Stage colours per skin, matching the atlas of the same name (art/art.mjs).
@@ -35,7 +36,13 @@ type StagePalette = (typeof STAGE_PALETTES)[StageSkin];
  * is already the biggest thing on screen, so animating from it tells the player nothing new.
  */
 export function intensityFor(multiplier: number): number {
-  return Math.min(1, Math.log(Math.max(1, multiplier)) / Math.log(20));
+  const m = Math.max(1, multiplier);
+  if (m >= 20) return 1;
+  // Front-loaded: most rides end by x2, so most of the build-up has to happen before it (x1.25 ≈ 0.25,
+  // x1.5 ≈ 0.4, x2 ≈ 0.65, x3 ≈ 0.8), with a slower climb left for the long rides.
+  const early = 1 - Math.exp(-(m - 1) / 0.7);
+  const late = Math.min(1, Math.log(m) / Math.log(20));
+  return Math.min(1, 0.75 * early + 0.25 * late);
 }
 
 /** Where the horse sits on its lap at scene time `t`, as an offset in reference units. */
@@ -52,8 +59,11 @@ export type StageMode = 'idle' | 'out' | 'heading' | 'arriving' | 'home' | 'shut
  */
 export type RevealMode = 'live' | 'onCollect';
 
-/** Seconds the heading-home turn takes. Fixed, and the same for every outcome (gate-odds-mvp D6). */
-export const HEADING_HOME_SECONDS = 1.2;
+/**
+ * The ride home: its fixed length and the accent hits, shared with the heading-home sound (synth.mjs) so
+ * the screen and the drumroll build together. Fixed, and the same for every outcome (gate-odds-mvp D6).
+ */
+export const HEADING_CUE: { readonly seconds: number; readonly hits: readonly number[] } = CUE;
 
 /** Gate posts in reference units, clear of the screen edge so an open door never swings off it. */
 const GATE_LEFT = 58;
@@ -94,8 +104,8 @@ interface Grazer {
   timer: number;
   target: { x: number; depth: number };
 }
-/** Seconds the doors take to swing open when a round starts. */
-const OPEN_SECONDS = 0.8;
+/** Seconds the doors take to swing open when a round starts. Short: the value is already climbing. */
+const OPEN_SECONDS = 0.5;
 
 /**
  * Beat the Gate's scene: a floodlit night field with the yard gate fixed at the left.
@@ -141,6 +151,24 @@ export class GateStage extends Container {
   private readonly horse = new Container();
   private readonly dustLayer = new Container();
   private readonly crashTint = new Graphics();
+  /** Heading home: the dark closing in around the horse. */
+  private readonly spot = new Graphics();
+  /**
+   * How far the ride home has built, 0..1. Driven by time since the press and nothing else, so it plays
+   * the same for a win and a loss; it holds at 1 if the settlement is late, and falls away at the reveal.
+   */
+  private readonly build = { k: 0 };
+  /** A kick on each of the ride home's drum hits, decaying; it flexes the spotlight. */
+  private readonly pulse = { v: 0 };
+  private hitCalls: gsap.core.Tween[] = [];
+  /** Everything in the scene, as one layer, so the spotlight can sit over all of it. */
+  private readonly scene = new Container();
+  /** Win only: a light burst behind the gate, and fireworks over the pitch. */
+  private readonly gateGlow = new Graphics();
+  private readonly party = new Container();
+  /** Loss only: the scene's lights cut out, 0 on to 1 out. */
+  private readonly dark = new Graphics();
+  private readonly lightsOut = { k: 0 };
   private revealMode: RevealMode = 'live';
   /** How open the doors are now (0 shut, 1 open), kept so a resize redraws them where they were. */
   private gateOpen = 1;
@@ -179,6 +207,9 @@ export class GateStage extends Container {
   /** Horse x in reference units while it is out on the field; the lap adds to this. */
   private fieldX = 250;
   private horseX = IDLE_X;
+  /** A forward surge on each milestone, added to the lap; tweened on its own so the lap keeps running. */
+  private readonly lunge = { x: 0 };
+  private crowdBaseY = 0;
 
   constructor(
     app: Application,
@@ -215,9 +246,9 @@ export class GateStage extends Container {
     // The horse lives in the yard's layer so it can pass through the gate: in front of the right door and
     // the right post, behind the left door and the left post, going out and coming back. The paddock and
     // its fence sit behind everything else in the yard: a horse at grass is always behind the fence.
-    this.yard.addChild(this.paddock, this.fence, this.barn, this.panels[1], this.posts[1], this.horse, this.posts[0], this.panels[0], this.latch);
+    this.yard.addChild(this.gateGlow, this.paddock, this.fence, this.barn, this.panels[1], this.posts[1], this.horse, this.posts[0], this.panels[0], this.latch);
     // Back to front: sky, beams, lights, crowd, turf, rail, yard (barn, gate and the horse), dust, tint.
-    this.addChild(
+    this.scene.addChild(
       this.sky,
       this.beams,
       ...this.lights,
@@ -231,8 +262,11 @@ export class GateStage extends Container {
       this.horseMask,
       this.yard,
       this.dustLayer,
+      this.party,
+      this.dark,
       this.crashTint,
     );
+    this.addChild(this.scene, this.spot);
     this.resize(SCREEN_W, SCREEN_H);
     this.idle();
   }
@@ -294,6 +328,19 @@ export class GateStage extends Container {
     this.setClip(false);
     this.emerging = false;
     this.dustLayer.removeChildren();
+    this.build.k = 0;
+    this.pulse.v = 0;
+    this.drawSpot();
+    this.lightsOut.k = 0;
+    this.drawDark();
+    gsap.killTweensOf(this.latch.scale);
+    this.latch.scale.set(0.6 * this.u);
+    gsap.killTweensOf(this.gateGlow);
+    gsap.killTweensOf(this.gateGlow.scale);
+    this.gateGlow.clear();
+    for (const child of [...this.party.children]) this.drop(child as Graphics);
+    // A round can end mid-bounce; every round starts with the stand at rest.
+    this.crowd.y = this.flashLayer.y = this.crowdBaseY;
     this.placeHorse();
   }
 
@@ -336,7 +383,7 @@ export class GateStage extends Container {
     // The horse sets off once the doors are half open, and is clear of the yard by the time the gate moves.
     gsap.to(this, {
       horseX: this.fieldX,
-      duration: 1.1,
+      duration: 0.75,
       delay: OPEN_SECONDS * 0.5,
       ease: 'power1.out',
       onUpdate: () => this.placeHorse(),
@@ -392,7 +439,7 @@ export class GateStage extends Container {
 
   /**
    * Gate Rush: IN! was pressed. The horse turns and gallops for home in place, never closing on the yard,
-   * for HEADING_HOME_SECONDS. It is identical for every outcome and must be played before the result is
+   * for HEADING_CUE.seconds, while the dark closes in and the stand's flashes come thicker. It is identical for every outcome and must be played before the result is
    * known; the reveal comes from `revealOpen` or `revealShut` once the server settles.
    */
   headHome(): void {
@@ -405,11 +452,119 @@ export class GateStage extends Container {
     this.emerging = false;
     this.horseX = this.fieldX;
     this.placeHorse();
+    this.build.k = 0;
+    // Reduced motion still gets the spotlight, drawn once at half strength rather than closing in.
+    if (this.reduced) this.build.k = 0.5;
+    else {
+      gsap.to(this.build, { k: 1, duration: HEADING_CUE.seconds, ease: 'power1.in' });
+      // Each drum hit kicks the spotlight and sets the stand's cameras off, a little harder each time.
+      this.hitCalls = HEADING_CUE.hits.map((at, i) =>
+        gsap.delayedCall(at, () => {
+          this.pulse.v = 0.6 + (0.4 * i) / Math.max(1, HEADING_CUE.hits.length - 1);
+          gsap.to(this.pulse, { v: 0, duration: 0.28, ease: 'power2.out' });
+          if (this.effectsOn) for (let f = 0; f < 2 + i; f++) this.flash();
+        }),
+      );
+    }
+    this.drawSpot();
+  }
+
+  /**
+   * A return above the stake, and only then: the caller asks the base's celebrate decision first. Rays of
+   * light burst from the gate, fireworks go up over the pitch and the stand's cameras go off together.
+   */
+  celebrate(big: boolean): void {
+    if (this.reduced || !this.effectsOn) return;
+    const u = this.u;
+    const gx = this.gateCenterX();
+    const gy = this.groundY() - 60 * u;
+    this.gateGlow.clear();
+    const rays = 18;
+    const reach = 420 * u;
+    for (let i = 0; i < rays; i++) {
+      const a0 = (i / rays) * Math.PI * 2;
+      const a1 = a0 + Math.PI / rays;
+      this.gateGlow.poly([0, 0, Math.cos(a0) * reach, Math.sin(a0) * reach, Math.cos(a1) * reach, Math.sin(a1) * reach]).fill({ color: 0xffd166, alpha: 0.35 });
+    }
+    // In the yard's layer, so the burst arrives with the gate.
+    this.gateGlow.position.set(gx, gy);
+    this.gateGlow.alpha = 1;
+    this.gateGlow.scale.set(0.2);
+    this.gateGlow.rotation = 0;
+    gsap.to(this.gateGlow.scale, { x: 1, y: 1, duration: 0.5, ease: 'back.out(2)' });
+    gsap.to(this.gateGlow, { rotation: 0.6, duration: 2.6, ease: 'none' });
+    gsap.to(this.gateGlow, { alpha: 0, duration: 0.8, delay: 1.9, onComplete: () => this.gateGlow.clear() });
+
+    const shots = big ? 9 : 5;
+    for (let i = 0; i < shots; i++) {
+      gsap.delayedCall(0.05 + i * (big ? 0.22 : 0.3), () => {
+        this.firework((0.15 + Math.random() * 0.7) * this.w, this.crowdBaseY + (10 + Math.random() * 120) * u, big);
+        for (let f = 0; f < 3; f++) this.flash();
+      });
+    }
+  }
+
+  /** One firework: a ring of sparks that bursts, falls a little and fades. */
+  private firework(x: number, y: number, big: boolean): void {
+    const colours = [0xffd166, 0xffffff, 0xd90429, 0xff7a5c, 0x7cc4b2];
+    const colour = colours[Math.floor(Math.random() * colours.length)]!;
+    const sparks = big ? 28 : 20;
+    const radius = (big ? 95 : 70) * this.u * (0.8 + Math.random() * 0.4);
+    const core = new Graphics().circle(0, 0, 10 * this.u).fill({ color: 0xffffff, alpha: 0.9 });
+    core.position.set(x, y);
+    this.party.addChild(core);
+    gsap.to(core, { alpha: 0, duration: 0.25, onComplete: () => this.drop(core) });
+    gsap.to(core.scale, { x: 3, y: 3, duration: 0.25 });
+    for (let i = 0; i < sparks; i++) {
+      const a = (i / sparks) * Math.PI * 2 + Math.random() * 0.2;
+      const g = new Graphics().circle(0, 0, 3.2 * this.u).fill(i % 4 === 0 ? 0xffffff : colour);
+      g.position.set(x, y);
+      this.party.addChild(g);
+      gsap.to(g, { x: x + Math.cos(a) * radius, y: y + Math.sin(a) * radius + 30 * this.u, duration: 0.9 + Math.random() * 0.3, ease: 'power3.out' });
+      gsap.to(g, { alpha: 0, duration: 0.5, delay: 0.6 + Math.random() * 0.3, onComplete: () => this.drop(g) });
+    }
+  }
+
+  /** Removes a party piece, stopping every tween on it first so none writes to it once destroyed. */
+  private drop(g: Graphics): void {
+    gsap.killTweensOf(g);
+    gsap.killTweensOf(g.scale);
+    g.destroy();
+  }
+
+  /**
+   * Loss: the power dips. The lights flicker down twice, with the two thunks in the sound, then come back up
+   * to a slight dim. The shut gate stays in plain view; nothing is hidden and nothing points at the horse.
+   */
+  private cutLights(): void {
+    const settled = 0.3;
+    if (this.reduced) {
+      this.lightsOut.k = settled;
+      this.drawDark();
+      return;
+    }
+    const draw = () => this.drawDark();
+    gsap
+      .timeline({ onUpdate: draw })
+      .set(this.lightsOut, { k: 1 })
+      .to(this.lightsOut, { k: 0.25, duration: 0.08 }, 0.06)
+      .set(this.lightsOut, { k: 1 }, 0.22)
+      .to(this.lightsOut, { k: settled, duration: 0.5, ease: 'power2.out' }, 0.3);
+    draw();
+  }
+
+  private drawDark(): void {
+    const k = this.lightsOut.k;
+    this.dark.clear();
+    this.dark.visible = k > 0;
+    if (k > 0) this.dark.rect(-this.w, -this.h, this.w * 3, this.h * 3).fill({ color: this.c.ink, alpha: 0.5 * k });
+    this.crowd.tint = k > 0.5 ? 0x5a5f6a : 0xffffff;
   }
 
   /** Gate Rush: settled as won. The gate comes back into view open and the horse rides through it. */
   revealOpen(): void {
     this.killTweens();
+    this.releaseBuild();
     this.mode = 'arriving';
     this.setGateOpen(1);
     this.faceHorse(-1);
@@ -424,6 +579,8 @@ export class GateStage extends Container {
    */
   revealShut(): void {
     this.killTweens();
+    this.releaseBuild();
+    this.cutLights();
     this.mode = 'arriving';
     this.setGateOpen(0);
     this.faceHorse(-1);
@@ -439,8 +596,16 @@ export class GateStage extends Container {
       this.placeHorse();
       this.showStanding(true);
       this.faceHorse(1);
-      if (this.reduced) this.crashTint.alpha = 0.35;
-      else gsap.to(this.crashTint, { alpha: 0.35, duration: 0.3 });
+      if (this.reduced) {
+        this.crashTint.alpha = 0.35;
+        return;
+      }
+      gsap.to(this.crashTint, { alpha: 0.35, duration: 0.3 });
+      // The gate is home and shut: the latch drops into place and dust kicks up at the foot of each door.
+      const s = 0.6 * this.u;
+      gsap.fromTo(this.latch.scale, { x: s * 1.6, y: s * 1.6 }, { x: s, y: s, duration: 0.3, ease: 'bounce.out' });
+      this.puff(GATE_LEFT * this.u + this.yard.x, this.groundY(), 0.8);
+      this.puff(GATE_RIGHT * this.u + this.yard.x, this.groundY(), 0.8);
     };
     if (!this.reduced) gsap.to(this, { horseX: stopX, duration: ARRIVE_SECONDS, ease: 'power1.out', onUpdate: () => this.placeHorse() });
     this.bringYardBack(settle);
@@ -452,6 +617,7 @@ export class GateStage extends Container {
    */
   slamGate(instant = false): void {
     this.killTweens();
+    this.cutLights();
     this.mode = 'shut';
     this.showStanding(true);
     this.faceHorse(1);
@@ -475,7 +641,8 @@ export class GateStage extends Container {
     const running = this.mode === 'out' || this.mode === 'heading' || this.mode === 'arriving';
     // Heading home and the gate coming back scroll the field the other way at the baseline speed: no
     // multiplier, no outcome.
-    const speedRef = this.mode === 'heading' || this.mode === 'arriving' ? -160 : this.effectsOn ? 160 + 380 * this.intensity : 160;
+    // A brisk gallop from the first stride; the multiplier adds to it, never the round's state.
+    const speedRef = this.mode === 'heading' || this.mode === 'arriving' ? -160 : this.effectsOn ? 320 + 280 * this.intensity : 320;
 
     if (running && !this.reduced) {
       const before = this.scroll;
@@ -486,14 +653,21 @@ export class GateStage extends Container {
       // A flash belongs to someone in the stand, so it moves with the stand, not with the camera.
       const drift = -(this.scroll - before) * 0.15;
       for (const f of this.flashLayer.children) f.x += drift;
-      this.horseRun.animationSpeed = this.effectsOn ? 0.2 + 0.16 * this.intensity : 0.2;
+      // Heading home the stride quickens with the build, which follows the clock since the press only.
+      this.horseRun.animationSpeed =
+        this.mode === 'heading' ? 0.32 + 0.14 * this.build.k : this.effectsOn ? 0.32 + 0.1 * this.intensity : 0.32;
       if (!this.horseRun.playing) this.horseRun.play();
       if (this.mode === 'out' && !this.emerging && !gsap.isTweening(this)) {
-        this.horseX = this.fieldX + lapOffset(this.time);
+        this.horseX = this.fieldX + lapOffset(this.time) + this.lunge.x;
         this.placeHorse();
       }
+      // The stand bounces with the ride and settles back once the horse turns for home; the flashes sit in
+      // the stand, so they bounce with it.
+      const bob = this.mode === 'out' && this.effectsOn ? Math.sin(this.time * 9) * 2.2 * this.u * this.intensity : 0;
+      this.crowd.y = this.crowdBaseY + bob;
+      this.flashLayer.y = this.crowdBaseY + bob;
     } else if (this.mode === 'home' && !this.reduced) {
-      this.horseRun.animationSpeed = 0.22;
+      this.horseRun.animationSpeed = 0.32;
       if (!this.horseRun.playing && this.horseRun.visible) this.horseRun.play();
     } else {
       this.horseRun.stop();
@@ -503,14 +677,16 @@ export class GateStage extends Container {
     this.placeHorse();
     this.grazeStep(dtSeconds);
 
-    // Crowd camera flashes: rate follows the multiplier only.
-    if (this.mode === 'out' && this.effectsOn && !this.reduced) {
+    // Crowd camera flashes: while out the rate follows the multiplier only; heading home it follows the
+    // build, the same clock for every outcome.
+    if ((this.mode === 'out' || this.mode === 'heading') && this.effectsOn && !this.reduced) {
       this.flashCooldown -= dtSeconds;
       if (this.flashCooldown <= 0) {
         this.flash();
-        this.flashCooldown = 1.2 - this.intensity;
+        this.flashCooldown = this.mode === 'heading' ? 0.35 - 0.27 * this.build.k : 0.9 - 0.65 * this.intensity;
       }
     }
+    if (this.build.k > 0 || this.spot.visible) this.drawSpot();
   }
 
   // ---------- internals ----------
@@ -560,6 +736,7 @@ export class GateStage extends Container {
     this.crowd.width = w;
     this.crowd.height = standH;
     this.crowd.tileScale.set(u);
+    this.crowdBaseY = crowdY;
     this.crowd.position.set(0, crowdY);
     this.flashLayer.position.set(0, crowdY);
 
@@ -696,6 +873,9 @@ export class GateStage extends Container {
 
   kick(size = 1): void {
     if (this.mode !== 'out' || this.reduced || !this.effectsOn) return;
+    // The horse surges forward and settles back into its lap: a milestone felt in the ride, not only read.
+    gsap.killTweensOf(this.lunge);
+    gsap.to(this.lunge, { x: 18 * size, duration: 0.22, ease: 'power2.out', yoyo: true, repeat: 1, repeatDelay: 0.1 });
     const x = (this.horseX - 70) * this.u;
     this.puff(x, this.groundY(), size);
     this.puff(x - 30 * this.u, this.groundY(), size * 0.7);
@@ -748,7 +928,7 @@ export class GateStage extends Container {
     const u = this.u;
     if (this.mode === 'out') {
       if (this.fieldHeld) return;
-      const ramp = this.rampFrom === null ? 1 : Math.min(1, (this.time - this.rampFrom) / 0.4);
+      const ramp = this.rampFrom === null ? 1 : Math.min(1, (this.time - this.rampFrom) / 0.25);
       const d = speedRef * u * dt * ramp;
       this.scroll += d;
       if (this.departTo !== null) {
@@ -777,8 +957,37 @@ export class GateStage extends Container {
     this.scroll += speedRef * u * dt;
   }
 
+  /** The dark closing in on the horse: a soft-edged hole that tightens and deepens with the build. */
+  private drawSpot(): void {
+    const k = this.build.k;
+    this.spot.clear();
+    this.spot.visible = k > 0.001;
+    if (!this.spot.visible) return;
+    const u = this.u;
+    const cx = this.horseX * u;
+    const cy = this.groundY() - 70 * u;
+    const r = (300 - 205 * k) * u * (1 + 0.1 * this.pulse.v);
+    const alpha = Math.min(0.9, 0.8 * k * (1 - 0.3 * this.pulse.v));
+    // Two layers with holes of different sizes make a stepped, soft edge.
+    this.spot.rect(0, 0, this.w, this.h).fill({ color: this.c.ink, alpha: alpha * 0.5 }).circle(cx, cy, r * 1.35).cut();
+    this.spot.rect(0, 0, this.w, this.h).fill({ color: this.c.ink, alpha: alpha * 0.5 }).circle(cx, cy, r).cut();
+  }
+
+  /** The reveal: the dark lifts quickly, the same way for either result. */
+  private releaseBuild(): void {
+    if (this.build.k <= 0) return;
+    if (this.reduced) {
+      this.build.k = 0;
+      this.drawSpot();
+      return;
+    }
+    gsap.to(this.build, { k: 0, duration: 0.25, ease: 'power2.out', onUpdate: () => this.drawSpot() });
+  }
+
   private killTweens(): void {
     this.emerging = false;
+    gsap.killTweensOf(this.lunge);
+    this.lunge.x = 0;
     this.fieldHeld = false;
     this.departCall?.kill();
     this.departCall = null;
@@ -789,6 +998,11 @@ export class GateStage extends Container {
     gsap.killTweensOf(this.yard);
     gsap.killTweensOf(this.gateSwing);
     gsap.killTweensOf(this.crashTint);
+    gsap.killTweensOf(this.build);
+    gsap.killTweensOf(this.pulse);
+    gsap.killTweensOf(this.lightsOut);
+    for (const c of this.hitCalls) c.kill();
+    this.hitCalls = [];
   }
 
   // ---------- the paddock ----------

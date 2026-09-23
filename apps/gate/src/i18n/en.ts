@@ -19,7 +19,7 @@ export const EN = {
   'button.collectSub': 'Lock the value and see the gate',
   'button.cashOut': 'Ride home for {amount}',
   'button.cashingOut': 'Riding home with {amount}…',
-  'button.playAgain': 'RIDE AGAIN',
+  'button.playAgain': 'PLAY AGAIN',
   'button.playAgainSub': 'Same bet',
   'button.continue': 'CONTINUE',
   'button.continueSub': 'Back to betting',
@@ -51,7 +51,7 @@ export const EN = {
   'run.revealChanceLocked': 'OPEN ON {chance}',
   'run.headingHome': 'LOCKED · HEADING HOME',
   'button.headingHome': 'RIDING HOME…',
-  'button.headingHomeSub': 'The result was fixed when the round started',
+  'button.headingHomeSub': 'Result fixed when the round started',
   'result.cashedOut': 'HOME SAFE',
   'result.gateOpen': 'GATE OPEN',
   // Net, not the gross return: a gain is only shown when the player is actually up (RTS 14F).
