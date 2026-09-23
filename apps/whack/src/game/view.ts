@@ -1173,7 +1173,7 @@ export class GameView extends CrashViewBase implements CrashView {
       // gated — a squash and a screen shake on a return at or below the stake would read as celebration
       // (UK RTS 14F, AGCO 2.20).
       if (impact) {
-        this.trackFx(pop(this.mainHole, 0.88, 0.16));
+        this.trackFx(this.mainHole.squash(0.88, 0.16));
         if (this.intensityEffects) {
           this.shakesShown++;
           shake(this.root, 5, 0.18);

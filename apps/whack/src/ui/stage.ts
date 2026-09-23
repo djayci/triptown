@@ -58,6 +58,11 @@ export class Hole extends Container {
       .fill(0xffffff);
     this.moleLayer.addChild(this.mole);
     this.moleLayer.mask = mask;
+    // Squashing pivots on the rim, so a hit compresses the mole down into the hole and its base stays
+    // planted. Scaling the Hole itself moved the ground: the whole container shrinks towards its own
+    // origin, taking the back, the lip and the rim line up and left with it.
+    this.moleLayer.pivot.set(RIM_CX, RIM_Y);
+    this.moleLayer.position.set(RIM_CX, RIM_Y);
     this.addChild(back, this.moleLayer, mask, lip);
     this.rise = RISE_HIDDEN;
   }
@@ -79,6 +84,17 @@ export class Hole extends Container {
   riseTo(target: number, duration = 0.35, ease = 'back.out(1.6)') {
     gsap.killTweensOf(this);
     return gsap.to(this, { rise: target, duration, ease });
+  }
+
+  /** Hit reaction: the mole compresses onto the rim and springs back. The hole itself never moves. */
+  squash(amount = 0.88, duration = 0.16): gsap.core.Timeline {
+    const s = this.moleLayer.scale;
+    gsap.killTweensOf(s);
+    s.set(1);
+    return gsap
+      .timeline()
+      .to(s, { y: amount, x: 1 + (1 - amount) * 0.6, duration: duration / 2, ease: 'power2.out' })
+      .to(s, { y: 1, x: 1, duration: duration / 2, ease: 'back.out(3)' });
   }
 }
 
