@@ -16,6 +16,7 @@ import {
   sfxBet,
   sfxBoost,
   sfxBigWin,
+  sfxCheckpoint,
   sfxCollect,
   sfxGateSlam,
   sfxHeading,
@@ -54,7 +55,7 @@ function mp3(f32, kbps) {
 
 // --- sfx sprite ---
 const GAP = 0.25;
-const effects = { tick: sfxTick(), bet: sfxBet(), collect: sfxCollect(), setback: sfxSetback(), boost: sfxBoost(), return: sfxReturn(), win: sfxWin(), bigwin: sfxBigWin(), crash: sfxGateSlam(), heading: sfxHeading() };
+const effects = { tick: sfxTick(), bet: sfxBet(), collect: sfxCollect(), setback: sfxSetback(), boost: sfxBoost(), return: sfxReturn(), win: sfxWin(), bigwin: sfxBigWin(), crash: sfxGateSlam(), heading: sfxHeading(), checkpoint: sfxCheckpoint() };
 let total = Math.round(GAP * SR);
 for (const b of Object.values(effects)) total += b.length + Math.round(GAP * SR);
 const sprite = new Float32Array(total);

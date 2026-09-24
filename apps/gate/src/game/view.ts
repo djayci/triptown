@@ -13,10 +13,13 @@ import {
   type ScreenLook,
 } from '@triptown/crash-client';
 import type { ResultKind, RevealMode } from '@triptown/core';
+import type { GameConfig } from '@triptown/fairness';
 import { Confetti, gsap, pop, prefersReducedMotion, shake, type GameApp } from '@triptown/engine';
 import { Container, Graphics, type Text } from 'pixi.js';
 import { t } from '../i18n/en';
+import type { GateScene } from './scene';
 import { GateStage, HEADING_CUE, type StageSkin } from './stage';
+import { TrackStage } from './track';
 
 /**
  * The horse game. The layout belongs to `CrashScreen` and every compliance behaviour to
@@ -56,6 +59,16 @@ const TIERS: Record<StageSkin, { tiers: [number, number][]; minis: number[] }> =
     ],
     minis: [0xffd166, 0xff7a5c, 0xe8eef5],
   },
+  // Dirt Track: every colour keeps 3:1 against the cream card the value sits on.
+  track: {
+    tiers: [
+      [2, 0x7c3aed],
+      [5, 0xc8102e],
+      [10, 0x0b7285],
+      [25, 0xb45309],
+    ],
+    minis: [0x1d4ed8, 0xc8102e, 0x1e7b34, 0x7c3aed],
+  },
   adult: {
     tiers: [
       [1.5, 0xd4a85a],
@@ -86,7 +99,9 @@ const BROADCAST_LOOK: Partial<ScreenLook> = {
   logo: { x: BC.margin, y: BC.header, w: 100, h: 32 },
   demo: { x: 122, y: BC.header, w: 50, h: 32, underHistory: false },
   balance: { x: BC.right, y: BC.header, width: BC.right - 184, compact: true },
-  history: { x: BC.margin, y: BC.row2 },
+  // The last rides share the second row with the controls (from 224): the strip stops 8 short of them, and
+  // its chips are the controls' 32 height so the row lines up.
+  history: { x: BC.margin, y: BC.row2, w: 224 - 8 - BC.margin, chipH: 32 },
   controls: { x: 224, y: BC.row2, size: 32, gap: 8, horizontal: true },
   // Measured ink on screen: value 100–160, money 164–191, label 208–217, chance line 230–239, gauge 246–250.
   value: { x: BC.right, anchor: 1, valueY: BC.data, valueSize: 52, payoutY: 168, payoutSize: 30, labelY: 205, chanceY: 234 },
@@ -101,11 +116,34 @@ const BROADCAST_LOOK: Partial<ScreenLook> = {
 };
 const BROADCAST_TOWER = { x: BC.margin, y: BC.data, w: 172, rowH: 28, headH: 38 };
 const BROADCAST_GAUGE = { x: 200, y: 246, w: 176, h: 4 };
+/**
+ * Dirt Track: the HUD is a cream card across the top of the track (drawn by the scene): wordmark, DEMO and
+ * balance in its header, then the value, the money if the gate is open, its caption and the chance, with a
+ * gauge under it. The result card takes the value's place inside it. The last rides and the controls share
+ * a row over the track, above the stake row; the painted ground is the chance table, so there is no tower.
+ */
+const TRACK_LOOK: Partial<ScreenLook> = {
+  logo: { x: 24, y: 19, w: 104, h: 30 },
+  demo: { x: 136, y: 19, w: 52, h: 30, underHistory: false },
+  balance: { x: 366, y: 18, width: 168, compact: true },
+  history: { x: 14, y: 626, w: 224 - 8 - 14, chipH: 32 },
+  controls: { x: 224, y: 626, size: 32, gap: 8, horizontal: true },
+  value: { x: 195, anchor: 0.5, valueY: 66, valueSize: 62, payoutY: 136, payoutSize: 28, labelY: 170, chanceY: 191 },
+  liveText: { x: 195, width: 330 },
+  resultCard: { x: 24, y: 66, w: 342, h: 148, titleY: 28, lineY: 94 },
+  hideValueOnResult: true,
+  hideValueWhileBetting: true,
+  buttonSub: true,
+  hideStakeInRound: true,
+  lobby: { top: 58, bottom: 226 },
+};
+const TRACK_GAUGE = { x: 40, y: 212, w: 310, h: 5 };
+
 /** The ride home's bar: in the stake row's place, which is empty during a ride, just above the button. */
 const REVEAL_BAR = { x: 14, y: 712, w: 362, h: 6 };
 
 export class GateView extends CrashScreen {
-  private readonly gate: GateStage;
+  private readonly gate: GateScene;
   private roundReveal: RevealMode;
   private readonly palette: (typeof TIERS)[StageSkin];
   private readonly skin: StageSkin;
@@ -129,8 +167,19 @@ export class GateView extends CrashScreen {
   /** Screen shakes shown, read by the presentation check: a shake must only ever follow a celebrated win. */
   shakesShown = 0;
 
-  constructor(game: GameApp, frames: Frames, handlers: CrashViewCallbacks, presentation: RevealMode = 'live', skin: StageSkin = 'candy') {
-    const gate = new GateStage(game.app, frames, skin);
+  /** The round's configuration, for a scene that paints the chance table into itself. */
+  private readonly configOf: () => GameConfig | undefined;
+  private ladderFor = '';
+
+  constructor(
+    game: GameApp,
+    frames: Frames,
+    handlers: CrashViewCallbacks,
+    presentation: RevealMode = 'live',
+    skin: StageSkin = 'candy',
+    configOf: () => GameConfig | undefined = () => undefined,
+  ) {
+    const gate: GateScene = skin === 'track' ? new TrackStage(game.app, frames) : new GateStage(game.app, frames, skin);
     const rush = presentation === 'onCollect';
     super(
       game,
@@ -148,9 +197,10 @@ export class GateView extends CrashScreen {
         crashedTitle: t('result.crashed'),
       },
       gate as unknown as GameStage,
-      skin === 'broadcast' ? BROADCAST_LOOK : { demo: { x: 12, y: 0, w: 62, h: 24, underHistory: true } },
+      skin === 'broadcast' ? BROADCAST_LOOK : skin === 'track' ? TRACK_LOOK : { demo: { x: 12, y: 0, w: 62, h: 24, underHistory: true } },
     );
     this.gate = gate;
+    this.configOf = configOf;
     this.roundReveal = presentation;
     gate.setRevealMode(presentation);
     this.palette = TIERS[skin];
@@ -178,7 +228,9 @@ export class GateView extends CrashScreen {
     const out: LayoutBox[] = [];
     const box = this.bounds();
     if (this.tower.visible) out.push({ name: 'table', x: box.x, y: box.y, w: box.w, h: box.headH + this.towerRows.length * box.rowH + 8 });
-    if (this.gauge.visible) out.push({ name: 'gauge', ...BROADCAST_GAUGE });
+    if (this.gauge.visible) out.push({ name: 'gauge', ...this.gaugeBox() });
+    // Dirt Track's HUD card (drawn by the scene): the words on it keep its 12 px inner margin.
+    if (this.skin === 'track') out.push({ name: 'panel-hud', x: 12, y: 12, w: 366, h: 214, inset: 12 });
     if (this.revealBar.visible) out.push({ name: 'reveal', ...REVEAL_BAR });
     return out;
   }
@@ -188,18 +240,23 @@ export class GateView extends CrashScreen {
     return this.skin === 'broadcast' ? BROADCAST_TOWER : TOWER;
   }
 
-  /** Broadcast: a thin bar under the chance line, as long as the chance is likely. */
+  private gaugeBox(): { x: number; y: number; w: number; h: number } {
+    return this.skin === 'track' ? TRACK_GAUGE : BROADCAST_GAUGE;
+  }
+
+  /** Broadcast and Dirt Track: a thin bar under the chance line, as long as the chance is likely. */
   private drawGauge(chance: string | null): void {
     this.gauge.clear();
     const percent = chance === null ? null : Number(chance.replace(/[^\d.]/g, ''));
-    if (this.skin !== 'broadcast' || percent === null || !Number.isFinite(percent)) {
+    if ((this.skin !== 'broadcast' && this.skin !== 'track') || percent === null || !Number.isFinite(percent)) {
       this.gauge.visible = false;
       return;
     }
-    const { x, y, w, h } = BROADCAST_GAUGE;
+    const { x, y, w, h } = this.gaugeBox();
+    const track = this.skin === 'track';
     this.gauge.visible = true;
-    this.gauge.rect(x, y, w, h).fill({ color: COLORS.cream, alpha: 0.25 });
-    this.gauge.rect(x, y, (w * Math.max(0, Math.min(100, percent))) / 100, h).fill(0xd90429);
+    this.gauge.roundRect(x, y, w, h, h / 2).fill(track ? { color: COLORS.ink, alpha: 0.15 } : { color: COLORS.cream, alpha: 0.25 });
+    this.gauge.roundRect(x, y, Math.max(h, (w * Math.max(0, Math.min(100, percent))) / 100), h, h / 2).fill(track ? 0x1d4ed8 : 0xd90429);
   }
 
   /**
@@ -207,6 +264,14 @@ export class GateView extends CrashScreen {
    * return, so no row is marked as the place to go in; the highlight only says where the value is now.
    */
   setChanceTable(rows: { multiplier: number; value: string; chance: string; yours: string | null }[] | null): void {
+    // Dirt Track paints the values on the ground from the round's own configuration, with their chances
+    // where the round reveals at RIDE HOME.
+    const config = this.configOf();
+    const key = config ? `${config.id}/${rows ? 'chances' : 'values'}` : '';
+    if (config && key !== this.ladderFor && this.gate.setLadder) {
+      this.ladderFor = key;
+      this.gate.setLadder(config, rows !== null);
+    }
     for (const r of this.towerRows) {
       r.value.destroy();
       r.chance.destroy();
@@ -282,6 +347,8 @@ export class GateView extends CrashScreen {
 
   /** Broadcast: one action colour, the red of the flash tag. Paddock keeps the shared defaults. */
   protected override actionColors(): { ready: number; running: number; celebrate: number } {
+    // Dirt Track: the black button of the design, in every state; the result is on the card.
+    if (this.skin === 'track') return { ready: 0x1c1c1c, running: 0x1c1c1c, celebrate: 0x1c1c1c };
     if (this.skin !== 'broadcast') return super.actionColors();
     // One red for every state: the broadcast look carries the result on the card, not the button.
     return { ready: 0xd90429, running: 0xd90429, celebrate: 0xd90429 };
@@ -305,7 +372,7 @@ export class GateView extends CrashScreen {
     this.endBuild();
     // Paddock keeps the table up between rounds. Broadcast's lobby only invites the player to ride: the
     // chances are on the rules screen before any bet, and on the screen once the rider is out.
-    this.tower.visible = this.skin !== 'broadcast' && this.towerRows.length > 0;
+    this.tower.visible = this.skin !== 'broadcast' && this.skin !== 'track' && this.towerRows.length > 0;
     this.gauge.visible = false;
     this.multiplierText.style.fill = this.baseFill;
     // Milestone badges and flying numbers only: the tower and the gauge live here too and are reused.
@@ -319,7 +386,8 @@ export class GateView extends CrashScreen {
   override showRunning(): void {
     super.showRunning();
     this.multiplierText.style.fill = this.baseFill;
-    this.tower.visible = this.towerRows.length > 0;
+    // Dirt Track's chance table is the painted ground, so it draws no tower.
+    this.tower.visible = this.skin !== 'track' && this.towerRows.length > 0;
     this.gate.rideOut();
   }
 
@@ -355,7 +423,10 @@ export class GateView extends CrashScreen {
     const bg = drawSticker(new Graphics(), w, 40, { fill, radius: 12, border: 4, shadow: 4 });
     bg.position.set(-w / 2, -20);
     badge.addChild(bg, words);
-    if (this.skin === 'broadcast') {
+    if (this.skin === 'track') {
+      // Just under the HUD card, on the right of the track: nothing else is drawn there during a ride.
+      badge.position.set(FRAME_W - 22 - w / 2, 262);
+    } else if (this.skin === 'broadcast') {
       // In the gap between the data band and the scene (250–300), under the value: no HUD row is there.
       badge.position.set(FRAME_W - 14 - w / 2, 276);
     } else {
@@ -366,7 +437,7 @@ export class GateView extends CrashScreen {
     badge.rotation = -0.12;
     badge.scale.set(0.2);
     this.effects.addChild(badge);
-    const lift = this.skin === 'broadcast' ? 0 : 30;
+    const lift = this.skin === 'broadcast' || this.skin === 'track' ? 0 : 30;
     gsap
       .timeline({ onComplete: () => badge.destroy({ children: true }) })
       .to(badge.scale, { x: 1, y: 1, duration: 0.16, ease: 'back.out(3)' })
@@ -380,14 +451,15 @@ export class GateView extends CrashScreen {
     const colour = this.palette.minis[Math.floor(Math.random() * this.palette.minis.length)]!;
     const chip = text(label, displayStyle(24, colour, 4, 0), [0.5, 0.5]);
     const dir = Math.random() < 0.5 ? -1 : 1;
-    if (this.skin === 'broadcast') chip.position.set(240, 276);
+    if (this.skin === 'track') chip.position.set(250, 262);
+    else if (this.skin === 'broadcast') chip.position.set(240, 276);
     else chip.position.set(mult.x + dir * mult.width * 0.3, mult.y + mult.height * 0.55);
     chip.scale.set(0.5);
     this.effects.addChild(chip);
     gsap
       .timeline({ onComplete: () => chip.destroy() })
       .to(chip.scale, { x: 1.1, y: 1.1, duration: 0.12, ease: 'back.out(3)' })
-      .to(chip, { x: chip.x + dir * 70, y: chip.y - (this.skin === 'broadcast' ? 0 : 56), rotation: dir * 0.35, alpha: 0, duration: 0.45, ease: 'power2.out' }, 0.05);
+      .to(chip, { x: chip.x + dir * 70, y: chip.y - (this.skin === 'broadcast' || this.skin === 'track' ? 0 : 56), rotation: dir * 0.35, alpha: 0, duration: 0.45, ease: 'power2.out' }, 0.05);
   }
 
   /** Gate Rush: IN! pressed, result unknown. The same turn for home whatever happens next. */
@@ -436,7 +508,7 @@ export class GateView extends CrashScreen {
   private party(big: boolean): void {
     this.gate.celebrate(big);
     if (!this.intensityEffects || prefersReducedMotion()) return;
-    const colors = [0xffd166, 0xffffff, 0xd90429, 0xff7a5c, 0x7cc4b2];
+    const colors = this.skin === 'track' ? [0xc8102e, 0x1d4ed8, 0xfacc15, 0x1e7b34, 0xfff9ec] : [0xffd166, 0xffffff, 0xd90429, 0xff7a5c, 0x7cc4b2];
     // Launch speeds keep every piece below the result card (it ends at 250): the amount won must stay
     // readable, so the confetti peaks over the stand, not over the card.
     this.confetti.burst({ x: FRAME_W / 2, y: 620, count: big ? 150 : 90, speed: 900, colors, outline: 0x0d0f14 });

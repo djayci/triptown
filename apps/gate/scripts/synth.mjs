@@ -162,6 +162,31 @@ export function sfxTick() {
   return normalize(b, 0.55);
 }
 
+/**
+ * A checkpoint crossed (Dirt Track): a happy arcade chime. A quick marimba-and-bell run up the D major chord,
+ * a sparkle gliding up over it, and the whoosh of the line going under the horse, in a little reverb. Short
+ * and bright; no cymbal, brass or crowd, so it can never be taken for the win.
+ */
+export function sfxCheckpoint() {
+  const b = buffer(0.9);
+  const marimba = (n) => {
+    const f = midi(n);
+    return (t, len) => (Math.sin(TAU * f * t) + 0.35 * Math.sin(TAU * 4 * f * t) * Math.exp(-t * 40)) * Math.exp(-t * 11) * env(t, len, 0.002, 0.05);
+  };
+  [74, 78, 81, 86].forEach((n, i) => {
+    add(b, i * 0.055, 0.45, marimba(n), 0.5 + i * 0.06);
+    add(b, i * 0.055, 0.35, bell(midi(n) / 587), 0.12);
+  });
+  // The sparkle: a soft high tone gliding up an octave, shimmering.
+  let ph = 0;
+  add(b, 0.1, 0.45, (t, l) => {
+    ph += (2350 * 2 ** (t / l)) / SR;
+    return Math.sin(TAU * ph) * (0.6 + 0.4 * Math.sin(TAU * 28 * t)) * env(t, l, 0.03, 0.2);
+  }, 0.07);
+  whoosh(b, 0, 0.28, 0.5, 900, 5200);
+  return master(reverb(b, { room: 0.7, damp: 0.3, wet: 0.14 }), 0.72);
+}
+
 /** Round start: the yard latch lifts, two hoof stamps, and the rider is away. */
 export function sfxBet() {
   const b = buffer(0.7);
@@ -499,8 +524,8 @@ const HEADING_CHORDS = [
 ];
 
 /**
- * Heading home: 2.5 s, the same every time, in place of the round music. A scored build, not a sound effect:
- * a low boom as the horse turns; a pedal A pulsing in the bass and quickening; the harmony climbing a chord
+ * Heading home: 2.5 s, the same every time, crossfading in over the round music. A scored build, not a sound
+ * effect: a low swell as the horse turns; a pedal A pulsing in the bass and quickening; the harmony climbing a chord
  * on every hit of the cue, in tremolo strings and a choir, with a brass stab on each hit, higher and louder;
  * the game's own talking drum squeezing upward and agogo bell running faster; a snare roll growing out of
  * nothing, timpani on the hits, a shaker, a noise riser sweeping up and a cymbal played backwards; all in the
@@ -514,8 +539,8 @@ export function sfxHeading() {
   const b = buffer(total);
   const at = (i) => hits[i] ?? stop;
 
-  // The turn for home: a sub boom dropping, and a low brass swell under it.
-  add(b, 0, 1.0, (t, l) => Math.sin(TAU * (48 * t - 10 * t * t)) * expDecay(t, 3.2) * env(t, l, 0.004, 0.2), 0.9);
+  // The turn for home: a sub swell dropping, and a low brass swell under it.
+  add(b, 0, 1.0, (t, l) => Math.sin(TAU * (48 * t - 10 * t * t)) * expDecay(t, 3.2) * env(t, l, 0.25, 0.2), 0.9);
   mix(b, biquad(brass(0.9, [33, 45, 52]), 'lp', 900), 0.55);
 
   // Bass: A pulsing in eighths, then sixteenths, opening up as it goes.
@@ -562,6 +587,9 @@ export function sfxHeading() {
   mix(b, cymbal(1.4, 2.4).reverse(), 0.6, stop - 1.4);
 
   const glued = compress(reverb(b, { room: 0.8, damp: 0.35, wet: 0.18 }), { threshold: 0.3, ratio: 3.5 });
+  // It fades in over the round music fading out (the controller's crossfade), so the change is not a cut.
+  const fadeIn = Math.round(0.6 * SR);
+  for (let i = 0; i < fadeIn; i++) glued[i] *= (i / fadeIn) ** 1.5;
   // The dead stop: everything, the reverb too, is cut, so the reveal comes out of silence.
   for (let i = Math.round(stop * SR); i < glued.length; i++) glued[i] *= Math.max(0, 1 - (i - stop * SR) / (0.01 * SR));
   return master(glued, 0.86);

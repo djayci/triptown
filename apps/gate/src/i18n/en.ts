@@ -13,7 +13,7 @@ export const EN = {
   'stage.readySub': 'Ride out. Get back in before the gate slams.',
   'stage.readyTitle': 'READY?',
   // The whole game in one line. Nothing about timing or skill: the gate is decided before the ride starts.
-  'stage.readySubRush': 'The further you ride, the more it pays, if the gate is open.',
+  'stage.readySubRush': 'The further you ride, the more it pays,\nif the gate is open.',
   'button.bet': 'BET {amount}',
   'button.collect': 'RIDE HOME',
   'button.collectSub': 'Lock the value and see the gate',
@@ -51,7 +51,8 @@ export const EN = {
   'run.revealChanceLocked': 'OPEN ON {chance}',
   'run.headingHome': 'LOCKED · HEADING HOME',
   'button.headingHome': 'RIDING HOME…',
-  'button.headingHomeSub': 'Result fixed when the round started',
+  // No second line while riding home: the rules already say every result is fixed before the round starts.
+  'button.headingHomeSub': '',
   'result.cashedOut': 'HOME SAFE',
   'result.gateOpen': 'GATE OPEN',
   // Net, not the gross return: a gain is only shown when the player is actually up (RTS 14F).

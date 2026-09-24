@@ -19,6 +19,7 @@ import bands from '@triptown/fairness/reports/bands.json';
 import type { BandsByConfig } from '@triptown/fairness';
 import { t } from './i18n/en';
 import { HEADING_CUE, STAGE_PALETTES } from './game/stage';
+import { trackCheckpoints } from './game/track';
 import { GateView } from './game/view';
 import { createRoundService, demoBetMinor, DEMO } from './services';
 
@@ -82,6 +83,18 @@ const BROADCAST = {
   shape: { border: 0.3, shadow: 0, radius: 0.25 },
 };
 
+/**
+ * Dirt Track (chosen 24 Sep 2026): the top-down look. The values sit on a cream card: the multiplier in
+ * blue, money in green, the loss card red, the action button black, the small buttons the silks' yellow. Condensed display type, and sticker
+ * panels at about half weight, as on the design's card.
+ */
+const DIRT_TRACK = {
+  colors: { sun: 0x1d4ed8, lime: 0x1e7b34, lime2: 0x2e9447, violet: 0xb3261e, sky: 0xfacc15, pink: 0xfacc15, ink: 0x1c1c1c, cream: 0xfff9ec },
+  ground: STAGE_PALETTES.track.night,
+  display: 'Barlow Condensed, Barlow, Arial Narrow, sans-serif',
+  shape: { border: 0.6, shadow: 0.6, radius: 0.45 },
+};
+
 async function boot() {
   const parent = document.getElementById('game');
   if (!parent) throw new Error('#game missing');
@@ -93,15 +106,17 @@ async function boot() {
   // The look is the game's own presentation; the skin still says what a market allows (candy or adult art).
   // Broadcast ships as the look; `?look=paddock` keeps the earlier Candy Paddock for comparison.
   const profileSkin = session?.profile?.skin === 'adult' ? 'adult' : 'candy';
-  const wantsPaddock = new URLSearchParams(location.search).get('look') === 'paddock';
-  const skin = wantsPaddock ? profileSkin : 'broadcast';
+  // `?look=track` is the Dirt Track look (chosen 24 Sep 2026), kept beside Broadcast as an option.
+  const look = new URLSearchParams(location.search).get('look');
+  const skin = look === 'paddock' ? profileSkin : look === 'track' ? 'track' : 'broadcast';
   // Gate Rush where this game's rounds reveal at IN!, Beat the Gate everywhere else (gate-odds-mvp D8).
   // Decided by effectiveReveal, the same function the server uses at START, not by the market flag alone:
   // the flag says what the market allows, effectiveReveal says what this game does. START confirms it
   // per round; this only picks the wordmark and words up front.
   registerGame(GAME_ID, 'whack-crash', { reveal: ['onCollect'] });
   const presentation = session ? effectiveReveal(GAME_ID, session.profile, session.config) : 'live';
-  useSkin(skin === 'broadcast' ? 'adult' : skin, skin === 'broadcast' ? BROADCAST : skin === 'adult' ? ADULT_STICKER : CANDY_PADDOCK);
+  const options = skin === 'broadcast' ? BROADCAST : skin === 'track' ? DIRT_TRACK : skin === 'adult' ? ADULT_STICKER : CANDY_PADDOCK;
+  useSkin(skin === 'broadcast' || skin === 'track' ? 'adult' : skin, options);
   document.body.style.background = `#${STAGE_PALETTES[skin].ray.toString(16).padStart(6, '0')}`;
 
   const [game, frames] = await Promise.all([
@@ -116,7 +131,7 @@ async function boot() {
   const overlay = new Overlay();
 
   let view: GateView | null = null;
-  const controller = new GameController(game, frames, service, audio, (app, f, cb) => (view = new GateView(app, f, cb, presentation, skin)), {
+  const controller: GameController = new GameController(game, frames, service, audio, (app, f, cb) => (view = new GateView(app, f, cb, presentation, skin, () => controller.currentSession?.config)), {
     game: GAME_ID,
     collectSfx: 'collect',
     // Gate Rush's suspense: a fixed ride home from every press, whatever the result (user decision,
@@ -124,6 +139,9 @@ async function boot() {
     // the sound is built from, so the wait, the screen's build and the drumroll can't drift apart.
     headingHomeMs: HEADING_CUE.seconds * 1000,
     headingHomeSfx: 'heading',
+    // Dirt Track: its own checkpoints, closer together as the value climbs, each with a happy chime; the
+    // painted lines are the same values (track.ts), so line, badge and sound land together.
+    ...(skin === 'track' ? { checkpoints: trackCheckpoints, checkpointSfx: 'checkpoint' } : {}),
     clientVersion: __APP_VERSION__,
     initialBetMinor: demoBetMinor(),
     onFairness: () => void fairness?.open(),

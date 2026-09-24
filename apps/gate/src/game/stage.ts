@@ -27,6 +27,8 @@ export const STAGE_PALETTES = {
   /** Broadcast: a floodlit pitch seen from the camera gantry, under a night sky graded to navy. */
   broadcast: { ink: 0x0d0f14, night: 0x16304d, ray: 0x11253c, turf: 0x1c6b3a, turf2: 0x186034, cream: 0xe8eef5, crash: 0x5a1220 },
   adult: { ink: 0x14161a, night: 0x2c333b, ray: 0x232930, turf: 0x4a6b52, turf2: 0x3c5744, cream: 0xe8e3d9, crash: 0x5a4045 },
+  /** Dirt Track (track.ts, chosen 24 Sep 2026): the values sit on the cream HUD card over a sunlit dirt track. */
+  track: { ink: 0x1c1c1c, night: 0xfff9ec, ray: 0xd8a565, turf: 0xd8a565, turf2: 0xc48f52, cream: 0xfff9ec, crash: 0x2a3440 },
 } as const;
 export type StageSkin = keyof typeof STAGE_PALETTES;
 type StagePalette = (typeof STAGE_PALETTES)[StageSkin];

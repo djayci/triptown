@@ -1,3 +1,5 @@
+import { trackSprites } from './track.mjs';
+
 // Vector art for Beat the Gate, in the house sticker language (thick ink outlines) with adult proportions.
 // scripts/build-atlas.mjs rasterizes these at 2x and packs them into public/assets/atlas.{png,json}.
 //
@@ -58,7 +60,8 @@ const PALETTES = {
     halo: 0.14,
   },
 };
-export const SKINS = Object.keys(PALETTES);
+// `track` is the top-down Dirt Track look (art/track.mjs): its own drawings, not a recolour.
+export const SKINS = [...Object.keys(PALETTES), 'track'];
 
 let INK = PALETTES.adult.INK;
 let CREAM = PALETTES.adult.CREAM;
@@ -370,6 +373,7 @@ const flash = () =>
   svg(40, 40, `<path d="M20 2 L25 15 L38 20 L25 25 L20 38 L15 25 L2 20 L15 15 Z" fill="${CREAM}" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`);
 
 export function buildSprites(skin = 'candy') {
+  if (skin === 'track') return trackSprites();
   P = PALETTES[skin];
   if (!P) throw new Error(`unknown skin ${skin}`);
   ({ INK, CREAM, GOLD, RED } = P);
