@@ -99,10 +99,10 @@ export function crossedMini(previous: number, current: number): number | null {
   return mark > previous + 1e-9 && mark > 1 ? Number(mark.toFixed(2)) : null;
 }
 
-/** The highest checkpoint crossed going from `previous` up to `current`, or null for none. */
-export function crossedCheckpoint(previous: number, current: number): number | null {
+/** The highest checkpoint crossed going from `previous` up to `current`, or null for none. A game may bring its own ladder. */
+export function crossedCheckpoint(previous: number, current: number, ladder: readonly number[] = CHECKPOINTS): number | null {
   let hit: number | null = null;
-  for (const c of CHECKPOINTS) if (previous < c && current >= c) hit = c;
+  for (const c of ladder) if (previous < c && current >= c) hit = c;
   return hit;
 }
 

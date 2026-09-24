@@ -18,6 +18,7 @@ import {
   type RideResult,
   formatRevealChance,
   HEADING_HOME_MS,
+  CHECKPOINTS,
   crossedCheckpoint,
   crossedMini,
   intensity10,
@@ -79,14 +80,21 @@ export interface ControllerHooks {
   /** Sound effect key for the collect action. Each game names its own; defaults to `collect`. */
   collectSfx?: string;
   /**
+   * A game's own milestone values for this configuration, in place of the shared CHECKPOINTS: the badge,
+   * and the game's scene, mark the same values. A function of the public configuration only.
+   */
+  checkpoints?: (config: GameConfig) => readonly number[];
+  /** Sound effect key for a milestone. Defaults to `tick`. */
+  checkpointSfx?: string;
+  /**
    * Deferred reveal: how long heading home lasts from the press, for this game. Never below
    * HEADING_HOME_MS. It is one fixed number for every round and outcome (gate-odds-mvp D6); a game
    * lengthens it for suspense, never varies it.
    */
   headingHomeMs?: number;
   /**
-   * Deferred reveal: a sound effect key played on the press in place of the round music, which stops
-   * there, so the wait for the reveal has its own cue. It starts on the press, before the result is
+   * Deferred reveal: a sound effect key played on the press in place of the round music, which fades out
+   * under it (HEADING_MUSIC_FADE_MS), so the wait for the reveal has its own cue. It starts on the press, before the result is
    * known, so it is the same for every outcome.
    */
   headingHomeSfx?: string;
@@ -102,6 +110,9 @@ export interface ControllerHooks {
    */
   initialBetMinor?: number;
 }
+
+/** How long the round music takes to fade out under a game's heading-home cue. */
+const HEADING_MUSIC_FADE_MS = 700;
 
 /** Taps on the big button are ignored this long after a round ends. */
 const RESULT_INPUT_GUARD_MS = 700;
@@ -509,8 +520,9 @@ export class GameController {
       r.pressedAt = performance.now();
       this.view.showHeadingHome(formatMultiplier(m), payout);
       if (this.hooks.headingHomeSfx) {
-        this.audio?.stopTone();
-        this.audio?.stopMusic(150);
+        // A crossfade, not a cut: the round music fades out under the cue, which fades itself in. The
+        // gallop tone runs on under both and stops with the reveal, as it always has.
+        this.audio?.stopMusic(HEADING_MUSIC_FADE_MS);
         this.audio?.playSfx(this.hooks.headingHomeSfx);
       }
     } else {
@@ -531,10 +543,7 @@ export class GameController {
           r.pressedAt = null;
           this.phase = 'running';
           // The ride goes on, so its music comes back if heading home had replaced it.
-          if (r.deferred && this.hooks.headingHomeSfx) {
-            this.audio?.startMusic();
-            this.audio?.startTone();
-          }
+          if (r.deferred && this.hooks.headingHomeSfx) this.audio?.startMusic();
           const min = (err as RoundServiceError).details?.minCashout;
           const now = displayMultiplier(this.elapsed(r), r.setbackTimes.size, this.config, r.boostTimes.size);
           this.view.cancelCashing(formatMoney(optimisticPayout(r.betMinor, now, this.config), this.currency()));
@@ -709,6 +718,15 @@ export class GameController {
     else this.balanceMinor = balanceMinor;
   }
 
+  private ladder: { id: string; values: readonly number[] } | null = null;
+
+  /** The milestone values: the game's own for this configuration, or the shared ladder. */
+  private checkpointLadder(): readonly number[] {
+    if (!this.hooks.checkpoints) return CHECKPOINTS;
+    if (this.ladder?.id !== this.config.id) this.ladder = { id: this.config.id, values: this.hooks.checkpoints(this.config) };
+    return this.ladder.values;
+  }
+
   /** This game's fixed heading-home length, never below the shared floor. */
   private headingHomeMs(): number {
     return Math.max(HEADING_HOME_MS, this.hooks.headingHomeMs ?? 0);
@@ -806,11 +824,11 @@ export class GameController {
     const t = this.elapsed(r);
     const m = displayMultiplier(t, r.setbackTimes.size, this.config, r.boostTimes.size);
     const floor = Math.max(r.lastDisplayed, r.checkpoint);
-    const milestone = crossedCheckpoint(floor, m);
+    const milestone = crossedCheckpoint(floor, m, this.checkpointLadder());
     if (milestone) {
       r.checkpoint = milestone;
       this.view.checkpoint(milestone, `x${milestone}`);
-      this.audio?.playSfx('tick', { volume: 1.4 });
+      this.audio?.playSfx(this.hooks.checkpointSfx ?? 'tick', { volume: 1.4 });
     }
     const mini = crossedMini(Math.max(floor, r.mini), m);
     if (mini && mini !== milestone) {

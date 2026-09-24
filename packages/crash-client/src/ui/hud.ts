@@ -185,6 +185,8 @@ export class HistoryStrip extends Container {
   private contentWidth = 0;
   private dragFrom: { pointer: number; chips: number } | null = null;
   private dragged = false;
+  /** Chip height, so a look can line the chips up with whatever shares their row. */
+  private chipH = 30;
   /** Set by the view: opens the full history dialog. */
   onOpen: (() => void) | null = null;
 
@@ -205,6 +207,7 @@ export class HistoryStrip extends Container {
       const dx = e.global.x - this.dragFrom.pointer;
       if (Math.abs(dx) > 4) this.dragged = true;
       this.chips.x = this.clampScroll(this.dragFrom.chips + dx);
+      this.showWholeChips();
     });
     for (const end of ['pointerup', 'pointerupoutside', 'pointercancel'] as const) {
       this.on(end, () => {
@@ -217,11 +220,25 @@ export class HistoryStrip extends Container {
     });
   }
 
-  resize(w: number) {
+  resize(w: number, chipH = this.chipH) {
     this.w = w;
-    this.clip.clear().rect(-4, -4, w + 8, 44).fill(0xffffff);
-    this.hitArea = new Rectangle(-4, -4, w + 8, 44);
+    this.clip.clear().rect(-4, -4, w + 8, chipH + 14).fill(0xffffff);
+    this.hitArea = new Rectangle(-4, -4, w + 8, chipH + 14);
+    if (chipH !== this.chipH) {
+      this.chipH = chipH;
+      this.rebuild();
+    }
     this.chips.x = this.clampScroll(this.chips.x);
+    this.showWholeChips();
+  }
+
+  /** Only chips that fit whole are drawn: one cut at the strip's edge loses its border and reads as broken. */
+  private showWholeChips() {
+    for (const chip of this.chips.children) {
+      const half = chip.width / 2;
+      const x = this.chips.x + chip.x;
+      chip.visible = x - half >= -1 && x + half <= this.w + 1;
+    }
   }
 
   /** Keeps the newest chip at the left edge and the oldest one reachable. */
@@ -255,14 +272,16 @@ export class HistoryStrip extends Container {
       const label = text(`${mark} ${formatMultiplier(v.multiplier)}`, bodyStyle(13, tc), [0.5, 0.5]);
       const cw = label.width + 20;
       const chip = new Container();
-      const bg = drawSticker(new Graphics(), cw, 30, { fill, radius: 10, border: 3, shadow: 3 });
-      bg.position.set(-cw / 2, -15);
+      const h = this.chipH;
+      const bg = drawSticker(new Graphics(), cw, h, { fill, radius: 10, border: 3, shadow: 3 });
+      bg.position.set(-cw / 2, -h / 2);
       chip.addChild(bg, label);
-      chip.position.set(x + cw / 2, 15);
+      chip.position.set(x + cw / 2, h / 2);
       this.chips.addChild(chip);
       x += cw + 6;
     }
     this.contentWidth = x;
+    this.showWholeChips();
   }
 }
 

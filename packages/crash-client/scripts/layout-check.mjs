@@ -1,6 +1,8 @@
 // Layout check: drives a demo build through its states and audits the HUD boxes the view reports
 // (`debugState().boxes`): no two boxes may intersect, and every row of boxes must span the frame's side
-// margins (14..376; the scene is exempt). A game that lays its HUD out on a grid can prove it here rather
+// margins (14..376; the scene is exempt). A look that sets words on a panel (a box named `panel-…` with an
+// `inset`) holds the rows inside it to the panel's own inner margins instead; the panel itself only frames
+// them, so it is not tested for overlap. A game that lays its HUD out on a grid can prove it here rather
 // than by eye. Screenshots of each state are written next to the report.
 // Usage: node scripts/layout-check.mjs --url http://127.0.0.1:5178/ [--out dir]
 import { mkdirSync } from 'node:fs';
@@ -11,8 +13,8 @@ for (let i = 2; i < process.argv.length; i += 2) args.set(process.argv[i].replac
 const url = args.get('url') ?? 'http://127.0.0.1:5178/';
 const out = args.get('out') ?? 'layout-check';
 mkdirSync(out, { recursive: true });
-const M = 14;
-const R = 376;
+const FRAME_M = 14;
+const FRAME_R = 376;
 
 const browser = await chromium.launch({
   executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -42,7 +44,9 @@ function rowsOf(boxes) {
 let failures = 0;
 async function audit(label) {
   await page.screenshot({ path: `${out}/${label}.png` });
-  const boxes = await page.evaluate(() => window.__triptownView().boxes);
+  const all = await page.evaluate(() => window.__triptownView().boxes);
+  const panels = all.filter((b) => b.name.startsWith('panel'));
+  const boxes = all.filter((b) => !b.name.startsWith('panel'));
   const problems = [];
   for (let i = 0; i < boxes.length; i++) {
     for (let j = i + 1; j < boxes.length; j++) {
@@ -53,11 +57,20 @@ async function audit(label) {
       }
     }
   }
-  // A single-line caption that has wrapped is a layout fault the numbers alone would not show.
-  for (const bx of boxes) if ((bx.name === 'payout-label' || bx.name === 'chance-line') && bx.h > 20) problems.push(`WRAP ${bx.name} is ${Math.round(bx.h)} tall: it has wrapped to two lines`);
+  // A caption that has wrapped past the lines its words ask for is a layout fault the numbers alone would
+  // not show. A game may break a caption on purpose (`lines`); each line is allowed 20 plus its leading.
+  for (const bx of boxes) {
+    const lines = bx.lines ?? 1;
+    if ((bx.name === 'payout-label' || bx.name === 'chance-line') && bx.h > 20 * lines + 8 * (lines - 1)) problems.push(`WRAP ${bx.name} is ${Math.round(bx.h)} tall: it has wrapped past ${lines} line${lines > 1 ? 's' : ''}`);
+  }
   for (const row of rowsOf(boxes)) {
     const left = Math.min(...row.map((o) => o.x));
     const right = Math.max(...row.map((o) => o.x + o.w));
+    const bottom = Math.max(...row.map((o) => o.y + o.h));
+    const top = Math.min(...row.map((o) => o.y));
+    const panel = panels.find((p) => left >= p.x && right <= p.x + p.w && top >= p.y && bottom <= p.y + p.h);
+    const M = panel ? panel.x + (panel.inset ?? 0) : FRAME_M;
+    const R = panel ? panel.x + panel.w - (panel.inset ?? 0) : FRAME_R;
     // A row is either on both margins, or every box in it is centred (a title such as READY?).
     const centred = row.every((o) => Math.abs(o.x + o.w / 2 - (M + R) / 2) <= 2);
     // The history strip grows from the left as rides happen; alone in its row it need not reach the right.

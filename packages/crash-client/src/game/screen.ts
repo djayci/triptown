@@ -29,6 +29,10 @@ export interface LayoutBox {
   y: number;
   w: number;
   h: number;
+  /** Lines of text the words ask for with explicit breaks, so a check can tell a break from a wrap. */
+  lines?: number;
+  /** A `panel-…` box frames others: the rows inside it keep this far from its sides. */
+  inset?: number;
 }
 
 /**
@@ -41,8 +45,12 @@ export interface ScreenLook {
   logo: { x: number; y: number; w?: number; h?: number };
   /** Right-anchored. `compact` is a single 32px line filling `width`. */
   balance: { x: number; y: number; width: number; compact: boolean };
-  /** The history strip's top when no session strip shows; it drops 32 when one does. */
-  history: { x: number; y: number };
+  /**
+   * The history strip's top when no session strip shows; it drops 32 when one does. `w` stops it short of
+   * anything sharing its row (default: the full row); older rides scroll off its right edge. `chipH` sets
+   * the chips' height, to match whatever shares the row (default 30).
+   */
+  history: { x: number; y: number; w?: number; chipH?: number };
   /** The DEMO badge's rectangle; `underHistory` puts it just below the history strip instead. */
   demo: { x: number; y: number; w: number; h: number; underHistory: boolean };
   /** The sound, fairness, rules and history controls: a column by default, or a row. */
@@ -199,7 +207,9 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
   protected readonly effects = new Container();
   private readonly payout = text('', displayStyle(34, COLORS.lime, 4, 4), [0.5, 0]);
   // Read on a dark stage at arm's length, and clear of the payout's drop shadow.
-  private readonly payoutLabel = text('', bodyStyle(13, onStage()), [0.5, 0]);
+  // Leading only spaces lines apart when a game's words break onto two; one line is unaffected. Pixi measures
+  // a led block short by the leading, cutting the last line's descenders, so the texture gets that back.
+  private readonly payoutLabel = text('', { ...bodyStyle(13, onStage()), leading: 7, padding: 8 }, [0.5, 0]);
   /**
    * Deferred reveal (gate-odds-mvp): the live win chance, RTP ÷ value, under the payout. Plain text in the
    * same weight as the caption: it informs, it never competes with the multiplier or the money.
@@ -442,6 +452,8 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     if (value) value.x += this.multInkShift;
     add('payout', this.payout, this.payout.text !== '');
     add('payout-label', this.payoutLabel, this.payoutLabel.text !== '');
+    const label = out.find((b) => b.name === 'payout-label');
+    if (label) label.lines = this.payoutLabel.text.split('\n').length;
     add('chance-line', this.revealChance, this.revealChance.text !== '');
     add('result', this.resultCard);
     add('stake', this.statBet);
@@ -598,6 +610,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     const { look } = this;
     const historyY = this.session.visible ? look.history.y + 32 : look.history.y;
     this.history.position.set(look.history.x, historyY);
+    this.history.resize(look.history.w ?? W - PAD * 2, look.history.chipH);
     // Chips are 30 px tall with a 3 px shadow; the badge sits a small gap below them.
     if (look.demo.underHistory) this.demoBadge.position.set(look.demo.x + look.demo.w / 2, historyY + 33 + 8 + look.demo.h / 2);
   }
