@@ -2,7 +2,7 @@ import { Container, Graphics, type Application, type Text, type Texture } from '
 import type { ResultKind } from '@triptown/core';
 import { gsap, prefersReducedMotion, type GameApp } from '@triptown/engine';
 import { t } from '../i18n';
-import { BalancePill, HistoryStrip, Logo, SessionStrip } from '../ui/hud';
+import { BalancePill, HistoryStrip, Logo, SessionStrip, type LogoColors } from '../ui/hud';
 import { IconButton, StatBox, StickerButton, bodyStyle, displayStyle, drawSticker, labelStyle, text } from '../ui/primitives';
 import { COLORS, onStage, readableOn } from '../theme';
 import { CrashViewBase, type ActionControl } from './view-base';
@@ -41,16 +41,20 @@ export interface LayoutBox {
  * the first layout already has it: a hook on a subclass field runs before that field exists.
  */
 export interface ScreenLook {
-  /** With w and h, the wordmark is a flat box of that size; otherwise the tilted sticker. */
-  logo: { x: number; y: number; w?: number; h?: number };
+  /**
+   * With w and h, the wordmark is a flat box of that size; otherwise the tilted sticker. `colors` recolours
+   * it (sticker, first word, second word) for a look whose value colour does not suit the second word.
+   */
+  logo: { x: number; y: number; w?: number; h?: number; colors?: LogoColors };
   /** Right-anchored. `compact` is a single 32px line filling `width`. */
   balance: { x: number; y: number; width: number; compact: boolean };
   /**
    * The history strip's top when no session strip shows; it drops 32 when one does. `w` stops it short of
    * anything sharing its row (default: the full row); older rides scroll off its right edge. `chipH` sets
-   * the chips' height, to match whatever shares the row (default 30).
+   * the chips' height, to match whatever shares the row (default 30). `byOutcome` colours a chip by the
+   * round's result instead of the value's band.
    */
-  history: { x: number; y: number; w?: number; chipH?: number };
+  history: { x: number; y: number; w?: number; chipH?: number; byOutcome?: boolean };
   /** The DEMO badge's rectangle; `underHistory` puts it just below the history strip instead. */
   demo: { x: number; y: number; w: number; h: number; underHistory: boolean };
   /** The sound, fairness, rules and history controls: a column by default, or a row. */
@@ -266,7 +270,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     this.renderer = app.renderer;
     this.balance = new BalancePill(false, this.look.balance.compact);
     const logoBox = this.look.logo.w && this.look.logo.h ? { w: this.look.logo.w, h: this.look.logo.h } : undefined;
-    this.logo = new Logo(words.logo[0], words.logo[1], logoBox ? 16 : 22, logoBox);
+    this.logo = new Logo(words.logo[0], words.logo[1], logoBox ? 16 : 22, logoBox, this.look.logo.colors);
 
     this.statBet = new StatBox(t('label.stake'), this.hasAutoCashout() ? STAKE_W : STAKE_W_ALONE, 44);
     this.statAuto = new StatBox(t('label.auto'), AUTO_W, 44);
@@ -560,6 +564,9 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
 
   private applyControls(): void {
     for (const b of this.controls) b.visible = !this.controlsHidden && (b !== this.soundBtn || this.audioAvailable);
+    // The last rides share the stage with the round the same way: they step aside with the controls, so
+    // nothing from an earlier round shows while this one runs.
+    this.history.visible = !this.controlsHidden;
     this.placeControls();
   }
 
@@ -610,6 +617,7 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
     const { look } = this;
     const historyY = this.session.visible ? look.history.y + 32 : look.history.y;
     this.history.position.set(look.history.x, historyY);
+    this.history.byOutcome = look.history.byOutcome ?? false;
     this.history.resize(look.history.w ?? W - PAD * 2, look.history.chipH);
     // Chips are 30 px tall with a 3 px shadow; the badge sits a small gap below them.
     if (look.demo.underHistory) this.demoBadge.position.set(look.demo.x + look.demo.w / 2, historyY + 33 + 8 + look.demo.h / 2);

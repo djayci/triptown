@@ -112,12 +112,18 @@ export function secondsTo(m: number, config: GameConfig): number {
   return hi;
 }
 
+/** The HUD card: a gold sunburst, Whack Crash's card in racing colours. main.ts checks the values against the ray. */
+export const TRACK_CARD = { fill: 0xf2b705, ray: 0xe5a800, ink: 0x1a1614 };
+
+/** Racing colours for the scene's own paint: kerbs, bunting, silks, confetti. */
+const RACING = { red: 0xc8261e, cream: 0xfff4dc, gold: 0xffd24a, green: 0x2f8a3e, ink: 0x1a1614 };
+
 const PALETTE = {
   dirt: 0xdda05c,
   groove: 0xc48f52,
   pebble: 0xb98247,
-  grass: 0x5fae3e,
-  grass2: 0x4e9632,
+  grass: 0x4f9a34,
+  grass2: 0x468c2e,
   rail: 0xfafaf5,
   railShadow: 0x9c6b36,
   ink: 0x1c1c1c,
@@ -196,7 +202,7 @@ export class TrackStage extends Container {
   private readonly party = new Container();
   private readonly dark = new Graphics();
   private readonly spot = new Graphics();
-  private readonly card = new Graphics();
+  private readonly card = new Container();
   /** The scene is drawn into this and shown through the tilted mesh. */
   private readonly picture: RenderTexture;
   private readonly tilted: PerspectiveMesh;
@@ -770,7 +776,7 @@ export class TrackStage extends Container {
 
   /** Paint confetti off a crossed line: a burst of coloured flecks that spray out and fall. */
   private splash(y: number): void {
-    const colours = [0xffe14d, 0xe63946, 0x1d4ed8, 0x2e9447, 0xffffff];
+    const colours = [RACING.gold, RACING.red, RACING.green, RACING.cream];
     for (let i = 0; i < 28; i++) {
       const f = new Graphics().rect(-3, -2, 6, 4).fill(colours[i % colours.length]!);
       f.position.set(RAIL_L + 20 + Math.random() * (RAIL_R - RAIL_L - 40), y);
@@ -966,7 +972,7 @@ export class TrackStage extends Container {
 
   /** One firework over the track: the shell bursts into a ring of stars that falls a little and fades. */
   private firework(x: number, y: number, big: boolean): void {
-    const colours = [0xc8102e, 0x1d4ed8, 0xfacc15, 0x1e7b34, 0xffffff];
+    const colours = [RACING.red, RACING.gold, RACING.green, RACING.cream];
     const colour = colours[Math.floor(Math.random() * colours.length)]!;
     const sparks = big ? 28 : 20;
     const radius = (big ? 90 : 66) * (0.8 + Math.random() * 0.4);
@@ -1009,14 +1015,27 @@ export class TrackStage extends Container {
 
   /** The HUD card the shared screen writes the value, the money and the chance on. */
   private drawCard(): void {
-    this.card
-      .roundRect(17, 17, W - 24, 214, 12)
-      .fill(PALETTE.railShadow)
-      .roundRect(12, 12, W - 24, 214, 12)
-      .fill(0xfff9ec)
-      .stroke({ color: PALETTE.ink, width: 3 })
-      .rect(24, 54, W - 48, 2)
-      .fill(PALETTE.ink);
+    const { fill, ray, ink } = TRACK_CARD;
+    const x = 12;
+    const y = 12;
+    const w = W - 24;
+    const h = 214;
+    const r = 16;
+    // Hard ink drop shadow, then the gold face with its sunburst, clipped to the card by a mask.
+    const face = new Graphics().roundRect(x, y + 5, w, h, r).fill(ink).roundRect(x, y, w, h, r).fill(fill);
+    const rays = new Graphics();
+    const cx = W / 2;
+    const cy = y + h * 0.62;
+    const n = 40;
+    for (let i = 0; i < n; i += 2) {
+      const a0 = (i / n) * Math.PI * 2;
+      const a1 = ((i + 1) / n) * Math.PI * 2;
+      rays.poly([cx, cy, cx + Math.cos(a0) * 400, cy + Math.sin(a0) * 400, cx + Math.cos(a1) * 400, cy + Math.sin(a1) * 400]).fill(ray);
+    }
+    const clip = new Graphics().roundRect(x, y, w, h, r).fill(0xffffff);
+    rays.mask = clip;
+    const edge = new Graphics().roundRect(x, y, w, h, r).stroke({ color: ink, width: 3.5 });
+    this.card.addChild(face, rays, clip, edge);
   }
 
   /** Harrowed dirt between white rails on grass verges, one tile tall; the posts are part of it, so they pass with the ground. */
@@ -1037,11 +1056,11 @@ export class TrackStage extends Container {
     }
     // Racing kerbs just inside each rail, red and white, 32 px a block, so they scroll with the ground.
     for (const kx of [RAIL_L + 3, RAIL_R - 13]) {
-      for (let y = 0; y < TILE; y += 32) g.rect(kx, y, 10, 32).fill((y / 32) % 2 ? 0xffffff : 0xe63946);
+      for (let y = 0; y < TILE; y += 32) g.rect(kx, y, 10, 32).fill((y / 32) % 2 ? RACING.cream : RACING.red);
       g.rect(kx, 0, 10, TILE).stroke({ color: PALETTE.ink, width: 1, alpha: 0.35 });
     }
     // Bunting along the outside of each rail: pennants in bright colours on a line.
-    const pennants = [0xe63946, 0xffe14d, 0x1d4ed8, 0xffffff, 0x2e9447];
+    const pennants = [RACING.red, RACING.cream, RACING.ink];
     for (const [bx, dir] of [[RAIL_L - 9, -1], [RAIL_R + 9, 1]] as [number, number][]) {
       g.moveTo(bx, 0).lineTo(bx, TILE).stroke({ color: 0x333333, width: 1 });
       for (let y = 0, n = 0; y < TILE; y += 16, n++) g.poly([bx, y, bx, y + 11, bx + dir * 9, y + 5.5]).fill(pennants[n % pennants.length]!);

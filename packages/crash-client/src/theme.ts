@@ -227,3 +227,12 @@ export function bandColors(multiplier: number): { fill: number; text: number } {
   if (multiplier < 10) return { fill: COLORS.lime, text: COLORS.ink };
   return { fill: COLORS.pink, text: COLORS.cream };
 }
+
+/**
+ * History chip colours by result: a win (a return above the stake) in the win colour, every other round
+ * plain cream. Text is whichever of ink or cream reads on the fill.
+ */
+export function outcomeColors(kind: 'win' | 'even' | 'loss' | 'void'): { fill: number; text: number } {
+  const fill = kind === 'win' ? COLORS.lime : COLORS.cream;
+  return { fill, text: readableOn(fill) };
+}

@@ -59,15 +59,15 @@ const TIERS: Record<StageSkin, { tiers: [number, number][]; minis: number[] }> =
     ],
     minis: [0xffd166, 0xff7a5c, 0xe8eef5],
   },
-  // Dirt Track: every colour keeps 3:1 against the cream card the value sits on.
+  // Dirt Track: every colour keeps 3:1 against the gold sunburst card the value sits on (its darker ray).
   track: {
     tiers: [
-      [2, 0x7c3aed],
-      [5, 0xc8102e],
-      [10, 0x0b7285],
-      [25, 0xb45309],
+      [2, 0x1f6b3a],
+      [5, 0x7f1d1d],
+      [10, 0x5b2a86],
+      [25, 0xa3201a],
     ],
-    minis: [0x1d4ed8, 0xc8102e, 0x1e7b34, 0x7c3aed],
+    minis: [0xc8261e, 0x2f8a3e, 0x1a1614, 0x7f1d1d],
   },
   adult: {
     tiers: [
@@ -101,7 +101,7 @@ const BROADCAST_LOOK: Partial<ScreenLook> = {
   balance: { x: BC.right, y: BC.header, width: BC.right - 184, compact: true },
   // The last rides share the second row with the controls (from 224): the strip stops 8 short of them, and
   // its chips are the controls' 32 height so the row lines up.
-  history: { x: BC.margin, y: BC.row2, w: 224 - 8 - BC.margin, chipH: 32 },
+  history: { x: BC.margin, y: BC.row2, w: 224 - 8 - BC.margin, chipH: 32, byOutcome: true },
   controls: { x: 224, y: BC.row2, size: 32, gap: 8, horizontal: true },
   // Measured ink on screen: value 100–160, money 164–191, label 208–217, chance line 230–239, gauge 246–250.
   value: { x: BC.right, anchor: 1, valueY: BC.data, valueSize: 52, payoutY: 168, payoutSize: 30, labelY: 205, chanceY: 234 },
@@ -123,10 +123,12 @@ const BROADCAST_GAUGE = { x: 200, y: 246, w: 176, h: 4 };
  * a row over the track, above the stake row; the painted ground is the chance table, so there is no tower.
  */
 const TRACK_LOOK: Partial<ScreenLook> = {
-  logo: { x: 24, y: 19, w: 104, h: 30 },
+  // The design's wordmark: a racing-red tag, GATE in cream and RUSH in gold (the value's red would sink into it).
+  logo: { x: 24, y: 19, w: 104, h: 30, colors: { fill: 0xc8261e, first: 0xfff4dc, second: 0xffd24a } },
   demo: { x: 136, y: 19, w: 52, h: 30, underHistory: false },
-  balance: { x: 366, y: 18, width: 168, compact: true },
-  history: { x: 14, y: 626, w: 224 - 8 - 14, chipH: 32 },
+  balance: { x: 366, y: 19, width: 168, compact: true },
+  // Coloured by result: in Gate Rush the value climbs on past a shut gate, so a high value is no win.
+  history: { x: 14, y: 626, w: 224 - 8 - 14, chipH: 32, byOutcome: true },
   controls: { x: 224, y: 626, size: 32, gap: 8, horizontal: true },
   value: { x: 195, anchor: 0.5, valueY: 66, valueSize: 62, payoutY: 136, payoutSize: 28, labelY: 170, chanceY: 191 },
   liveText: { x: 195, width: 330 },
@@ -256,7 +258,7 @@ export class GateView extends CrashScreen {
     const track = this.skin === 'track';
     this.gauge.visible = true;
     this.gauge.roundRect(x, y, w, h, h / 2).fill(track ? { color: COLORS.ink, alpha: 0.15 } : { color: COLORS.cream, alpha: 0.25 });
-    this.gauge.roundRect(x, y, Math.max(h, (w * Math.max(0, Math.min(100, percent))) / 100), h, h / 2).fill(track ? 0x1d4ed8 : 0xd90429);
+    this.gauge.roundRect(x, y, Math.max(h, (w * Math.max(0, Math.min(100, percent))) / 100), h, h / 2).fill(track ? COLORS.ink : 0xd90429);
   }
 
   /**
@@ -347,8 +349,8 @@ export class GateView extends CrashScreen {
 
   /** Broadcast: one action colour, the red of the flash tag. Paddock keeps the shared defaults. */
   protected override actionColors(): { ready: number; running: number; celebrate: number } {
-    // Dirt Track: the black button of the design, in every state; the result is on the card.
-    if (this.skin === 'track') return { ready: 0x1c1c1c, running: 0x1c1c1c, celebrate: 0x1c1c1c };
+    // Dirt Track: green to bet (and to play again), racing red to ride home, as on Whack Crash's lime and pink.
+    if (this.skin === 'track') return { ready: 0x2f8a3e, running: 0xc8261e, celebrate: 0x2f8a3e };
     if (this.skin !== 'broadcast') return super.actionColors();
     // One red for every state: the broadcast look carries the result on the card, not the button.
     return { ready: 0xd90429, running: 0xd90429, celebrate: 0xd90429 };
@@ -374,7 +376,9 @@ export class GateView extends CrashScreen {
     // chances are on the rules screen before any bet, and on the screen once the rider is out.
     this.tower.visible = this.skin !== 'broadcast' && this.skin !== 'track' && this.towerRows.length > 0;
     this.gauge.visible = false;
-    this.multiplierText.style.fill = this.baseFill;
+    // Dirt Track's READY? is a title, not a value: cream carried by its ink outline, as on the design and on
+    // Whack Crash. The multiplier that replaces it keeps its checked red (showRunning).
+    this.multiplierText.style.fill = this.skin === 'track' ? COLORS.cream : this.baseFill;
     // Milestone badges and flying numbers only: the tower and the gauge live here too and are reused.
     for (const child of [...this.effects.children]) {
       if (child === this.tower || child === this.gauge || child === this.revealBar) continue;
@@ -508,7 +512,7 @@ export class GateView extends CrashScreen {
   private party(big: boolean): void {
     this.gate.celebrate(big);
     if (!this.intensityEffects || prefersReducedMotion()) return;
-    const colors = this.skin === 'track' ? [0xc8102e, 0x1d4ed8, 0xfacc15, 0x1e7b34, 0xfff9ec] : [0xffd166, 0xffffff, 0xd90429, 0xff7a5c, 0x7cc4b2];
+    const colors = this.skin === 'track' ? [0xc8261e, 0xffd24a, 0x2f8a3e, 0xfff4dc] : [0xffd166, 0xffffff, 0xd90429, 0xff7a5c, 0x7cc4b2];
     // Launch speeds keep every piece below the result card (it ends at 250): the amount won must stay
     // readable, so the confetti peaks over the stand, not over the card.
     this.confetti.burst({ x: FRAME_W / 2, y: 620, count: big ? 150 : 90, speed: 900, colors, outline: 0x0d0f14 });

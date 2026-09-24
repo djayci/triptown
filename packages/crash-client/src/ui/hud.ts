@@ -3,19 +3,27 @@ import { t } from '../i18n';
 import { gsap, pop } from '@triptown/engine';
 import { formatMinor, type CurrencyRules } from '@triptown/core';
 import { formatMultiplier } from '../game/display';
-import { bandColors, COLORS } from '../theme';
+import { bandColors, COLORS, outcomeColors, SHAPE } from '../theme';
 import { bodyStyle, displayStyle, drawSticker, labelStyle, text } from './primitives';
+
+/** A wordmark's own colours: its sticker and its two words. Unset, they follow the palette. */
+export interface LogoColors {
+  fill?: number;
+  first?: number;
+  second?: number;
+}
 
 /** The game's wordmark. Each game passes its own two words; the shared client knows none of them. */
 export class Logo extends Container {
   /** With `box`, the wordmark is drawn flat inside that exact rectangle, words centred, for a gridded look. */
-  constructor(first: string, second: string, size = 22, box?: { w: number; h: number }) {
+  constructor(first: string, second: string, size = 22, box?: { w: number; h: number }, colors: LogoColors = {}) {
     super();
     const bg = new Graphics();
-    const a = text(first, displayStyle(size, COLORS.cream, 3));
-    const b = text(second, displayStyle(size, COLORS.sun, 3));
+    const fill = colors.fill ?? COLORS.pink;
+    const a = text(first, displayStyle(size, colors.first ?? COLORS.cream, 3));
+    const b = text(second, displayStyle(size, colors.second ?? COLORS.sun, 3));
     if (box) {
-      drawSticker(bg, box.w, box.h, { fill: COLORS.pink, radius: 14, border: 4, shadow: 4 });
+      drawSticker(bg, box.w, box.h, { fill, radius: 14, border: 4, shadow: 4 });
       const gap = size * 0.2;
       const total = a.width + gap + b.width;
       a.position.set((box.w - total) / 2, (box.h - a.height) / 2);
@@ -32,7 +40,7 @@ export class Logo extends Container {
     const inkLift = size * 0.082;
     a.position.set(padX, padY - inkLift);
     b.position.set(padX + a.width + size * 0.2, padY - inkLift);
-    drawSticker(bg, b.x + b.width + padX, a.height + padY * 2 - 4, { fill: COLORS.pink, radius: 14, border: 4, shadow: 4 });
+    drawSticker(bg, b.x + b.width + padX, a.height + padY * 2 - 4, { fill, radius: 14, border: 4, shadow: 4 });
     this.addChild(bg, a, b);
     this.rotation = (-3 * Math.PI) / 180;
   }
@@ -99,9 +107,13 @@ export class BalancePill extends Container {
       const w = maxWidth === Infinity ? this.key.width + this.value.width + this.unit.width + 4 + padX * 2 + 12 : maxWidth;
       drawSticker(this.bg, w, 32, { fill: COLORS.cream, radius: 14, border: 4, shadow: 4 });
       this.bg.x = -w;
-      this.key.position.set(-w + padX + this.key.width, 11);
-      this.unit.position.set(-padX, 11);
-      this.value.position.set(-padX - this.unit.width - 4, 6);
+      // Each word centred on the pill's face (above its drop shadow), so words of three sizes share one
+      // midline: fixed tops put the amount, which carries texture padding, visibly higher than the label.
+      const mid = (32 - 4 * SHAPE.shadow) / 2;
+      for (const word of [this.key, this.unit, this.value]) word.anchor.set(1, 0.5);
+      this.key.position.set(-w + padX + this.key.width, mid);
+      this.unit.position.set(-padX, mid + 1);
+      this.value.position.set(-padX - this.unit.width - 4, mid);
       if (changed) pop(this.value, 1.15, 0.25);
       return;
     }
@@ -187,6 +199,11 @@ export class HistoryStrip extends Container {
   private dragged = false;
   /** Chip height, so a look can line the chips up with whatever shares their row. */
   private chipH = 30;
+  /**
+   * Colour chips by the round's result (a win against everything else) rather than by the value's band.
+   * For a game whose value keeps climbing past a round already lost, where a high band is no win.
+   */
+  byOutcome = false;
   /** Set by the view: opens the full history dialog. */
   onOpen: (() => void) | null = null;
 
@@ -266,7 +283,7 @@ export class HistoryStrip extends Container {
     this.chips.x = 0;
     let x = 0;
     for (const v of this.values) {
-      const { fill, text: tc } = bandColors(v.multiplier);
+      const { fill, text: tc } = this.byOutcome ? outcomeColors(v.kind) : bandColors(v.multiplier);
       // A marker and a sign, so the result survives greyscale and colour blindness (GLI-19 4.14).
       const mark = v.kind === 'win' ? '✓' : v.kind === 'void' ? '•' : '✕';
       const label = text(`${mark} ${formatMultiplier(v.multiplier)}`, bodyStyle(13, tc), [0.5, 0.5]);

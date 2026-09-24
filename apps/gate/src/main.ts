@@ -19,7 +19,7 @@ import bands from '@triptown/fairness/reports/bands.json';
 import type { BandsByConfig } from '@triptown/fairness';
 import { t } from './i18n/en';
 import { HEADING_CUE, STAGE_PALETTES } from './game/stage';
-import { trackCheckpoints } from './game/track';
+import { TRACK_CARD, trackCheckpoints } from './game/track';
 import { GateView } from './game/view';
 import { createRoundService, demoBetMinor, DEMO } from './services';
 
@@ -84,15 +84,17 @@ const BROADCAST = {
 };
 
 /**
- * Dirt Track (chosen 24 Sep 2026): the top-down look. The values sit on a cream card: the multiplier in
- * blue, money in green, the loss card red, the action button black, the small buttons the silks' yellow. Condensed display type, and sticker
- * panels at about half weight, as on the design's card.
+ * Dirt Track (chosen 24 Sep 2026), in the Gold & Racing Red colours (S1, 24 Sep): Whack Crash's sticker
+ * language on a gold sunburst card, in racing colours rather than candy ones. The multiplier is a deep
+ * racing red: cream on gold reads only through its outline (1.7:1), under the 3:1 floor useSkin enforces,
+ * and ink fills in against its own ink outline. Money in bottle green, DEMO racing red, the small buttons
+ * gold; the wordmark's colours are the view's look. The action colours are the view's.
  */
 const DIRT_TRACK = {
-  colors: { sun: 0x1d4ed8, lime: 0x1e7b34, lime2: 0x2e9447, violet: 0xb3261e, sky: 0xfacc15, pink: 0xfacc15, ink: 0x1c1c1c, cream: 0xfff9ec },
-  ground: STAGE_PALETTES.track.night,
-  display: 'Barlow Condensed, Barlow, Arial Narrow, sans-serif',
-  shape: { border: 0.6, shadow: 0.6, radius: 0.45 },
+  colors: { sun: 0xa3201a, lime: 0x1f6b3a, lime2: 0x2f8a3e, violet: 0xb3261e, sky: 0xffd24a, pink: 0xc8261e, ink: 0x1a1614, cream: 0xfff4dc },
+  // The card's darker ray, the stricter of the two golds the values sit on.
+  ground: TRACK_CARD.ray,
+  shape: { border: 0.85, shadow: 0.85, radius: 0.8 },
 };
 
 async function boot() {

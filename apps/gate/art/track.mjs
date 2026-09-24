@@ -9,7 +9,7 @@
 const INK = '#1c1c1c';
 const CREAM = '#fff9ec';
 const RIDDEN = { coat: '#3e2618', shade: '#2a190f', light: '#5a3a24', mane: '#141010', blaze: '#f4efe6' };
-const SILKS = { silks: '#1d4ed8', silks2: '#facc15', helmet: '#1d4ed8' };
+const SILKS = { silks: '#c8261e', silks2: '#fff4dc', helmet: '#c8261e' };
 /** The horses at grass in the yard: none shares the ridden horse's coat. */
 export const AT_GRASS = [
   { coat: '#b9b2a8', shade: '#8e877e', light: '#d6d0c7', mane: '#4a423d', blaze: '#f4efe6' },
