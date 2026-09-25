@@ -20,7 +20,6 @@ export const EN = {
   'button.cashingOut': 'Cashing out {amount}…',
   'button.playAgain': 'PLAY AGAIN',
   'button.betAgain': 'BET AGAIN',
-  'button.playAgainSub': 'Same bet',
   'button.practice': 'WATCH A ROUND',
   'button.practiceSub': 'No stake, no payout',
   'button.continue': 'CONTINUE',

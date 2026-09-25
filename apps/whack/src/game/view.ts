@@ -635,7 +635,10 @@ export class GameView extends CrashViewBase implements CrashView {
     }
     this.bigButton.setFill(celebrate ? COLORS.lime : COLORS.sky);
     this.bigButton.setIcon(this.frames('icon-replay-cream'));
-    const replay = this.quickReplay ? { label: t('button.playAgain'), sub: t('button.playAgainSub') } : { label: t('button.continue'), sub: t('button.continueSub') };
+    // No sub-label on the quick replay, matching the crash screen: "SAME BET" repeated what the stake
+    // box beside it already says, and dropping it lets the label sit centred. CONTINUE keeps its sub,
+    // which says the button does something else.
+    const replay = this.quickReplay ? { label: t('button.playAgain'), sub: '' } : { label: t('button.continue'), sub: t('button.continueSub') };
     this.bigButton.setLabel(replay.label, replay.sub);
     this.setActionLabel({ ...replay, enabled: true });
     this.bigButton.setEnabled(true);
