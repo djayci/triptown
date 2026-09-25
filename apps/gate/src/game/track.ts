@@ -30,11 +30,13 @@ const W = 390;
 const H = 844;
 /**
  * The gallop winds up through the ride: the ground passes at an easy canter at first and accelerates steadily
- * to flat out. A fixed curve of the seconds since the ride began, the same for every ride.
+ * to flat out. A fixed curve of the seconds since the ride began, the same for every ride. Presentation only:
+ * the checkpoints come at the same moments whatever the pace, the lines just lie further apart on the ground
+ * (1.6 times the first pace, 25 Sep 2026: the ride read as too slow).
  */
-const CANTER = 140;
-const ACCEL = 35;
-const FLAT_OUT = 520;
+const CANTER = 225;
+const ACCEL = 56;
+const FLAT_OUT = 830;
 const T_FLAT = (FLAT_OUT - CANTER) / ACCEL;
 /**
  * Seconds of riding between checkpoints: long at first, so each early one is real progress, then shorter as
@@ -43,7 +45,7 @@ const T_FLAT = (FLAT_OUT - CANTER) / ACCEL;
 const GAPS = [3.2, 2.7, 2.3, 2.0, 1.75, 1.55, 1.4, 1.25, 1.1, 1.0];
 const MIN_GAP = 0.9;
 /** Without the round's configuration (before a session), the ground falls back to K px per unit of ln(value). */
-const K = 600;
+const K = 960;
 /** The camera's tilt: how much narrower the far edge of the picture is, each side, in px. Enough that the
  * rails converge and everything on the ground, the painted values included, lies at the ground's angle. */
 const TILT = 40;
@@ -69,7 +71,7 @@ const GATE_REVEAL = 653;
 /** The horse's centre while it waits in the yard, nose just inside the gate. */
 const IDLE_C = GATE_IDLE + 22 + NOSE;
 /** The ride home's ground speed, in px/s: fixed, the same for every press. */
-const HOME_SPEED = 200;
+const HOME_SPEED = 320;
 /** The track between the rails. */
 const RAIL_L = 32;
 const RAIL_R = 358;
@@ -188,6 +190,8 @@ export class TrackStage extends Container {
   private readonly latch: Sprite;
   private readonly gateGlow = new Graphics();
   private readonly grazers: { sprite: Sprite; shadow: Graphics; frames: Texture[]; head: { k: number }; x: number; y: number; t: number; up: boolean; next: number }[] = [];
+  /** The horse lying on the right: its tail swishes, slowly, on its own clock. */
+  private swisher!: { sprite: Sprite; shadow: Graphics; frames: Texture[]; at: { k: number }; next: number };
   /** True from a celebrated win until the next round: every head stays up. */
   private cheering = false;
   private readonly horse = new Container();
@@ -217,6 +221,12 @@ export class TrackStage extends Container {
   /** The ground's travel in px. While out it follows K·ln(value), eased so a 0.01 step never jumps. */
   private travel = 0;
   private travelTarget = 0;
+  /**
+   * Heading home: where the horse was last frame. It moves up the screen to its homeward place while it faces
+   * home, which alone would read as walking backwards; the ground moves up with it, so against the track the
+   * horse only ever gallops forward.
+   */
+  private homeY = 0;
   /** Travel since the last hoof print. */
   private printStride = 0;
   private clodTimer = 0;
@@ -291,13 +301,13 @@ export class TrackStage extends Container {
     this.latch.position.set((GATE_L + GATE_R) / 2, -1);
     this.latch.scale.set(0.9);
 
-    // The yard's horses, loosely about it and each at something different: the grey drinking at a trough,
-    // the chestnut at a pile of hay, the dun on its own grazing and looking about, the dark bay drinking at a
-    // second trough. They are side-on to the tilted camera, so they show their sides and legs, and they share
-    // one drawing whose head pivots at the shoulder, so the head is the same whether up, at the water or at
-    // the grass. A trough's back half is behind the horse and its front face in front, so a lowered muzzle
-    // goes into the water; the hay is in front of the muzzle. Now and then one lifts its head, and on a win
-    // they all do. The lane up the middle stays clear for the ridden horse.
+    // The yard's horses, few and calm (25 Sep 2026: four read as busy): on the left the grey drinking at a
+    // trough and the dun lying down, nodding now and then; on the right the dark bay lying down with its
+    // quarters towards the camera, turned three-quarters away, flicking its tail now and then. All three are
+    // one drawing whose head pivots at the shoulder: side-on for the two on the left, and for the bay the same
+    // lying horse seen at that angle (art/track.mjs rearLying). A trough's back half is behind the horse and
+    // its front face in front, so a lowered muzzle goes into the water. Now and then one lifts its head, and
+    // on a win they all do. The lane up the middle stays clear for the ridden horse.
     const underHorses: Sprite[] = [];
     const overHorses: Sprite[] = [];
     const prop = (name: string, x: number, bottom: number, scale: number, layer: Sprite[]): void => {
@@ -308,18 +318,15 @@ export class TrackStage extends Container {
       layer.push(p);
     };
     // Where the muzzle is, from the horse's feet, per pose (art/track.mjs sideHorse, frame 167 wide).
-    const MUZZLE = { drink: { ahead: 47.1, up: 9.4 }, graze: { ahead: 34.7, up: 5.3 } };
-    const yardHorses: { x: number; y: number; facing: 1 | -1; scale: number; down: 'drink' | 'graze' | 'rest'; at: 'trough' | 'hay' | null }[] = [
-      { x: 86, y: 56, facing: -1, scale: 0.72, down: 'drink', at: 'trough' },
-      { x: 106, y: 120, facing: -1, scale: 0.7, down: 'graze', at: 'hay' },
+    const MUZZLE = { ahead: 47.1, up: 9.4 };
+    // Each horse's frames (art/track.mjs YARD_POSES): the head from lowered to raised.
+    const yardHorses: { x: number; y: number; facing: 1 | -1; scale: number; art: string; frames: number; down: 'drink' | 'rest' }[] = [
+      { x: 86, y: 56, facing: -1, scale: 0.72, art: 'yard-0', frames: 6, down: 'drink' },
       // Lying down at rest, head up, now and then lifting it a little higher.
-      { x: 302, y: 44, facing: 1, scale: 0.66, down: 'rest', at: null },
-      { x: 292, y: 108, facing: 1, scale: 0.74, down: 'drink', at: 'trough' },
+      { x: 98, y: 126, facing: -1, scale: 0.68, art: 'yard-2', frames: 4, down: 'rest' },
     ];
-    // Head frames from lowered to raised (art/track.mjs YARD_POSES): 6 for the standing horses, 4 for the nod.
-    const HEAD_FRAMES = [6, 6, 4, 6];
-    yardHorses.forEach((h, i) => {
-      const head = Array.from({ length: HEAD_FRAMES[i]! }, (_, k) => frames(`yard-${i}-${k}`));
+    yardHorses.forEach((h) => {
+      const head = Array.from({ length: h.frames }, (_, k) => frames(`${h.art}-${k}`));
       const s = new Sprite(head[0]);
       s.anchor.set(0.5, 274 / 300);
       // The yard drawings are declared 120 wide (art/track.mjs); positions and muzzles were measured at 167.
@@ -329,24 +336,32 @@ export class TrackStage extends Container {
       shadow.filters = [soft];
       this.grazers.push({ sprite: s, shadow, frames: head, head: { k: 0 }, x: h.x, y: h.y, t: 0, up: false, next: 0.6 + Math.random() * 6 });
       if (h.down === 'rest') return;
-      const m = MUZZLE[h.down];
-      const mx = h.x + h.facing * m.ahead * h.scale;
-      const my = h.y - m.up * h.scale;
-      if (h.at === 'trough') {
-        // The water's centre line (16 units above the trough's foot) at the muzzle's height, and the trough
-        // set forward so its near end clears the forelegs: the muzzle dips in over the back of the water.
-        const bottom = my + 16 * 0.8;
-        prop('tub-back', mx + h.facing * 18, bottom, 0.8, underHorses);
-        prop('tub-front', mx + h.facing * 18, bottom, 0.8, overHorses);
-      } else if (h.at === 'hay') {
-        // Set forward, so the horse stands clear of the pile and eats from its near edge.
-        prop('side-hay', mx + h.facing * 24, h.y + 5, 0.8, overHorses);
-      }
+      const mx = h.x + h.facing * MUZZLE.ahead * h.scale;
+      const my = h.y - MUZZLE.up * h.scale;
+      // The water's centre line (16 units above the trough's foot) at the muzzle's height, and the trough set
+      // forward so its near end clears the forelegs: the muzzle dips in over the back of the water.
+      const bottom = my + 16 * 0.8;
+      prop('tub-back', mx + h.facing * 18, bottom, 0.8, underHorses);
+      prop('tub-front', mx + h.facing * 18, bottom, 0.8, overHorses);
     });
+    // The dark bay on the right, lying at rest turned away from the camera; only its tail moves (grazeStep).
+    {
+      const bay = { x: 300, y: 98, scale: 0.72 };
+      const tail = Array.from({ length: 11 }, (_, k) => frames(`yard-tail-${k}`));
+      const s = new Sprite(tail[0]);
+      s.anchor.set(0.5, 274 / 300);
+      s.scale.set(bay.scale * (167 / 120), bay.scale * (167 / 120));
+      s.position.set(bay.x, bay.y);
+      const shadow = new Graphics().ellipse(0, 0, 72 * bay.scale, 10 * bay.scale).fill({ color: 0x000000, alpha: 0.3 });
+      shadow.filters = [soft];
+      shadow.position.set(bay.x + 6, bay.y - 1);
+      s.texture = tail[5]!;
+      this.swisher = { sprite: s, shadow, frames: tail, at: { k: 0.5 }, next: 1 + Math.random() * 3 };
+    }
     this.gateGlow.position.set((GATE_L + GATE_R) / 2, -4);
     // The fence and gate are at the back of the yard, so the yard's horses (nearer the camera) are drawn over
     // them: a raised head passes in front of a rail, never behind it.
-    this.yard.addChild(yardGround, this.gateGlow, fence, ...posts, this.doors[0], this.doors[1], this.latch, ...this.grazers.map((g) => g.shadow), ...underHorses, ...this.grazers.map((g) => g.sprite), ...overHorses);
+    this.yard.addChild(yardGround, this.gateGlow, fence, ...posts, this.doors[0], this.doors[1], this.latch, ...this.grazers.map((g) => g.shadow), this.swisher.shadow, ...underHorses, ...this.grazers.map((g) => g.sprite), this.swisher.sprite, ...overHorses);
 
     this.scene.addChild(this.ground, this.prints, this.streaks, this.marks, this.yard, this.standShadow, this.horseShadow, this.horse, this.dust, this.party, this.dark, this.spot);
     // The scene is drawn flat into a texture each frame and shown through a mesh whose far edge is a little
@@ -483,6 +498,7 @@ export class TrackStage extends Container {
     this.mode = 'heading';
     this.yard.visible = false;
     this.placeHorse(this.horse.y, this.horse.rotation, 'run');
+    this.homeY = this.horse.y;
     if (this.reduced) {
       this.placeHorse(HOME_C, Math.PI, 'run');
       this.marksAlpha.a = 0;
@@ -622,6 +638,8 @@ export class TrackStage extends Container {
       this.travel += (this.travelTarget - this.travel) * Math.min(1, dt * 7);
     } else if (this.mode === 'heading' && !this.reduced) {
       this.travel -= HOME_SPEED * dt;
+      this.travel += this.horse.y - this.homeY;
+      this.homeY = this.horse.y;
     } else if (this.mode === 'arriving' && this.arrival) {
       // The yard comes back fixed to the ground: both move by the same amount, slowing as the gate arrives.
       const left = this.yard.y - GATE_REVEAL;
@@ -639,13 +657,15 @@ export class TrackStage extends Container {
     const moved = this.travel - before;
     this.ground.tilePosition.y = this.travel;
     for (const p of this.prints.children) p.y += moved;
+    // Kicked-up dust hangs over the spot of ground it rose from (paint flecks, tweened, keep their own flight).
+    for (const d of this.dust.children) d.y += moved;
     if (this.mode === 'out') this.yard.y = GATE_IDLE + this.travel;
     this.placeMarks();
 
     const running = this.mode === 'out' || this.mode === 'heading' || this.mode === 'arriving' || this.mode === 'home';
     if (running && !this.reduced) {
       this.horseRun.animationSpeed =
-        this.mode === 'heading' ? 0.36 + 0.1 * this.build.k : this.effectsOn ? 0.28 + 0.26 * this.pace : 0.3;
+        this.mode === 'heading' ? 0.5 + 0.12 * this.build.k : this.effectsOn ? 0.4 + 0.32 * this.pace : 0.42;
       if (!this.horseRun.playing) this.horseRun.play();
       this.leaveTracks(Math.abs(moved), dt);
       this.streakStep(moved, dt);
@@ -892,6 +912,27 @@ export class TrackStage extends Container {
 
   /** The row at the trough: heads down drinking, one lifting its head now and then. Decoration only. */
   private grazeStep(dt: number): void {
+    // The bay's tail hangs still most of the time, then flicks: to either side, by a different amount and at
+    // a different speed each time, sometimes twice running, and drifts back. Never on a beat. Still under
+    // reduced motion.
+    const sw = this.swisher;
+    sw.next -= dt;
+    if (!this.reduced && sw.next <= 0 && !gsap.isTweening(sw.at)) {
+      const flicks = Math.random() < 0.3 ? 2 : 1;
+      const show = () => {
+        sw.sprite.texture = sw.frames[Math.round(sw.at.k * (sw.frames.length - 1))]!;
+      };
+      const line = gsap.timeline({ onUpdate: show });
+      let side = Math.random() < 0.5 ? -1 : 1;
+      for (let i = 0; i < flicks; i++) {
+        const reach = 0.25 + Math.random() * 0.25;
+        line.to(sw.at, { k: 0.5 + side * reach, duration: 0.16 + Math.random() * 0.18, ease: 'power2.out' });
+        side = -side;
+      }
+      // Settles back near the middle, rarely exactly where it was.
+      line.to(sw.at, { k: 0.5 + (Math.random() - 0.5) * 0.12, duration: 0.5 + Math.random() * 0.6, ease: 'sine.inOut' });
+      sw.next = 1.5 + Math.random() * 5.5;
+    }
     for (const g of this.grazers) {
       g.t += dt;
       g.next -= dt;

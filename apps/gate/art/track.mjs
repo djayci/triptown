@@ -204,15 +204,6 @@ function latch() {
   return svg(18, 14, `<rect x="1" y="1" width="16" height="12" rx="3" fill="#d4a017" stroke="${INK}" stroke-width="1.6"/><rect x="6" y="4" width="6" height="6" rx="1" fill="#8a6a10"/>`);
 }
 
-/** A loose pile of hay on the ground, side-on. */
-function sideHay() {
-  const strands = Array.from({ length: 16 }, (_, i) => {
-    const x = 6 + i * 3.2;
-    return `<path d="M${x} 26 q ${2 - (i % 3)} -${8 + (i % 4) * 3} ${(i % 2 ? 4 : -3)} -${12 + (i % 5) * 2}" stroke="#b8963e" stroke-width="1.3" fill="none"/>`;
-  }).join('');
-  return svg(62, 30, `<path d="M2 28 C 6 10 20 4 31 5 C 44 4 57 12 60 28 Z" fill="#e2c26b" stroke="${INK}" stroke-width="2"/>${strands}<path d="M2 28 L60 28" stroke="${INK}" stroke-width="2"/>`);
-}
-
 /**
  * A horse at liberty seen side-on (the yard's horses stand side-on to the tilted camera), facing right, in a
  * 400 x 300 frame with the ground at y = 274. The neck and head are one piece pivoting at the shoulder, so
@@ -279,7 +270,12 @@ const LEGS_FOLDED = {
 /** How far the body drops to lie on its folded legs. */
 const LIE_DROP = 82;
 
-function sideHorse(c, angle, lying = false) {
+/**
+ * `tailSwing` turns the tail about its root, in degrees. `turned` draws the horse turned away from the camera
+ * (rearLying): the body shortened to `length` and its far end raised by `rise` degrees, while the head keeps
+ * its own proportions, only a little smaller (`head`) for the distance, carried on the shoulder.
+ */
+function sideHorse(c, angle, lying = false, { tailSwing = 0, turned = null } = {}) {
   const legs = lying ? LEGS_FOLDED : LEGS;
   const limb = (pts, colour) => {
     const [fx, fy] = pts[pts.length - 1];
@@ -341,30 +337,54 @@ function sideHorse(c, angle, lying = false) {
     `</mask>`;
   // Declared at 120 px wide: the yard shows them at about that size, so the atlas stays small (the stage
   // scales them up by SIDE_SCALE to the size the positions were drawn for).
+  const behind = far + `<g transform="translate(0 ${drop})"><g transform="rotate(${tailSwing} 108 122)"><path d="${tail}" fill="${c.mane}" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/></g></g>`;
+  const neckAndHead = `<g transform="translate(0 ${drop})">${headGroup}</g>`;
+  const front =
+    near +
+    `<g transform="translate(0 ${drop})"><path d="${barrel}" fill="${c.coat}"/></g>` +
+    `<g mask="url(#joins)"><path d="${barrel}" transform="translate(0 ${drop})" fill="none" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/></g>` +
+    `<g transform="translate(0 ${drop})">${shading}</g>`;
+  if (!turned) return svg(120, 82, `<defs>${joins}</defs>` + behind + neckAndHead + front, '-20 0 440 300');
+  // Turned away: the body is shortened about a point on the ground and tilted up towards its far end; the
+  // head is scaled evenly about the shoulder, placed where the shortened body puts the shoulder.
+  const { length, rise, head: scale } = turned;
+  const body = `translate(200 268) skewY(${rise}) scale(${length} 1) translate(-200 -268)`;
+  const shoulderY = py + drop;
+  const sx = 200 + (px - 200) * length;
+  const sy = shoulderY + Math.tan((rise * Math.PI) / 180) * (px - 200) * length;
+  const headAt = `translate(${sx.toFixed(1)} ${sy.toFixed(1)}) scale(${scale}) translate(${-px} ${-shoulderY})`;
   return svg(
     120,
     82,
-    `<defs>${joins}</defs>` +
-      far +
-      `<g transform="translate(0 ${drop})"><path d="${tail}" fill="${c.mane}" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>${headGroup}</g>` +
-      near +
-      `<g transform="translate(0 ${drop})"><path d="${barrel}" fill="${c.coat}"/></g>` +
-      `<g mask="url(#joins)"><path d="${barrel}" transform="translate(0 ${drop})" fill="none" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/></g>` +
-      `<g transform="translate(0 ${drop})">${shading}</g>`,
+    `<defs>${joins}</defs><g transform="${body}">${behind}</g><g transform="${headAt}">${neckAndHead}</g><g transform="${body}">${front}</g>`,
     '-20 0 440 300',
   );
 }
 
+
+/**
+ * A horse lying down turned three-quarters away from the camera, its quarters towards it and its head away to
+ * the right. It is the side-on lying horse itself, seen at that angle: the body shortened along its length
+ * and its far end set higher, as the tilted camera sees ground further off, and the head at its own
+ * proportions, a little smaller for the distance. `tailSwing` turns the tail about its root.
+ */
+function rearLying(c, tailSwing = 0) {
+  return sideHorse(c, 4, true, { tailSwing, turned: REAR });
+}
+/** How much of the turned horse's length shows, how steeply its far end rises, and the head's size for its distance. */
+const REAR = { length: 0.8, rise: -8, head: 0.92 };
+
+
 /**
  * What each yard horse is doing (the stage places them: track.ts): the head angle when lowered and raised,
- * and how many frames between. 0 and 3 drink at a trough, 1 eats hay, 2 lies down and nods.
+ * and how many frames between. The grey drinks at a trough; the dun lies down and nods.
  */
 export const YARD_POSES = [
-  { down: 80, up: 0, lying: false, frames: 6 },
-  { down: 96, up: 0, lying: false, frames: 6 },
-  { down: 14, up: -6, lying: true, frames: 4 },
-  { down: 80, up: 0, lying: false, frames: 6 },
+  { name: 'yard-0', coat: AT_GRASS[0], down: 80, up: 0, lying: false, frames: 6 },
+  { name: 'yard-2', coat: AT_GRASS[2], down: 14, up: -6, lying: true, frames: 4 },
 ];
+/** The dark bay lying at rest with its back to the camera, its tail flicking now and then: frames from one side of the flick to the other. */
+export const YARD_TAIL = { name: 'yard-tail', coat: AT_GRASS[3], from: -18, to: 26, frames: 11 };
 
 /** A low galvanised trough side-on, in two halves: the back (rim and water) goes behind a drinking horse's head, the front face in front of it. */
 function tubBack() {
@@ -387,15 +407,16 @@ export function trackSprites() {
     'td-door': door(),
     'td-post': post(),
     'td-latch': latch(),
-    'side-hay': sideHay(),
     'tub-back': tubBack(),
     'tub-front': tubFront(),
     'td-dust': dust(),
   };
   // Each yard horse's head, from lowered (frame 0) to raised (the last), every angle in between, so it
   // lifts and lowers smoothly.
-  YARD_POSES.forEach(({ down, up, lying, frames }, i) => {
-    for (let k = 0; k < frames; k++) out[`yard-${i}-${k}`] = sideHorse(AT_GRASS[i], down + ((up - down) * k) / (frames - 1), lying);
-  });
+  for (const { name, coat, down, up, lying, frames } of YARD_POSES) {
+    for (let k = 0; k < frames; k++) out[`${name}-${k}`] = sideHorse(coat, down + ((up - down) * k) / (frames - 1), lying);
+  }
+  const { name, coat, from, to, frames } = YARD_TAIL;
+  for (let k = 0; k < frames; k++) out[`${name}-${k}`] = rearLying(coat, from + ((to - from) * k) / (frames - 1));
   return out;
 }
