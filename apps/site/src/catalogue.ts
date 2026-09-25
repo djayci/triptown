@@ -5,7 +5,7 @@
 export type GameStatus = 'live' | 'in-development';
 
 /** The game's own look, drawn as a logo tile rather than a screenshot. */
-export type TileTheme = 'whack-candy' | 'gate-paddock';
+export type TileTheme = 'whack-candy' | 'gate-paddock' | 'gate-track';
 
 export type Entry = {
   /** URL segment under /play/. */
@@ -49,7 +49,7 @@ export const catalogue: readonly Entry[] = [
       'The value climbs while the live chance falls. Call the horse in and the gate reveals open or shut.',
     status: 'live',
     logo: ['GATE', 'RUSH'],
-    tile: 'gate-paddock',
+    tile: 'gate-track',
     accent: '#3abef9',
     demoQuery: {},
   },

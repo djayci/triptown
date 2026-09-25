@@ -319,7 +319,8 @@ a:hover {
 }
 /*
  * Logo tiles: each game's HUD sticker on its own backdrop, in its own colours (crash-client theme.ts
- * candy palette; apps/gate/src/game/stage.ts STAGE_PALETTES.candy and main.ts CANDY_PADDOCK).
+ * candy palette; apps/gate/src/game/stage.ts STAGE_PALETTES.candy and main.ts CANDY_PADDOCK). Gate Rush's
+ * is its Dirt Track look (apps/gate/src/game/track.ts TRACK_CARD and RACING, view.ts TRACK_LOOK.logo).
  */
 .tile {
   position: relative;
@@ -352,6 +353,27 @@ a:hover {
     linear-gradient(#1d1424, #1d1424) 0 0 / 100% 3px no-repeat,
     repeating-linear-gradient(90deg, #6fd14a 0 11%, #4fbf3a 11% 22%);
   border-top: 0;
+}
+/* Dirt Track: the gold sunburst card, the flat racing-red wordmark, and the track below it. */
+.tile-gate-track {
+  --ink: #1a1614;
+  --cream: #fff4dc;
+  --sticker: #c8261e;
+  --word-b: #ffd24a;
+}
+.tile-gate-track .tile-ground {
+  top: 62%;
+  border-top: 3px solid #1a1614;
+  background:
+    repeating-linear-gradient(180deg, #c8261e 0 14px, #fff4dc 14px 28px) 19% 0 / 3.5% 100% no-repeat,
+    repeating-linear-gradient(180deg, #fff4dc 0 14px, #c8261e 14px 28px) 81% 0 / 3.5% 100% no-repeat,
+    linear-gradient(#dda05c, #dda05c) 50% 0 / 58% 100% no-repeat,
+    repeating-linear-gradient(90deg, #4f9a34 0 11%, #468c2e 11% 22%);
+}
+.tile-gate-track .sticker {
+  font-family: var(--font-game-grotesque), 'Arial Black', sans-serif;
+  font-weight: 800;
+  transform: none;
 }
 .sticker {
   position: relative;
@@ -591,14 +613,21 @@ a:hover {
     transform: rotate(-5deg) scale(1.07) translateY(-2%);
     box-shadow: 0 max(5px, 2cqw) 0 var(--ink);
   }
+  /* Gate Rush's wordmark sits flat in its game, so it lifts without the tilt. */
+  .row-live:hover .tile-gate-track .sticker,
+  .row-live:focus-within .tile-gate-track .sticker {
+    transform: scale(1.07) translateY(-2%);
+  }
 
   /* The sunburst turns, slowly, only on a live row. */
   .row-live .tile-whack-candy,
-  .row-live .tile-gate-paddock {
+  .row-live .tile-gate-paddock,
+  .row-live .tile-gate-track {
     animation: tt-rays 90s linear infinite;
   }
   .row-live:hover .tile-whack-candy,
-  .row-live:hover .tile-gate-paddock {
+  .row-live:hover .tile-gate-paddock,
+  .row-live:hover .tile-gate-track {
     animation-duration: 30s;
   }
 
@@ -651,6 +680,9 @@ a:hover {
 }
 .tile-gate-paddock {
   background: repeating-conic-gradient(from var(--ray) at 50% 64%, #ffd43b 0deg 7deg, #ffc414 7deg 14deg);
+}
+.tile-gate-track {
+  background: repeating-conic-gradient(from var(--ray) at 50% 62%, #f2b705 0deg 9deg, #e5a800 9deg 18deg);
 }
 
 @keyframes tt-rise {

@@ -106,11 +106,11 @@ async function boot() {
   const service = await createRoundService();
   const session = await service.getSession().catch(() => null);
   // The look is the game's own presentation; the skin still says what a market allows (candy or adult art).
-  // Broadcast ships as the look; `?look=paddock` keeps the earlier Candy Paddock for comparison.
+  // Dirt Track ships as the look (user decision, 25 Sep 2026); `?look=broadcast` keeps Broadcast, the look
+  // before it, and `?look=paddock` the earlier Candy Paddock, for comparison.
   const profileSkin = session?.profile?.skin === 'adult' ? 'adult' : 'candy';
-  // `?look=track` is the Dirt Track look (chosen 24 Sep 2026), kept beside Broadcast as an option.
   const look = new URLSearchParams(location.search).get('look');
-  const skin = look === 'paddock' ? profileSkin : look === 'track' ? 'track' : 'broadcast';
+  const skin = look === 'paddock' ? profileSkin : look === 'broadcast' ? 'broadcast' : 'track';
   // Gate Rush where this game's rounds reveal at IN!, Beat the Gate everywhere else (gate-odds-mvp D8).
   // Decided by effectiveReveal, the same function the server uses at START, not by the market flag alone:
   // the flag says what the market allows, effectiveReveal says what this game does. START confirms it

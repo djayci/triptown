@@ -109,7 +109,9 @@ export class BalancePill extends Container {
       this.bg.x = -w;
       // Each word centred on the pill's face (above its drop shadow), so words of three sizes share one
       // midline: fixed tops put the amount, which carries texture padding, visibly higher than the label.
-      const mid = (32 - 4 * SHAPE.shadow) / 2;
+      // Centring the line box leaves the capitals high (it keeps room for descenders these words barely
+      // use); measured at 4x, the ink sat 1.4 px above the face's centre, so the midline drops by that.
+      const mid = (32 - 4 * SHAPE.shadow) / 2 + 1.5;
       for (const word of [this.key, this.unit, this.value]) word.anchor.set(1, 0.5);
       this.key.position.set(-w + padX + this.key.width, mid);
       this.unit.position.set(-padX, mid + 1);
