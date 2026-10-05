@@ -1,0 +1,287 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Main.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Live · three rounds on a loop",
+      "page": "drove"
+    },
+    "Betting.dc.html": {
+      "x": 470,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "1 · Betting",
+      "page": "drove"
+    },
+    "RunEarly.dc.html": {
+      "x": 940,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "2 · Into the drove",
+      "page": "drove"
+    },
+    "RunFast.dc.html": {
+      "x": 1410,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "3 · Flat out",
+      "page": "drove"
+    },
+    "Shouldered.dc.html": {
+      "x": 1880,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "4 · Shouldered (Scatter option)",
+      "page": "drove"
+    },
+    "BrokeOut.dc.html": {
+      "x": 2350,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "5 · Broke out",
+      "page": "drove"
+    },
+    "Wolf.dc.html": {
+      "x": 2820,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "6 · The wolf",
+      "page": "drove"
+    },
+    "Cast.dc.html": {
+      "x": 0,
+      "y": 1620,
+      "w": 1300,
+      "h": 560,
+      "title": "Cast · one scale",
+      "page": "drove"
+    },
+    "FlockLive.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Live · three rounds on a loop",
+      "page": "flock"
+    },
+    "FlockBetting.dc.html": {
+      "x": 470,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "1 · Betting: on his own",
+      "page": "flock"
+    },
+    "FlockGathering.dc.html": {
+      "x": 940,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "2 · The first rams join",
+      "page": "flock"
+    },
+    "FlockMassive.dc.html": {
+      "x": 1410,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "3 · A massive flock",
+      "page": "flock"
+    },
+    "FlockSplit.dc.html": {
+      "x": 1880,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "4 · Flock splits (Scatter option)",
+      "page": "flock"
+    },
+    "FlockPenned.dc.html": {
+      "x": 2350,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "5 · Penned",
+      "page": "flock"
+    },
+    "FlockWolf.dc.html": {
+      "x": 2820,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "6 · The wolf",
+      "page": "flock"
+    },
+    "FlockCast.dc.html": {
+      "x": 0,
+      "y": 1620,
+      "w": 1300,
+      "h": 560,
+      "title": "Cast · one scale",
+      "page": "flock"
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-04T08:22:11Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas",
+    "page": "flock"
+  },
+  "notes": {
+    "adult": {
+      "color": "orange",
+      "maxH": 560,
+      "size": 24,
+      "text": "A RAM, NOT A LAMB\nSheep are the CAP under-18 guidance’s own “cuddly animal” example, and a wolf and a sheep is its fairy-tale example. So the player is a grown animal: full curl of horn, long Roman nose, matted working fleece, no eyes, face or mascot. The wolf is lean, grown and only ever a silhouette.\nThis lowers the risk; it does not clear it. The concept audit rules on it market by market.",
+      "w": 420,
+      "x": 940,
+      "y": 930,
+      "page": "drove"
+    },
+    "approve": {
+      "color": "green",
+      "maxH": 560,
+      "size": 24,
+      "text": "FOR YOUR OK\n1. The ram as the player, as drawn in the cast row\n2. The wolf shown at the crash, never touching him\n3. Words: BREAK OUT · WIN / RETURNED · WOLF · RUN OVER\n4. Keep “Drove” as the working name\nNothing gets built until you approve these.",
+      "w": 420,
+      "x": 1880,
+      "y": 930,
+      "page": "drove"
+    },
+    "changed": {
+      "maxH": 560,
+      "size": 24,
+      "text": "WHAT CHANGED\nYou are the ram. He runs through a cattle drive at dusk, and the pace builds with the value: standing at x1.00, a trot by x1.3, a flat gallop past x3 with the cattle streaking by.\nBREAK OUT cashes out: he cuts clear and the herd runs on without him. A wolf ends the run.",
+      "w": 420,
+      "x": 0,
+      "y": 930,
+      "page": "drove"
+    },
+    "mech": {
+      "maxH": 560,
+      "size": 24,
+      "text": "MECHANICS: UNCHANGED\nRising only on whack-crash/v3-rising, so no new maths and no new report.\nFrame 4 is the Scatter option: a cow shoulders him back and the value halves. Kept off in Brazil and Portugal.",
+      "w": 420,
+      "x": 1410,
+      "y": 930,
+      "page": "drove"
+    },
+    "title": {
+      "kind": "title1",
+      "maxW": 3210,
+      "text": "Drove — you are the ram, the wolf ends the run",
+      "w": 240,
+      "x": 0,
+      "y": -300,
+      "page": "drove"
+    },
+    "wolf": {
+      "color": "blue",
+      "maxH": 560,
+      "size": 24,
+      "text": "THE WOLF\nIt appears only at the crash, never before. Shown earlier, it would warn of the crash time (hard rule 3).\nIt steps into his path and he pulls up: no contact, no chase, no harm shown. No other animal is ever taken (that would be a near-miss). Pace and dust follow elapsed time only.",
+      "w": 420,
+      "x": 470,
+      "y": 930,
+      "page": "drove"
+    },
+    "flock-title": {
+      "x": 0,
+      "y": -300,
+      "kind": "title1",
+      "maxW": 3210,
+      "page": "flock",
+      "text": "Flock — rams join the run, the wolf scatters it"
+    },
+    "flock-what": {
+      "x": 0,
+      "y": 930,
+      "w": 420,
+      "maxH": 560,
+      "size": 24,
+      "page": "flock",
+      "text": "WHAT IT IS\nNo cattle. Your ram starts almost alone. As the value climbs, rams catch up from behind and fall in beside him, a handful by x1.5, a crowd by x3, out to the horizon past x10.\nPEN THEM cashes out and the flock pulls up with him. The wolf ends it: the flock scatters."
+    },
+    "flock-rule": {
+      "x": 470,
+      "y": 930,
+      "w": 420,
+      "maxH": 560,
+      "size": 24,
+      "page": "flock",
+      "color": "blue",
+      "text": "THE FLOCK IS THE MULTIPLIER, NOT A COUNTDOWN\nIts size is drawn from the value on screen, which follows elapsed time. Nothing in the scene knows when the wolf comes.\nThe wolf appears only at the crash. The flock turns and bolts away from it; no ram is ever taken (that would be a near-miss). The x number stays the hero, and no ram count replaces it."
+    },
+    "flock-risk": {
+      "x": 940,
+      "y": 930,
+      "w": 420,
+      "maxH": 560,
+      "size": 24,
+      "page": "flock",
+      "color": "orange",
+      "text": "MINORS-APPEAL: HIGHER THAN ONE RAM\nA whole flock of sheep leans further into the CAP “cuddly animals” example than a single ram does. Held: rams only, all grown (curled horn, long nose, working fleece), no lambs, no eyes or faces, dusk silhouettes for the far flock.\nThe concept audit has to clear this before production art."
+    },
+    "flock-mech": {
+      "x": 1410,
+      "y": 930,
+      "w": 420,
+      "maxH": 560,
+      "size": 24,
+      "page": "flock",
+      "text": "MECHANICS: UNCHANGED\nStill whack-crash/v3-rising: no new maths, no new report.\nFrame 4 is the Scatter option: half the flock splits off and the value halves. Kept off in Brazil and Portugal.\nEverything runs as one: the flock keeps his pace, and the ground and hills set the speed."
+    },
+    "flock-ok": {
+      "x": 1880,
+      "y": 930,
+      "w": 420,
+      "maxH": 560,
+      "size": 24,
+      "page": "flock",
+      "color": "green",
+      "text": "FOR YOUR OK\n1. Flock instead of cattle\n2. Words: PEN THEM · PENNED · WOLF · RUN OVER\n3. The split as the Scatter option\n4. Working name “Flock”\nNothing gets built until you approve these."
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Betting.dc.html",
+    "RunEarly.dc.html",
+    "RunFast.dc.html",
+    "Shouldered.dc.html",
+    "BrokeOut.dc.html",
+    "Wolf.dc.html",
+    "Cast.dc.html",
+    "FlockLive.dc.html",
+    "FlockBetting.dc.html",
+    "FlockGathering.dc.html",
+    "FlockMassive.dc.html",
+    "FlockSplit.dc.html",
+    "FlockPenned.dc.html",
+    "FlockWolf.dc.html",
+    "FlockCast.dc.html"
+  ],
+  "pages": [
+    {
+      "id": "flock",
+      "name": "Flock — rams join"
+    },
+    {
+      "id": "drove",
+      "name": "Drove — cattle"
+    }
+  ],
+  "title": "Drove — Ram & Wolf"
+}

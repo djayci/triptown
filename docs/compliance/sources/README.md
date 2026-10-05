@@ -14,7 +14,12 @@ Plain-text copies of the primary documents read during the 15 Sep 2026 audit, ke
 | rko.txt | Netherlands Regeling kansspelen op afstand | wetten.overheid.nl |
 | dk_act.txt / dk_bill.txt | Danish Gaming Act and bill L 127 (2026) | retsinformation.dk |
 | br1207.txt | Brazil Portaria SPA/MF 1.207/2024 | legisweb / procon.se.gov.br |
-| gra.txt | Kenya GRA Conduct of Gambling Operations Regulations 2026 | gra.go.ke |
+| gra.txt | Kenya Gambling Control (Conduct of Gambling Operations) Regulations 2026, **as gazetted**: Legal Notice 112, 30 Jun 2026 (children rule is reg 92). Replaced the March draft on 4 Oct 2026 | gra.go.ke |
+| ke_regs_draft_mar2026.txt | The March 2026 draft of the same regulations (numbering differs: draft reg 95 = gazetted reg 92) | gra.go.ke |
+| ke_adv_regs_2026.txt | Kenya Gambling Control (Advertising) Regulations 2026, Legal Notice 114 | gra.go.ke |
+| ke_act_2025.txt | Kenya Gambling Control Act 2025 (No. 14 of 2025) | kenyalaw.org |
+| gh_gcg_advertising.txt | Gaming Commission of Ghana, Guidelines on Advertisement | gamingcommission.gov.gh |
+| ng_lslga_law_2021.txt | Lagos State Lotteries and Gaming Authority Law No. 7 of 2021 and its regulations (Gazette copy) | srjlegal.com |
 | br_portaria1231.txt | Brazil Portaria SPA/MF 1.231/2024 (advertising) | gov.br |
 | cap_gambling_under18.txt | CAP guidance: Gambling and lotteries advertising, protecting under-18s (Oct 2025) | asa.org.uk |
 | es_rd958_2020.txt | Spain Real Decreto 958/2020 (commercial communications) | boe.es |

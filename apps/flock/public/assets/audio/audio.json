@@ -1,0 +1,182 @@
+{
+ "sfx": {
+  "src": [
+   "audio/sfx.webm",
+   "audio/sfx.mp3"
+  ],
+  "sprite": {
+   "tick": [
+    0,
+    50
+   ],
+   "bet": [
+    300,
+    750
+   ],
+   "collect": [
+    1300,
+    1000
+   ],
+   "join": [
+    2550,
+    350
+   ],
+   "setback": [
+    3150,
+    1700
+   ],
+   "crash": [
+    5100,
+    2600
+   ],
+   "win": [
+    7950,
+    2400
+   ],
+   "bigwin": [
+    10600,
+    3400
+   ],
+   "return": [
+    14250,
+    1000
+   ],
+   "boost": [
+    15500,
+    350
+   ]
+  }
+ },
+ "stems": {
+  "base": {
+   "src": [
+    "audio/stem-silent.webm",
+    "audio/stem-silent.mp3"
+   ],
+   "loop": [
+    0,
+    1000
+   ]
+  },
+  "drums": {
+   "src": [
+    "audio/stem-silent.webm",
+    "audio/stem-silent.mp3"
+   ],
+   "loop": [
+    0,
+    1000
+   ]
+  },
+  "lead": {
+   "src": [
+    "audio/stem-silent.webm",
+    "audio/stem-silent.mp3"
+   ],
+   "loop": [
+    0,
+    1000
+   ]
+  }
+ },
+ "lobby": {
+  "src": [
+   "audio/lobby.webm",
+   "audio/lobby.mp3"
+  ],
+  "loop": [
+   0,
+   30476
+  ]
+ },
+ "tone": {
+  "src": [
+   "audio/stem-silent.webm",
+   "audio/stem-silent.mp3"
+  ],
+  "loop": [
+   0,
+   1000
+  ]
+ },
+ "hooves": {
+  "cadence": 2.2,
+  "layers": [
+   {
+    "src": [
+     "audio/hooves-hero.webm",
+     "audio/hooves-hero.mp3"
+    ],
+    "from": -1,
+    "full": 0
+   },
+   {
+    "src": [
+     "audio/hooves-few.webm",
+     "audio/hooves-few.mp3"
+    ],
+    "from": 0,
+    "full": 6
+   },
+   {
+    "src": [
+     "audio/hooves-band.webm",
+     "audio/hooves-band.mp3"
+    ],
+    "from": 6,
+    "full": 45
+   },
+   {
+    "src": [
+     "audio/hooves-herd.webm",
+     "audio/hooves-herd.mp3"
+    ],
+    "from": 45,
+    "full": 170
+   }
+  ]
+ },
+ "ranch": {
+  "pace": [
+   0,
+   0.15,
+   0.35,
+   0.6
+  ],
+  "bars": 8,
+  "tiers": [
+   {
+    "src": [
+     "audio/ranch-1.webm",
+     "audio/ranch-1.mp3"
+    ],
+    "bpm": 138,
+    "loopMs": 13913
+   },
+   {
+    "src": [
+     "audio/ranch-2.webm",
+     "audio/ranch-2.mp3"
+    ],
+    "bpm": 144,
+    "loopMs": 13333
+   },
+   {
+    "src": [
+     "audio/ranch-3.webm",
+     "audio/ranch-3.mp3"
+    ],
+    "bpm": 150,
+    "loopMs": 12800
+   },
+   {
+    "src": [
+     "audio/ranch-4.webm",
+     "audio/ranch-4.mp3"
+    ],
+    "bpm": 156,
+    "loopMs": 12308
+   }
+  ]
+ }
+}

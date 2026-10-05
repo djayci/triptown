@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Flock live round</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&amp;family=Inter+Tight:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#e8762b}a:hover{color:#efe6d4}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; overflow: hidden; background: #141c33; font-family: 'Inter Tight','Helvetica Neue',Arial,sans-serif; color: #efe6d4">
+<canvas id="scene" width="780" height="1688" style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; display: block"></canvas>
+<div style="position: absolute; left: 0; right: 0; top: 0; height: 52px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px 0 4px; background: rgba(10,12,20,.62); font-size: 12px; box-sizing: border-box">
+<button type="button" style="height: 44px; display: flex; align-items: center; gap: 4px; padding: 0 8px; background: none; border: 0; color: inherit; font: inherit; font-weight: 600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6"></path><path d="M12 7.5v.01"></path></svg><span>Rules</span></button>
+<div style="display: flex; align-items: center; gap: 16px">
+<div style="display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2"><span style="font-size: 10px; letter-spacing: .12em; opacity: .7">SESSION</span><span style="font-weight: 600; font-variant-numeric: tabular-nums">{{clock}}</span></div>
+<div style="display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2"><span style="font-size: 10px; letter-spacing: .12em; opacity: .7">NET</span><span style="font-weight: 600; font-variant-numeric: tabular-nums">{{net}}</span></div>
+</div>
+</div>
+<div style="position: absolute; left: 0; right: 0; top: 72px; display: flex; flex-direction: column; align-items: center; gap: 2px">
+<span style="font-size: 11px; font-weight: 700; letter-spacing: .2em; opacity: .85">FLOCK · STAKE $1.00</span>
+<span style="font-family: 'Anton','Arial Narrow',sans-serif; font-size: 96px; line-height: .98; color: {{multColor}}; text-shadow: 0 3px 22px rgba(0,0,0,.5); font-variant-numeric: tabular-nums; opacity: {{multOpacity}}">{{mult}}</span>
+</div>
+<sc-if value="{{cue}}" hint-placeholder-val="{{ '' }}">
+<div style="position: absolute; left: 0; right: 0; top: 252px; display: flex; justify-content: center"><span style="padding: 6px 14px; background: rgba(10,12,20,.82); font-family: 'Anton','Arial Narrow',sans-serif; font-size: 20px; letter-spacing: .06em">{{cue}}</span></div>
+</sc-if>
+<sc-if value="{{showBanner}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: 26px; right: 26px; top: 312px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 18px 14px; background: {{bannerBg}}; color: {{bannerFg}}">
+<span style="font-family: 'Anton','Arial Narrow',sans-serif; font-size: 42px; line-height: 1; text-align: center">{{banner}}</span>
+<span style="font-size: 14px; font-weight: 600; text-align: center">{{bannerSub}}</span>
+</div>
+</sc-if>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; gap: 11px; padding: 26px 16px 18px; background: linear-gradient(180deg, rgba(10,12,20,0) 0%, rgba(10,12,20,.88) 22%, rgba(10,12,20,.96) 100%)">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<div style="display: flex; align-items: center; gap: 6px; opacity: {{stakeOpacity}}">
+<button type="button" aria-label="Lower stake" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: none; border: 1.5px solid currentColor; color: inherit; padding: 0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></button>
+<div style="display: flex; flex-direction: column; align-items: center; min-width: 72px; line-height: 1.15"><span style="font-size: 10px; letter-spacing: .12em; opacity: .7">STAKE</span><span style="font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums">$1.00</span></div>
+<button type="button" aria-label="Raise stake" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: none; border: 1.5px solid currentColor; color: inherit; padding: 0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path><path d="M12 6v12"></path></svg></button>
+</div>
+<div style="display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15"><span style="font-size: 10px; letter-spacing: .12em; opacity: .7">AUTO COLLECT</span><span style="font-size: 15px; font-weight: 600">Off</span></div>
+</div>
+<button type="button" style="height: 66px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; background: {{btnBg}}; color: {{btnFg}}; border: 0; font: inherit">
+<span style="font-family: 'Anton','Arial Narrow',sans-serif; font-size: 27px; line-height: 1; letter-spacing: .03em">{{btnTop}}</span>
+<span style="font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums">{{btnSub}}</span>
+</button>
+<span style="font-size: 10.5px; text-align: center; opacity: .75; line-height: 1.35">18+ · RTP 97% · The outcome is fixed when the run starts · Tapping does nothing</span>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844},"reducedMotion":{"editor":"boolean","default":false}}'>
+class Component extends DCLogic {
+  cfg() {
+    return {"rounds":[{"collectAt":11.5},{"crashAt":7.5},{"collectAt":4}]};
+  }
+
+  componentDidMount() {
+    this.g = this.startState();
+    this.last = 0;
+    this.hudKey = '';
+    const step = (now) => {
+      this.raf = requestAnimationFrame(step);
+      if (!this.cv || !this.cv.isConnected) this.cv = document.getElementById('scene');
+      if (!this.cv) return;
+      const dt = this.last ? Math.min(0.05, (now - this.last) / 1000) : 0.016;
+      this.last = now;
+      this.tick(dt);
+      this.paint(this.cv.getContext('2d'), dt);
+    };
+    this.raf = requestAnimationFrame(step);
+  }
+
+  componentWillUnmount() {
+    cancelAnimationFrame(this.raf);
+  }
+
+  reduced() {
+    return !!this.props.reducedMotion;
+  }
+
+  pushVals(n) {
+    const key = JSON.stringify(n);
+    if (key === this.hudKey) return;
+    this.hudKey = key;
+    this.setState(n);
+  }
+
+  renderVals() {
+    return Object.assign({"mult":"x1.00","multOpacity":0.5,"multColor":"#f4ead6","clock":"00:14:52","net":"$0.00","stakeOpacity":1,"btnTop":"BET $1.00","btnSub":"Next run in 5s","btnBg":"rgba(239,230,212,.13)","btnFg":"#efe6d4","showBanner":false,"banner":"","bannerSub":"","bannerBg":"rgba(10,12,20,.9)","bannerFg":"#efe6d4","cue":""}, this.state || {});
+  }
+
+  // ---- Round engine -------------------------------------------------------
+  // Each artboard supplies cfg(): a round script, and whether it skips the bet
+  // gap so it can loop one moment of the round.
+
+  BET_GAP() { return 5; }      // UK RTS: 5 s minimum between round starts
+  RESULT_HOLD() { return 3.4; }
+  STAKE() { return 1; }
+
+  // Slow-pace growth, the shape of whack-crash/v3: r0 0.06, rmax 0.475, ramp 24 s.
+  logGrowth(t) {
+    const r0 = 0.06, rmax = 0.475, ramp = 24;
+    if (t <= 0) return 0;
+    if (t <= ramp) return r0 * t + ((rmax - r0) * t * t) / (2 * ramp);
+    return r0 * ramp + ((rmax - r0) * ramp) / 2 + rmax * (t - ramp);
+  }
+
+  // Pace follows elapsed time only — never the value after a setback, never the crash time.
+  paceK(pt) {
+    return Math.min(1, this.logGrowth(pt) / Math.log(6));
+  }
+  ramTarget(k) { return 340 + 1100 * k; }
+  // The drove keeps one steady pace in every phase. Only the ram speeds up, so the
+  // value climbing reads as him running harder through a herd that never changes.
+  HERD_SPEED() { return 300; }
+
+
+  round() {
+    const R = this.cfg().rounds;
+    return R[this.g.round % R.length];
+  }
+
+  valueAt(pt) {
+    return Math.exp(this.logGrowth(pt)) * this.g.mods;
+  }
+
+
+
+  settle(mult) {
+    const g = this.g;
+    g.cash = Math.round(this.STAKE() * mult * 100) / 100;
+    g.net += g.cash;
+    g.phase = 'collect'; g.pt = 0;
+    // One celebrate decision, on the round total only.
+    g.flash = g.cash > this.STAKE() && !this.reduced() ? 1 : 0;
+  }
+
+  bust() {
+    const g = this.g;
+    g.cash = 0;
+    g.phase = 'crash'; g.pt = 0; g.wolfT = 0;
+  }
+
+
+  money(v) {
+    return '$' + Math.abs(v).toFixed(2);
+  }
+
+  // ---- HUD ----------------------------------------------------------------
+
+  pushHud() {
+    const g = this.g;
+    const S = this.STAKE();
+    const n = {};
+    n.mult = 'x' + (g.phase === 'crash' ? '—' : g.mult.toFixed(2));
+    n.multOpacity = g.phase === 'bet' ? 0.5 : 1;
+    n.multColor = g.stumble > 0.3 ? '#ff8f6b' : '#f4ead6';
+    const total = Math.floor(g.clock);
+    n.clock = [Math.floor(total / 3600), Math.floor(total / 60) % 60, total % 60]
+      .map((v) => String(v).padStart(2, '0')).join(':');
+    n.net = (g.net > 0.004 ? '+' : g.net < -0.004 ? '−' : '') + this.money(g.net);
+    n.stakeOpacity = g.phase === 'bet' ? 1 : 0.4;
+    n.cue = g.cueT > 0 ? g.cue : '';
+    n.showBanner = g.phase === 'collect' || g.phase === 'crash';
+    n.bannerBg = 'rgba(10,12,20,.9)'; n.bannerFg = '#efe6d4'; n.banner = ''; n.bannerSub = '';
+    const idle = ['rgba(239,230,212,.13)', '#efe6d4'];
+    if (g.phase === 'bet') {
+      n.btnTop = 'BET ' + this.money(S);
+      n.btnSub = 'Next run in ' + Math.max(1, Math.ceil(this.BET_GAP() - g.pt)) + 's';
+      [n.btnBg, n.btnFg] = idle;
+    } else if (g.phase === 'run') {
+      n.btnTop = this.WORDS().verb;
+      n.btnSub = this.money(S * g.mult);
+      n.btnBg = '#e8762b'; n.btnFg = '#1a1208';
+    } else if (g.phase === 'crash') {
+      n.btnTop = this.WORDS().over; n.btnSub = 'Next run soon';
+      [n.btnBg, n.btnFg] = idle;
+      n.banner = 'WOLF';
+      n.bannerSub = this.WORDS().lost + ' · stake ' + this.money(S) + ' lost';
+    } else {
+      n.btnTop = this.WORDS().done; n.btnSub = this.money(g.cash);
+      [n.btnBg, n.btnFg] = idle;
+      const beats = g.cash > S + 0.0001;
+      n.banner = (beats ? 'WIN ' : 'RETURNED ') + this.money(g.cash);
+      n.bannerSub = 'Net ' + (beats ? '+' : g.cash < S ? '−' : '') + this.money(g.cash - S) + ' this run';
+      if (beats) { n.bannerBg = '#e8762b'; n.bannerFg = '#1a1208'; }
+    }
+    this.pushVals(n);
+  }
+
+  // ---- Scene --------------------------------------------------------------
+  // Eye level in the drove, the ram running through it. The wolf exists only
+  // in the crash phase: nothing before the crash knows it is coming.
+
+  HORIZON() { return 548; }
+
+
+
+  PAL() {
+    return {
+      sky0: '#141c33', sky1: '#3b3550', sky2: '#8a4a2c',
+      sun: '#ffd79a', sunGlow: 'rgba(255,176,92,.5)',
+      ridge: '#1b2036', tree: '#161a2c', fence: 'rgba(236,222,196,.3)',
+      dirt0: '#6b4a30', dirtMid: '#432d1d', dirt1: '#1b1109',
+      dirtMark: '#7a5739', dirtMark2: '#35230f', dust: 'rgba(214,180,138,.45)',
+      farBody: '#1c2135', farRim: 'rgba(255,186,110,.45)',
+      nearBody: '#101320', nearRim: 'rgba(255,164,86,.68)',
+      crash0: 'rgba(40,30,24,.8)', crash1: 'rgba(10,8,8,.94)',
+    };
+  }
+
+  ramPose() {
+    const g = this.g;
+    const run = Math.min(1, g.ramSpeed / 1100);
+    const braking = g.phase === 'crash' ? Math.min(1, g.wolfT * 4) : 0;
+    return {
+      run, ph: g.rgait,
+      bob: g.ramSpeed < 20 ? Math.sin(g.t * 2.2) * 1.2 : -Math.abs(Math.sin(g.rgait * 6.2832)) * (3 + 9 * run),
+      tilt: -0.24 * g.stumble - 0.18 * braking + 0.06 * run,
+      headDrop: 8 * run - 12 * braking,
+    };
+  }
+
+  // The wolf steps in from ahead of him and stops short. It never closes the gap.
+  wolfX() {
+    const g = this.g;
+    const stop = Math.min(700, g.rx + 340);
+    if (this.reduced()) return stop;
+    const p = Math.min(1, g.wolfT / 0.45);
+    return 900 + (stop - 900) * (1 - Math.pow(1 - p, 3));
+  }
+
+  drawWolfAt(ctx, x, y, s) {
+    const g = this.g;
+    ctx.save();
+    ctx.globalAlpha = this.reduced() ? Math.min(1, g.wolfT * 3) : 1;
+    ctx.fillStyle = 'rgba(0,0,0,.45)';
+    ctx.beginPath(); ctx.ellipse(x, y + 1, 84 * s, 7 * s, 0, 0, 6.2832); ctx.fill();
+    ctx.translate(x, y); ctx.scale(-s, s);
+    this.wolfBody(ctx, g.t, Math.min(1, g.wolfT / 0.45));
+    ctx.restore();
+  }
+
+  p2(d) {
+    this._p = this._p || {};
+    return this._p[d] || (this._p[d] = new Path2D(d));
+  }
+
+  /** A leg with a hock, frozen or swinging by gait phase. */
+  legAt(ctx, hx, hy, len, ph, run, w, col, back) {
+    const th = ph * 6.2832;
+    const swing = Math.sin(th) * (0.08 + 0.5 * run);
+    const bend = Math.max(0, Math.cos(th)) * (back ? 0.6 : 0.42) * (0.2 + 0.8 * run);
+    const kx = hx + Math.sin(swing) * len * 0.55, ky = hy + Math.cos(swing) * len * 0.55;
+    const a2 = swing - bend * (back ? 1 : -1);
+    const fx = kx + Math.sin(a2) * len * 0.45, fy = ky + Math.cos(a2) * len * 0.45;
+    ctx.strokeStyle = col; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = w;
+    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(kx, ky); ctx.lineTo(fx, fy); ctx.stroke();
+  }
+
+  /**
+   * The ram: the player. A grown male — full curl of horn, long Roman nose,
+   * matted working fleece. Silhouette and rim light only: no eye, no face.
+   */
+  HERO_TONE() {
+    return {
+      fleece: '#8c7a5e', dark: '#5e5040', head: '#4d4134', horn: '#b49c74', hornDark: '#6e5c43',
+      rim: 'rgb(255,196,120)', rimA: 1, leg: '#2a2219', farLeg: '#1a140e',
+    };
+  }
+
+  drawRam(ctx, x, y, s, o) {
+    const T = o.tone || this.HERO_TONE();
+    const { fleece, dark, rim, horn, hornDark, head } = T;
+    const A = o.alpha == null ? 1 : o.alpha;
+    ctx.save();
+    ctx.globalAlpha = A;
+    ctx.fillStyle = 'rgba(0,0,0,.35)';
+    ctx.beginPath(); ctx.ellipse(x, y + 1, 56 * s, 6 * s, 0, 0, 6.2832); ctx.fill();
+    ctx.translate(x, y + o.bob * s); ctx.scale(o.flip ? -s : s, s);
+    ctx.translate(0, -60); ctx.rotate(o.tilt); ctx.translate(0, 60);
+    this.legAt(ctx, -46, -58, 60, o.ph + 0.5, o.run, 7, T.farLeg, true);
+    this.legAt(ctx, 46, -58, 60, o.ph + 0.1, o.run, 7, T.farLeg, false);
+    ctx.strokeStyle = dark; ctx.lineWidth = 10; ctx.lineCap = 'round';
+    ctx.stroke(this.p2('M-72 -98Q-88 -90 -86 -72'));
+    ctx.fillStyle = fleece;
+    ctx.fill(this.p2('M-70 -60C-84 -80 -80 -102 -66 -112C-58 -120 -46 -117 -40 -124C-30 -129 -22 -121 -12 -126C0 -131 10 -123 20 -127C34 -131 44 -121 54 -122C66 -121 70 -112 76 -104C86 -92 84 -76 78 -66C70 -54 52 -50 30 -52C10 -48 -16 -48 -36 -52C-52 -50 -64 -52 -70 -60Z'));
+    ctx.fillStyle = dark;
+    ctx.fill(this.p2('M-62 -58L-57 -46L-50 -54L-43 -41L-35 -53L-24 -43L-15 -52L-5 -40L4 -51L13 -43L23 -52L33 -42L43 -53L53 -47L62 -58Z'));
+    ctx.globalAlpha = A * 0.55; ctx.lineWidth = 2.6;
+    ctx.stroke(this.p2('M-44 -108l-3 11M-20 -112l-2 11M6 -114l-1 11M30 -110l2 11M52 -104l3 10M-56 -88l-3 10M-30 -90l-2 10M-4 -92l0 10M22 -88l2 10M46 -82l3 9M-40 -70l-2 8M-12 -70l0 8M16 -68l2 8'));
+    ctx.globalAlpha = A;
+    // Rim light on the fleece topline. It stops at the withers, short of the neck.
+    ctx.strokeStyle = rim; ctx.lineWidth = 3.5; ctx.globalAlpha = A * 0.85 * T.rimA;
+    ctx.stroke(this.p2('M-66 -112C-58 -120 -46 -117 -40 -124C-30 -129 -22 -121 -12 -126C0 -131 10 -123 20 -127C34 -131 44 -121 54 -122'));
+    ctx.lineWidth = 2.5; ctx.globalAlpha = A * 0.5 * T.rimA;
+    ctx.stroke(this.p2('M-70 -62C-84 -80 -80 -102 -66 -112'));
+    ctx.globalAlpha = A;
+
+    ctx.save();
+    ctx.translate(0, o.headDrop); ctx.translate(70, -100); ctx.rotate(o.headDrop * 0.016); ctx.translate(-70, 100);
+    ctx.fillStyle = fleece;
+    ctx.fill(this.p2('M56 -118C74 -126 92 -118 100 -102L106 -88C94 -78 76 -80 68 -92Z'));
+    ctx.fillStyle = head;
+    ctx.fill(this.p2('M84 -112C96 -124 112 -122 120 -112C128 -102 137 -90 141 -79C145 -70 140 -63 131 -64C119 -66 106 -74 96 -84C88 -92 82 -100 84 -112Z'));
+    // Rim down the face, on the head's own edge.
+    ctx.strokeStyle = rim; ctx.lineWidth = 2.4; ctx.globalAlpha = A * 0.75 * T.rimA;
+    ctx.stroke(this.p2('M108 -120C114 -118 118 -115 120 -112C128 -102 137 -90 141 -79'));
+    ctx.globalAlpha = A;
+    // The horn: one curl back and down round the ear, ridged. Drawn last so nothing crosses it.
+    const curl = this.p2('M98 -120C84 -136 60 -124 62 -102C64 -84 84 -78 94 -90C102 -100 94 -110 84 -104');
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = hornDark; ctx.lineWidth = 13; ctx.stroke(curl);
+    ctx.strokeStyle = horn; ctx.lineWidth = 8; ctx.stroke(curl);
+    ctx.strokeStyle = hornDark; ctx.lineWidth = 2;
+    ctx.stroke(this.p2('M88 -129l-1 5M77 -129l1 5M67 -121l4 3M64 -107l5 0M69 -93l3 -3'));
+    ctx.restore();
+
+    this.legAt(ctx, -52, -58, 60, o.ph, o.run, 8, T.leg, true);
+    this.legAt(ctx, 54, -58, 60, o.ph + 0.6, o.run, 8, T.leg, false);
+    ctx.restore();
+  }
+
+  /** The wolf, facing right in its own units. Lean, grown, head low, hackles up. */
+  wolfBody(ctx, t, settle) {
+    const B = '#07080e';
+    const sway = Math.sin(t * 1.6) * 0.05;
+    const breathe = Math.sin(t * 2.4) * 1.2;
+    const stride = (1 - settle) * Math.sin(t * 18) * 0.5;
+    this.legAt(ctx, -64, -64, 66, 0.25 + stride, 0.2, 8, '#000', true);
+    this.legAt(ctx, 54, -60, 62, 0.6 - stride, 0.2, 8, '#000', false);
+    ctx.save();
+    ctx.translate(-80, -76); ctx.rotate(sway); ctx.translate(80, 76);
+    ctx.fillStyle = B;
+    ctx.fill(this.p2('M-80 -76C-104 -70 -118 -50 -126 -24C-114 -28 -100 -42 -84 -58Z'));
+    ctx.restore();
+    ctx.save(); ctx.translate(0, breathe * 0.4);
+    ctx.fillStyle = B;
+    ctx.fill(this.p2('M-80 -80C-60 -94 -10 -92 20 -96C44 -104 66 -104 78 -94C88 -80 84 -62 70 -56C50 -50 20 -56 -10 -58C-40 -58 -64 -56 -78 -62C-88 -68 -90 -74 -80 -80Z'));
+    ctx.fill(this.p2('M24 -96L32 -110L38 -100L46 -114L52 -102L60 -112L66 -100L74 -104L80 -92Z'));
+    ctx.fill(this.p2('M66 -102C84 -106 100 -100 108 -92C114 -88 120 -86 124 -84L142 -76C147 -74 146 -67 140 -66L118 -63C106 -61 94 -64 84 -70C76 -76 68 -86 66 -102Z'));
+    ctx.fill(this.p2('M94 -94L101 -118L110 -91ZM84 -98L87 -120L97 -96Z'));
+    // Cold rim, so it reads against the dust without a face or eyes.
+    ctx.strokeStyle = 'rgb(170,190,230)'; ctx.lineWidth = 2.5; ctx.globalAlpha = 0.6;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.stroke(this.p2('M-80 -81C-60 -95 -10 -93 20 -97C30 -104 44 -112 60 -112C70 -106 78 -100 84 -92C92 -102 104 -96 112 -89L142 -76'));
+    ctx.globalAlpha = 1;
+    ctx.restore();
+    this.legAt(ctx, -52, -62, 64, 0.75 - stride, 0.2, 8, B, true);
+    this.legAt(ctx, 68, -60, 62, 0.1 + stride, 0.2, 8, B, false);
+  }
+
+  mix(a, b, t) {
+    const pa = this.hex(a), pb = this.hex(b);
+    return 'rgb(' + pa.map((v, i) => Math.round(v + (pb[i] - v) * t)).join(',') + ')';
+  }
+
+  hex(h) {
+    if (h.startsWith('rgb')) return h.replace(/[^0-9.,]/g, '').split(',').slice(0, 3).map(Number);
+    return [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  }
+
+  sky(ctx, S) {
+    const P = this.PAL();
+    const HOR = S.GND;
+    const gr = ctx.createLinearGradient(0, -40, 0, HOR);
+    gr.addColorStop(0, P.sky0); gr.addColorStop(0.55, P.sky1); gr.addColorStop(1, P.sky2);
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, S.W, HOR + 2);
+    const sx = 272, sy = HOR - 54;
+    const rg = ctx.createRadialGradient(sx, sy, 6, sx, sy, 400);
+    rg.addColorStop(0, P.sun); rg.addColorStop(0.12, P.sunGlow); rg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = rg; ctx.fillRect(0, sy - 400, S.W, 440);
+    ctx.fillStyle = P.sun;
+    ctx.beginPath(); ctx.arc(sx, sy, 38, 0, 6.2832); ctx.fill();
+    this.tile(S.scroll, S.W, 0.04, 940, (x, i) => {
+      ctx.fillStyle = P.ridge;
+      ctx.beginPath();
+      ctx.moveTo(x - 30, HOR - 44);
+      for (let j = 0; j <= 10; j++) ctx.lineTo(x + j * 96, HOR - 52 - this.rnd(i * 11 + j) * 54);
+      ctx.lineTo(x + 980, HOR); ctx.lineTo(x - 30, HOR);
+      ctx.fill();
+    });
+    this.tile(S.scroll, S.W, 0.1, 360, (x, i) => {
+      for (let j = 0; j < 2; j++) {
+        const tx = x + 70 + j * 170 + this.rnd(i * 5 + j) * 60;
+        const h = 58 + this.rnd(i + j * 3) * 44;
+        ctx.fillStyle = P.tree;
+        ctx.beginPath(); ctx.ellipse(tx, HOR - h, 30, 21, 0, 0, 6.2832); ctx.fill();
+        ctx.fillRect(tx - 3.5, HOR - h, 7, h);
+      }
+    });
+    ctx.strokeStyle = P.fence; ctx.lineWidth = 2.5;
+    this.tile(S.scroll, S.W, 0.22, 132, (x) => {
+      ctx.beginPath(); ctx.moveTo(x, HOR - 42); ctx.lineTo(x, HOR + 2); ctx.stroke();
+    });
+    ctx.globalAlpha = 0.6;
+    [14, 28].forEach((d) => {
+      ctx.beginPath(); ctx.moveTo(0, HOR - d - 10); ctx.lineTo(S.W, HOR - d - 10); ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  ground(ctx, S) {
+    const P = this.PAL();
+    const gr = ctx.createLinearGradient(0, S.GND - 10, 0, S.H);
+    gr.addColorStop(0, P.dirt0); gr.addColorStop(0.5, P.dirtMid); gr.addColorStop(1, P.dirt1);
+    ctx.fillStyle = gr; ctx.fillRect(0, S.GND - 10, S.W, S.H - S.GND + 10);
+    this.tile(S.scroll, S.W, 1.1, 150, (x, i) => {
+      const y = S.GND + 90 + this.rnd(i) * 1000;
+      const s = 0.3 + (y - S.GND) / 900;
+      ctx.fillStyle = this.rnd(i * 3) > 0.5 ? P.dirtMark : P.dirtMark2;
+      ctx.globalAlpha = 0.45;
+      ctx.beginPath();
+      ctx.ellipse(x + this.rnd(i * 7) * 90, y, 40 * s, 9 * s, 0, 0, 6.2832);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  // Speed lines on the ground, by pace. They follow elapsed time like the rest.
+  streaks(ctx, S) {
+    if (S.k < 0.15 || S.phase !== 'run') return;
+    ctx.strokeStyle = 'rgb(236,214,180)'; ctx.lineCap = 'round';
+    this.tile(S.scroll, S.W, 1.6, 70, (x, i) => {
+      const y = S.GND + 60 + this.rnd(i * 4.1) * 700;
+      const len = 40 + this.rnd(i * 5.3) * 200 * S.k;
+      ctx.globalAlpha = (0.08 + this.rnd(i * 9) * 0.2) * Math.min(1, (S.k - 0.15) * 2.5);
+      ctx.lineWidth = 1.5 + this.rnd(i) * 2;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + len, y); ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  haze(ctx, S, y, h, alpha) {
+    ctx.globalAlpha = Math.max(0, alpha) * (0.6 + S.k * 0.5);
+    const gr = ctx.createLinearGradient(0, y - h, 0, y + h);
+    gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(0.5, this.PAL().dust); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gr; ctx.fillRect(0, y - h, S.W, h * 2);
+    ctx.globalAlpha = 1;
+  }
+
+  /** Cattle in profile, all heading right with the drove; no faces, no eyes, no mascot. */
+
+
+
+
+  crashSweep(ctx, S) {
+    const P = this.PAL();
+    const d = this.g.dark;
+    if (d <= 0) return;
+    ctx.globalAlpha = Math.min(0.85, d);
+    const gr = ctx.createLinearGradient(0, S.H - 900 * d, 0, S.H);
+    gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(0.5, P.crash0); gr.addColorStop(1, P.crash1);
+    ctx.fillStyle = gr;
+    ctx.fillRect(0, S.H - 900 * d, S.W, 900 * d);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = 'rgba(8,8,12,' + (d * 0.3).toFixed(3) + ')';
+    ctx.fillRect(0, 0, S.W, S.H);
+  }
+
+  // ---- helpers ------------------------------------------------------------
+
+  rnd(n) {
+    const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+    return x - Math.floor(x);
+  }
+
+  tile(scroll, W, f, sp, fn) {
+    const off = scroll * f;
+    const base = Math.floor(off / sp);
+    const shift = off - base * sp;
+    const count = Math.ceil(W / sp) + 3;
+    for (let i = -2; i < count; i++) fn(i * sp - shift, base + i);
+  }
+
+  emit(x, y, n, o) {
+    const P = this.g.parts;
+    const cap = this.reduced() ? 30 : 90;
+    for (let i = 0; i < n; i++) {
+      if (P.length > cap) P.shift();
+      P.push({
+        x, y, vx: (o.vx || 0) + (Math.random() - 0.5) * (o.spread || 60),
+        vy: -(Math.random() * (o.lift || 40)), life: 0,
+        max: (o.life || 1) * (0.6 + Math.random() * 0.8),
+        r: (o.r || 10) * (0.5 + Math.random()), grow: o.grow || 0,
+        color: o.color, alpha: o.alpha == null ? 0.4 : o.alpha,
+      });
+    }
+  }
+
+  drawParts(ctx, S) {
+    const P = this.g.parts;
+    for (let i = P.length - 1; i >= 0; i--) {
+      const p = P[i];
+      if (S.dt > 0) {
+        p.life += S.dt;
+        p.x += (p.vx - S.speed) * S.dt;
+        p.y += p.vy * S.dt;
+      }
+      if (p.life >= p.max) { P.splice(i, 1); continue; }
+      ctx.globalAlpha = Math.max(0, p.alpha * (1 - p.life / p.max));
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r + p.grow * p.life, 0, 6.2832); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  // ---- Flock --------------------------------------------------------------
+  // No cattle. The ram starts almost alone; rams catch up from behind and fall in
+  // beside him as the value climbs, until the flock runs to the horizon. The size of
+  // the flock is drawn from the value on screen, which follows elapsed time — it
+  // knows nothing about the crash. At the wolf the flock scatters; no ram is taken.
+
+  WORDS() {
+    return { verb: 'PEN THEM', done: 'PENNED', over: 'RUN OVER', lost: 'The flock scattered', split: 'FLOCK SPLITS  x0.5' };
+  }
+
+  HERO_X() { return 330; }
+  HERO_Y() { return 1200; }
+
+  // How many rams run with him at a value. Nobody at x1.00, a handful by x1.5,
+  // a crowd by x3, the field full somewhere past x20.
+  flockCount(v) {
+    return Math.floor(24 * Math.pow(Math.max(0, Math.log(v)), 1.6));
+  }
+
+  SLOTS() {
+    if (this._slots) return this._slots;
+    const HX = this.HERO_X(), HY = this.HERO_Y();
+    const rows = [
+      [578, 0.2, 30], [592, 0.23, 34], [606, 0.26, 38], [624, 0.3, 42], [642, 0.34, 48],
+      [666, 0.39, 55], [694, 0.45, 62], [728, 0.51, 70], [766, 0.58, 80], [812, 0.66, 90],
+      [862, 0.74, 102], [924, 0.83, 114], [990, 0.92, 128], [1090, 1.0, 150], [1200, 1.1, 180],
+      [1370, 1.34, 230],
+    ];
+    const far = this.FAR_TONE(), near = this.NEAR_TONE();
+    const slots = [];
+    rows.forEach(([y, s, gap], ri) => {
+      for (let x = -30 + this.rnd(ri * 3.3) * gap; x < 820; x += gap) {
+        const seed = ri * 97.1 + x * 1.37;
+        const sx = x + (this.rnd(seed) - 0.5) * gap * 0.5;
+        const sy = y + (this.rnd(seed * 1.3) - 0.5) * gap * 0.16;
+        // Keep a clear lane round him, so the flock never hides the ram you are.
+        if (y >= 1090 && Math.abs(sx - HX) < (y > 1200 ? 300 : 210)) continue;
+        const d = Math.min(1, (y - 578) / (1370 - 578));
+        const v = this.rnd(seed * 4.1);
+        slots.push({
+          x: sx, y: sy, s: s * (0.9 + this.rnd(seed * 2.1) * 0.2), ph: this.rnd(seed * 3.7),
+          tone: this.mixTone(far, near, Math.min(1, d + (v - 0.5) * 0.25)),
+          // Join order: closest to him first, then outward to the horizon.
+          order: Math.abs(sx - HX) / 700 + Math.abs(sy - HY) / 600 + this.rnd(seed * 5.3) * 0.35,
+        });
+      }
+    });
+    slots.sort((a, b) => a.order - b.order);
+    this._slots = slots;
+    return slots;
+  }
+
+  FAR_TONE() {
+    return {
+      fleece: '#353747', dark: '#262836', head: '#1e1f2a', horn: '#55504e', hornDark: '#2e2c2c',
+      rim: 'rgb(255,186,110)', rimA: 0.4, leg: '#14141c', farLeg: '#0e0e14',
+    };
+  }
+
+  NEAR_TONE() {
+    return {
+      fleece: '#5e5344', dark: '#41382e', head: '#2f2822', horn: '#7e6e54', hornDark: '#4a3e30',
+      rim: 'rgb(255,170,96)', rimA: 0.7, leg: '#1a140f', farLeg: '#110d09',
+    };
+  }
+
+  mixTone(a, b, t) {
+    const o = {};
+    Object.keys(a).forEach((k) => {
+      o[k] = typeof a[k] === 'number' ? a[k] + (b[k] - a[k]) * t : this.mix(a[k], b[k], t);
+    });
+    return o;
+  }
+
+  startState() {
+    const c = this.cfg();
+    const g = {
+      round: 0, phase: 'bet', pt: 0, t: 0, mult: 1, mods: 1, k: 0,
+      ramSpeed: 0, cam: 0, rgait: 0, rx: this.HERO_X(), ry: this.HERO_Y(),
+      flash: 0, stumble: 0, net: 0, clock: 892, cash: 0, dark: 0, wolfT: 0,
+      fired: [], cue: '', cueT: 0, parts: [],
+      flock: this.SLOTS().map(() => ({ st: 'out', t: 0 })),
+    };
+    this.g = g;
+    if (c.noBet) this.begin(c.rounds[0].from || 0);
+    return g;
+  }
+
+  begin(from) {
+    const g = this.g;
+    g.phase = 'run'; g.pt = from; g.mods = 1; g.fired = []; g.dark = 0; g.wolfT = 0;
+    g.net -= this.STAKE();
+    g.mult = this.valueAt(from);
+    g.k = this.paceK(from);
+    g.ramSpeed = from > 0 ? this.ramTarget(g.k) : g.ramSpeed;
+    // A loop that starts mid-round starts with the flock already gathered.
+    const want = this.flockCount(g.mult);
+    g.flock.forEach((f, i) => { if (i < want) { f.st = 'in'; f.t = -99; } else { f.st = 'out'; } });
+  }
+
+  tick(dt) {
+    const g = this.g;
+    const c = this.cfg();
+    const r = this.round();
+    const S = this.STAKE();
+    g.t += dt; g.pt += dt; g.clock += dt;
+    g.flash = Math.max(0, g.flash - dt * 2.2);
+    g.stumble = Math.max(0, g.stumble - dt * 1.6);
+    g.cueT = Math.max(0, g.cueT - dt);
+
+    if (g.phase === 'bet') {
+      g.mult = 1; g.mods = 1; g.k = 0; g.dark = 0;
+      if (g.pt >= this.BET_GAP()) {
+        if (c.holdBet) g.pt = 0;
+        else this.begin(r.from || 0);
+      }
+    } else if (g.phase === 'run') {
+      (r.setbacks || []).forEach((at, i) => {
+        if (g.pt >= at && !g.fired.includes('s' + i)) {
+          g.fired.push('s' + i); g.mods *= 0.5;
+          g.stumble = 0.6; g.cue = this.WORDS().split; g.cueT = 1.6;
+        }
+      });
+      g.mult = this.valueAt(g.pt);
+      g.k = this.paceK(g.pt);
+      if (r.collectAt != null && g.pt >= r.collectAt) this.settle(g.mult);
+      else if (r.crashAt != null && g.pt >= r.crashAt) this.bust();
+      else if (r.to != null && g.pt >= r.to) { g.net += S; this.begin(r.from || 0); }
+    } else if (g.pt >= this.RESULT_HOLD()) {
+      g.round++;
+      if (c.noBet) { g.net = 0; this.begin(this.round().from || 0); }
+      else {
+        g.phase = 'bet'; g.pt = 0;
+        if (g.round % c.rounds.length === 0) g.net = 0;
+      }
+    }
+
+    // He and the flock run as one; the camera runs with them.
+    const ramT = g.phase === 'run' ? this.ramTarget(g.k) : 0;
+    const rate = g.phase === 'crash' ? 6 : g.phase === 'collect' ? 1.4 : 2.2;
+    g.ramSpeed += (ramT - g.ramSpeed) * Math.min(1, dt * rate);
+    g.cam += g.ramSpeed * dt;
+    g.rgait += dt * (g.ramSpeed < 20 ? 0 : 0.9 + g.ramSpeed / 430);
+    g.rx = this.HERO_X(); g.ry = this.HERO_Y();
+    this.updateFlock(dt);
+
+    if (g.phase === 'crash') {
+      g.wolfT += dt;
+      g.dark = Math.min(1, Math.max(0, g.wolfT - 0.6) * 1.0);
+    }
+    if (g.phase === 'run' && g.ramSpeed > 200 && Math.random() < dt * (6 + 30 * g.k)) {
+      this.emit(g.rx - 60, g.ry - 6, 1, { vx: -40, spread: 50, lift: 30 + 40 * g.k, life: 0.9, r: 18 + 16 * g.k, grow: 34, color: 'rgba(214,180,138,1)', alpha: 0.16 });
+    }
+    this.pushHud();
+  }
+
+  updateFlock(dt) {
+    const g = this.g;
+    const want = g.phase === 'run' || g.phase === 'collect' ? this.flockCount(g.mult) : 0;
+    let joins = Math.max(1, Math.ceil(dt * 30));
+    g.flock.forEach((f, i) => {
+      if (f.st === 'out' && i < want && joins > 0) { f.st = 'in'; f.t = g.t; joins--; }
+      else if (f.st === 'in' && i >= want) { f.st = g.phase === 'crash' ? 'flee' : 'leave'; f.t = g.t; }
+      else if ((f.st === 'leave' || f.st === 'flee') && g.t - f.t > 1.6) f.st = 'out';
+    });
+  }
+
+  paint(ctx, dt) {
+    const g = this.g;
+    const W = 780, H = 1688;
+    const reduced = this.reduced();
+    const S = { W, H, GND: this.HORIZON(), t: g.t, dt, phase: g.phase, k: g.k, speed: g.ramSpeed, scroll: g.cam, reduced };
+    ctx.save();
+    ctx.clearRect(0, 0, W, H);
+    this.sky(ctx, S);
+    this.ground(ctx, S);
+    if (!reduced) this.streaks(ctx, S);
+    [[600, 0.22], [680, 0.3], [800, 0.36], [960, 0.4]].forEach(([y, s], i) => this.haze(ctx, S, y, 140 * s, 0.24 - i * 0.04));
+
+    const slots = this.SLOTS();
+    const list = [];
+    g.flock.forEach((f, i) => { if (f.st !== 'out') list.push({ y: slots[i].y, i }); });
+    list.push({ y: this.HERO_Y(), hero: true });
+    if (g.phase === 'crash') list.push({ y: this.HERO_Y() + 4, wolf: true });
+    list.sort((a, b) => a.y - b.y);
+    const run = Math.min(1, g.ramSpeed / 1100);
+    list.forEach((it) => {
+      if (it.hero) {
+        this.drawParts(ctx, S);
+        this.drawRam(ctx, g.rx, g.ry, 1.1, this.ramPose());
+      } else if (it.wolf) {
+        this.drawWolfAt(ctx, this.wolfX(), this.HERO_Y() + 4, 1.2);
+      } else {
+        this.drawFlockRam(ctx, slots[it.i], g.flock[it.i], run, reduced);
+      }
+    });
+    if (g.phase === 'crash') this.crashSweep(ctx, S);
+    if (g.flash > 0) {
+      ctx.fillStyle = 'rgba(255,236,206,' + (g.flash * 0.5).toFixed(3) + ')';
+      ctx.fillRect(0, 0, W, H);
+    }
+    ctx.restore();
+  }
+
+  drawFlockRam(ctx, sl, f, run, reduced) {
+    const g = this.g;
+    const ease = (p) => 1 - Math.pow(1 - p, 3);
+    let x = sl.x + Math.sin(g.t * 0.8 + sl.ph * 6.28) * 10 * sl.s;
+    let y = sl.y;
+    let alpha = 1, flip = false, r = run, ph = g.rgait + sl.ph, bob;
+    const age = g.t - f.t;
+    if (f.st === 'in' && age < 1) {
+      // Catching up from behind: in from the left, running harder than the flock.
+      const p = Math.min(1, age);
+      if (reduced) alpha = p;
+      else { x = -160 * sl.s - 60 + (x + 160 * sl.s + 60) * ease(p); r = Math.max(run, 1 - p); ph = g.t * 3.4 + sl.ph; }
+    } else if (f.st === 'leave' || f.st === 'flee') {
+      const q = age;
+      alpha = Math.max(0, 1 - q / 1.6);
+      if (!reduced) {
+        if (g.ramSpeed < 150) {
+          // Stopped or bolting: they turn and go back the way they came, facing where they go.
+          flip = true; r = 0.9; ph = g.t * 3.2 + sl.ph;
+          const v = f.st === 'flee' ? 420 + sl.ph * 360 : 160;
+          x -= q * v * (0.5 + sl.s * 0.5);
+          if (f.st === 'flee') y += (sl.y < this.HERO_Y() ? -1 : 1) * q * 30 * sl.s;
+        } else {
+          // Split off mid-run: still running forward, veering out of the flock and falling behind.
+          x -= q * q * 120 * (0.5 + sl.s * 0.5);
+          y += (sl.y < this.HERO_Y() ? -1 : 1) * q * 26 * sl.s;
+        }
+      }
+    }
+    if (x < -260 || alpha <= 0) return;
+    bob = r < 0.02 ? Math.sin(g.t * 2 + sl.ph * 6) * 1 : -Math.abs(Math.sin(ph * 6.2832)) * (3 + 9 * r);
+    this.drawRam(ctx, x, y, sl.s, { run: r, ph, bob, tilt: 0.06 * r, headDrop: 8 * r, tone: sl.tone, alpha, flip });
+  }
+
+}
+</script>
+</body>
+</html>

@@ -19,6 +19,7 @@ Settled decisions are not up for debate while you implement. If code and spec di
 apps/
   whack/        Vite + PixiJS v8 game client (static build)       @triptown/whack
   gate/         Gate Rush / Beat the Gate: a Whack Crash skin      @triptown/gate
+  flock/        Flock: a ram whose flock grows with the value      @triptown/flock
   sandbox/      fake operator page: iframe embed + verifier       @triptown/sandbox
   site/         Next.js studio site: catalogue + gated play demos @triptown/site
   api/          Hono on Vercel functions: rounds, SSE, cashout    @triptown/api
@@ -48,6 +49,7 @@ no-advance-warning rule true rather than merely intended.
 registerGame('skin-game', 'whack-crash');   // a skin on a certified engine
 registerGame('deferred-skin', 'whack-crash', { reveal: ['onCollect'] }); // ...that may also hide the crash until the collect
 registerGame('some-game'); // brings its own maths, needs its own report
+// Flock (apps/flock, flock-mvp) is the third skin: registerGame('flock', 'whack-crash'), live reveal only.
 ```
 
 The second argument is the engine whose config ids the game plays, so a skin reuses the certified ids and their committed RTP reports and needs no recertification. That is the point: new games are presentation, not new maths. Adding a game must never mean editing a type in `core` or `fairness`.
@@ -106,7 +108,7 @@ These protect real money and certification. Breaking one is a bug, even when the
 
 ## Compliance (certification and licensing)
 
-These games are built to be certified by accredited test labs and licensed to regulated operators. The current Whack Crash audit is **`docs/compliance/whack-crash-2026-09-16.md`**; its section 10 records the fixes verified the same day (result presentation, rules screen, operator bridge, non-interactive decoys, clock and net position, history view, RTP band, adult skin). What remains there is Kenya hosting and the licensing questions for counsel. **`docs/compliance/whack-crash-2026-09-15.md`** is the platform baseline; `night-meet-2026-09-16.md` and `going-viral-2026-09-16.md` are concept-stage audits. Shared fixes land through the `compliance-baseline` OpenSpec change. To audit any game, run the **`game-compliance-audit`** skill (`.claude/skills/game-compliance-audit/`). Its `references/jurisdictions.md` holds the dated rules and the watch list. Everything here is research, not legal advice.
+These games are built to be certified by accredited test labs and licensed to regulated operators. The current Whack Crash audit is **`docs/compliance/whack-crash-2026-09-16.md`**; its section 10 records the fixes verified the same day (result presentation, rules screen, operator bridge, non-interactive decoys, clock and net position, history view, RTP band, adult skin). What remains there is Kenya hosting and the licensing questions for counsel. **`docs/compliance/whack-crash-2026-09-15.md`** is the platform baseline; `night-meet-2026-09-16.md`, `going-viral-2026-09-16.md` and `flock-2026-10-04.md` (Nigeria, Ghana and Kenya only) are concept-stage audits. Shared fixes land through the `compliance-baseline` OpenSpec change. To audit any game, run the **`game-compliance-audit`** skill (`.claude/skills/game-compliance-audit/`). Its `references/jurisdictions.md` holds the dated rules and the watch list. Everything here is research, not legal advice.
 
 **Rules for every game (from the audits; each is a certification blocker):**
 
@@ -117,7 +119,7 @@ These games are built to be certified by accredited test labs and licensed to re
 3. **Make rules and help available before any bet.** Cover modifiers, RTP and how it is derived, max win and caps, minimum cash-out, disconnect and latency policy, and rounding. State that the outcome is fixed and that tapping or decorations do nothing. Source: GLI-19 §4.4.1, UK RTS 3/4.
 4. **No autoplay and no auto-rebet.** Auto cash-out is allowed because it only ends the current bet. One game at a time per player.
 5. **No illusion of skill.** No reflex or skill copy, no decorations that look interactive, no near-miss animations, no "would have reached xN". Source: AGCO 2.15, GLI §4.6.1(a), RTS 7C.
-6. **No child-appealing art in regulated builds or marketing.** Portugal R7c and Kenya Reg 95 apply to the game itself. UK CAP 16.3.12, AGCO 2.03 and Brazil 1.231 cover tiles, demos and ads. Keep an adult skin available.
+6. **No child-appealing art in regulated builds or marketing.** Portugal R7c and Kenya reg 92(1)(d) (Legal Notice 112, 2026; reg 95 in the draft) apply to the game itself. UK CAP 16.3.12, AGCO 2.03 and Brazil 1.231 cover tiles, demos and ads. Keep an adult skin available.
 7. **Support player-protection hooks:** session clock, net position, and an operator reality-check pause that only takes effect between rounds. Keep per-round history with an operator API, and use a pinned postMessage origin, never `'*'`.
 8. **Record per-market differences as jurisdiction profile flags, not forks.** Examples: `minCycleMs`, `maxMultiplier`, `minCashout`, `setbacksMode`, `skin`, `showNetPosition`, `hostingRegion`, `crashReveal`.
 8a. **A deferred reveal (`crashReveal: 'onCollect'`) owes the player the live win chance.** The multiplier keeps climbing past a crash they cannot see, so the screen can display money that is no longer winnable — which Ontario forbids. Show `RTP / value` for as long as the round runs, and never let the wait between the collect and the reveal vary with the outcome, or with anything drawn on screen: a wait that ended on arrival at a station would make one stopping point safer than another for the same payout, which is a strategy edge.
@@ -133,6 +135,7 @@ These games are built to be certified by accredited test labs and licensed to re
 - **A themed number never replaces the multiplier.** Brazil Annex I item 14(c) and Portugal regra 4 require the multiplier value on screen; Italy likely requires a conversion value for anything that reads as game credits; the Netherlands and Spain require the money "sufficiently distinguishable". A theme is a layer over the multiplier and the local-currency payout, never a substitute.
 - **No player action may be presented as feeding the outcome.** Netherlands Bko art. 4.2(4) is a statutory ban on required player actions that do not influence the result. Cash-out is fine — it ends the bet.
 - **A game's theme is a minors-appeal question, not just its art.** UK CAP guidance (Oct 2025) §14 reaches in-game themes and gameplay resembling "social games popular with under-18s". Check the concept, not only the skin.
+- **An animal theme carries the market's culture, not only its cuteness.** The ram is the Eid el-Kabir (Sallah) animal in Nigeria: no ram fights, no sacrifice or festival cues, and no campaign timed to the festival (Lagos Responsible Gaming Regs reg 7(1)(t), cultural beliefs or traditions). Nor may a character face danger down as a show of toughness (reg 7(1)(q)). Source: `flock-2026-10-04.md`.
 - **A studio is directly liable for its own marketing in Nigeria.** ARCON Act s.54 names whoever "creates or places" an advert, and s.63 covers a lobby tile. The operator's approval does not cover the studio.
 
 **Open decisions this raises:**
@@ -145,10 +148,11 @@ These games are built to be certified by accredited test labs and licensed to re
 ## Client conventions (apps/whack, packages/engine)
 
 - One Pixi `Application` per game. Scenes follow round states (Betting, Running, Setback, CashedOut, Crashed). The HUD is drawn in Pixi so the game is a single canvas, with accessibility labels mirrored in a DOM layer.
+- **The side controls (sound, provably fair, rules, history) are visible only when no round is in progress**, in every game (user rule, 5 Oct 2026). A `CrashScreen` skin overrides `hideControlsInRound()` to return `true`; the base brings them back for every bet and result, so rules stay reachable before any bet.
 - DPR is capped at 2. The ticker pauses when the page is hidden. Check layouts at 390×844 and 1440×900.
 - Respect `prefers-reduced-motion`: no screen shake and no confetti.
 - The client animates `G(t)` locally, applies setbacks as `BAD_MOLE` events arrive, shows the expected payout as soon as the player whacks, then reconciles with the server's settlement. Repeated taps send exactly one cash-out request.
-- Art is vector placeholders: shapes in `apps/whack/art/art.mjs`, palette and character treatment per skin in `art/skins/{candy,adult}.mjs`. One atlas per skin is committed, and a session loads only its profile's skin. After editing the art, run `atlas` and commit all four output files. The adult skin exists to answer the minors-appeal rules (CAP under-18 guidance §14, Kenya reg 95(1)(d), PT R7c, BR 1.231 art. 12 XVIII); its header lists what it is answering, so read that before changing it.
+- Art is vector placeholders: shapes in `apps/whack/art/art.mjs`, palette and character treatment per skin in `art/skins/{candy,adult}.mjs`. One atlas per skin is committed, and a session loads only its profile's skin. After editing the art, run `atlas` and commit all four output files. The adult skin exists to answer the minors-appeal rules (CAP under-18 guidance §14, Kenya reg 92(1)(d), PT R7c, BR 1.231 art. 12 XVIII); its header lists what it is answering, so read that before changing it.
 - Audio budget is 1.5 MB total (WebM/Opus plus MP3 fallback). Music loads after the first frame. Audio unlocks on the first gesture. Wrap every `localStorage` access in try/catch because sandboxed iframes may block it. Record every audio source and its licence in `apps/whack/assets/audio/SOURCES.md`.
 - Mock rounds can be forced with `?force=` in demo builds (see `MockRoundService.forceNext`).
 

@@ -1,0 +1,103 @@
+{
+  "artboards": [
+    {
+      "file": "directions/Drove.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Drove — rising only",
+      "is_interactive": false
+    },
+    {
+      "file": "directions/Scatter.dc.html",
+      "x": 480,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Scatter — setbacks",
+      "is_interactive": false
+    },
+    {
+      "file": "directions/NightFold.dc.html",
+      "x": 960,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Night Fold — deferred reveal",
+      "is_interactive": false
+    },
+    {
+      "file": "directions/TwoPens.dc.html",
+      "x": 1440,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Two Pens — split stake",
+      "is_interactive": false
+    },
+    {
+      "file": "directions/Strays.dc.html",
+      "x": 1920,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Strays — boosts",
+      "is_interactive": false
+    }
+  ],
+  "annotations": [
+    {
+      "id": "brief",
+      "x": 0,
+      "y": -290,
+      "w": 1400,
+      "text": "DROVE — phase-1 concepts for game #4. Five mechanics, one art direction, held constant on purpose: the comparison is the axis that changes the round, not the paint. Each artboard plays live — a 5 s betting gap, the drive building with the value, then a collect or a cut-off — and loops three scripted rounds.\n\nThe seed was \"you are a sheep in a flock and a wolf takes it all\". The mechanic survived intact; the fiction did not. Sheep are the worked example in the CAP under-18 guidance (\"‘cuddly’ or ‘cute’ animals\", and \"characters with similarities to soft toys in particular should be avoided\"), the wolf-and-sheep story is in the same high-risk list under \"Common fairy tales, like Little Red Ridinghood\", and CAP §13/§14 reach the game’s own theme, not only its ads. So the flock became a cattle drive at dusk, drawn at eye level from inside the mob.\n\nNo predator is ever drawn. It cannot appear before the crash — that is advance warning of T — and must not be shown at the crash either, which is the horse-fall beat the earlier audits already banned. The hazard is the mob turning and the gate.\n\nRules held in every scene: value rises from x1.00 and the multiplier is the hero number; one stake, one collect verb, nothing else is tappable and the mob never reacts to a tap; no other animal is ever shown being taken (that is a near-miss); crowd density and dust follow elapsed time only, never the crash time; a win banner only when the round total beats the stake, otherwise RETURNED with the net; session clock, net position and a rules entry on screen in every state.\n\nThe animals are rough placeholders — silhouettes, backs and horns, no faces and no mascot. Production art would be pre-rendered sprite sheets sized for low-end Android. Toggle \"reducedMotion\" on an artboard for the calm version. Stake, balances and net are sample data."
+    },
+    {
+      "id": "note-1",
+      "x": 0,
+      "y": 900,
+      "w": 390,
+      "text": "DROVE  (recommended)\nRising only, slow pace. The engine is whack-crash/v3-rising, untouched:\nno new maths, no new config id, the committed 10M-round report already covers it.\nReaches every market in the set, Brazil and Portugal included.\nThe value is attached to how deep you still are in a mob you cannot steer,\nwhich is the most honest crash fantasy on this canvas: there is nothing to do but leave."
+    },
+    {
+      "id": "note-2",
+      "x": 480,
+      "y": 900,
+      "w": 390,
+      "text": "SCATTER  (runner-up)\nThe mob shoulders you back and the value halves. Config whack-crash/v3, also committed.\nDead in Brazil (1.207 Annex I item 14(d)) and Portugal (R1/R22): a falling value fits\nnone of the permitted round endings there. Everywhere else it is a profile flag away.\nRound 3 is the compliance artboard: the value recovers to exactly x1.00 and the collect\nreturns the stake. RETURNED, net 0.00, and not one win cue fires."
+    },
+    {
+      "id": "note-3",
+      "x": 960,
+      "y": 900,
+      "w": 390,
+      "text": "NIGHT FOLD\nThe cut-off is already decided and you cannot see it. You learn at the break.\nReuses gate-odds-mvp whole: the live chance (RTP ÷ value, floored) stays on screen\nand is restated in the past tense after the press, and the wait is a fixed 1.6 s\nfrom the press for every outcome — never tied to anything drawn on screen.\nNigeria and Ghana only, pending the lab letter. My reservation: that is Gate Rush’s\none differentiator and the same two markets, so it ships a second skin of the same bet."
+    },
+    {
+      "id": "note-4",
+      "x": 1440,
+      "y": 900,
+      "w": 390,
+      "text": "TWO PENS\nOne stake, one debit, one round id, two pens collected separately.\nThe only concept here with a new money path, and the only expensive one: the\npaper-route/* split ids are retired, so this needs new ids and a committed 10M-round\nreport each, plus GLI-19 §4.4.2 per-part displays. No partial cash-out in Portugal.\nRound 2 is the artboard people forget: pen A comes in at x1.17 and the drive is then\ncut off. The round returned 0.58 on a 1.00 stake, so it is shown as a loss. Celebration\nis decided on the round total, never on a pen."
+    },
+    {
+      "id": "note-5",
+      "x": 1920,
+      "y": 900,
+      "w": 390,
+      "text": "STRAYS\nStrays fold into the mob and lift the value 5% each. The boosted ids (v2/v4) exist\nwith committed reports, and the crash hazard already pays for the lift, so the maths\nis settled. What is not settled is acceptance: a boosted id needs its own lab sign-off\nbefore any regulated market uses it. Unregulated now, regulated after the letter.\nStrictly this is a config family rather than a game, so it can also ride on any of\nthe other four as a profile flag."
+    },
+    {
+      "id": "engines",
+      "x": 0,
+      "y": 1180,
+      "w": 1400,
+      "text": "Certification cost, left to right: DROVE — whack-crash/v3-rising  ·  SCATTER — whack-crash/v3  ·  NIGHT FOLD — whack-crash/v3-rising + crashReveal: onCollect  ·  TWO PENS — new config id, stakeParts: 2  ·  STRAYS — whack-crash/v4-rising.\nFour of the five are skins on already-certified ids: registerGame(<game>, 'whack-crash') and nothing in core or fairness changes. Two Pens is the exception and the only one that needs fresh simulate reports."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

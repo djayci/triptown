@@ -24,8 +24,9 @@ export class Logo extends Container {
     const b = text(second, displayStyle(size, colors.second ?? COLORS.sun, 3));
     if (box) {
       drawSticker(bg, box.w, box.h, { fill, radius: 14, border: 4, shadow: 4 });
-      const gap = size * 0.2;
-      const total = a.width + gap + b.width;
+      // A one-word mark has no second word to leave a gap for, or it sits off centre.
+      const gap = second ? size * 0.2 : 0;
+      const total = a.width + gap + (second ? b.width : 0);
       a.position.set((box.w - total) / 2, (box.h - a.height) / 2);
       b.position.set(a.x + a.width + gap, a.y);
       this.addChild(bg, a, b);
@@ -40,7 +41,9 @@ export class Logo extends Container {
     const inkLift = size * 0.082;
     a.position.set(padX, padY - inkLift);
     b.position.set(padX + a.width + size * 0.2, padY - inkLift);
-    drawSticker(bg, b.x + b.width + padX, a.height + padY * 2 - 4, { fill, radius: 14, border: 4, shadow: 4 });
+    // A one-word mark ends with its word: no gap or empty second word, or the word sits left of centre.
+    const right = second ? b.x + b.width : a.x + a.width;
+    drawSticker(bg, right + padX, a.height + padY * 2 - 4, { fill, radius: 14, border: 4, shadow: 4 });
     this.addChild(bg, a, b);
     this.rotation = (-3 * Math.PI) / 180;
   }

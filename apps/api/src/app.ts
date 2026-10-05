@@ -87,6 +87,8 @@ export function createApp(opts: AppOptions) {
   // committed RTP reports, nothing to recertify. The Lift plays the Whack Crash engine.
   // Beat the Gate plays the same engine (beat-the-gate-mvp D1).
   registerGame('beat-the-gate', 'whack-crash', { reveal: ['onCollect'] });
+  // Flock plays it too, live reveal only (flock-mvp D1).
+  registerGame('flock', 'whack-crash');
 
   const makeHost = (game: GameId) =>
     new RoundHost({

@@ -1,0 +1,107 @@
+{
+  "url": "http://localhost:5179/?profile=light",
+  "date": "2026-10-04T10:54:54.858Z",
+  "profile": {
+    "belowStake": true,
+    "even": true,
+    "practice": false,
+    "why": "profile light: setbacks on, minimum cash-out none, practice rounds not allowed"
+  },
+  "audioCues": "present",
+  "results": [
+    {
+      "case": "win above stake",
+      "expect": "win",
+      "kind": "win",
+      "celebrated": true,
+      "shakes": 1,
+      "audio": [
+        "lobby:start",
+        "sfx:bet",
+        "lobby:stop",
+        "music:start",
+        "tone:start",
+        "sfx:boost",
+        "sfx:collect",
+        "tone:stop",
+        "music:stop",
+        "lobby:start",
+        "sfx:win"
+      ],
+      "pass": true
+    },
+    {
+      "case": "return below stake after a setback",
+      "expect": "not-win",
+      "kind": "loss",
+      "celebrated": false,
+      "shakes": 0,
+      "audio": [
+        "lobby:start",
+        "sfx:bet",
+        "lobby:stop",
+        "music:start",
+        "tone:start",
+        "sfx:setback",
+        "music:duck",
+        "sfx:collect",
+        "tone:stop",
+        "music:stop",
+        "lobby:start",
+        "sfx:return"
+      ],
+      "pass": true
+    },
+    {
+      "case": "even return at x1.00",
+      "expect": "not-win",
+      "kind": "even",
+      "celebrated": false,
+      "shakes": 0,
+      "audio": [
+        "lobby:start",
+        "sfx:bet",
+        "lobby:stop",
+        "music:start",
+        "tone:start",
+        "sfx:collect",
+        "tone:stop",
+        "music:stop",
+        "lobby:start",
+        "sfx:return"
+      ],
+      "pass": true
+    },
+    {
+      "case": "crash",
+      "expect": "not-win",
+      "kind": "loss",
+      "celebrated": false,
+      "shakes": 0,
+      "audio": [
+        "lobby:start",
+        "sfx:bet",
+        "lobby:stop",
+        "music:start",
+        "tone:start",
+        "sfx:boost",
+        "sfx:boost",
+        "tone:stop",
+        "music:stop",
+        "lobby:start",
+        "sfx:crash"
+      ],
+      "pass": true
+    },
+    {
+      "name": "deferred heading home is the same for a win and a loss",
+      "status": "unreachable",
+      "why": "live reveal"
+    },
+    {
+      "name": "practice round",
+      "status": "unreachable",
+      "why": "profile light: setbacks on, minimum cash-out none, practice rounds not allowed"
+    }
+  ]
+}
