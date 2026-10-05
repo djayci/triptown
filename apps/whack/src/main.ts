@@ -13,6 +13,7 @@ import bands from '@triptown/fairness/reports/bands.json';
 import type { BandsByConfig } from '@triptown/fairness';
 import { createRoundService, demoBetMinor } from './services';
 import { GameView } from './game/view';
+import { whackAudioLevel } from './game/music';
 
 // The shared client renders this game's words through whatever translator it is given.
 setTranslator(t);
@@ -51,6 +52,7 @@ async function boot() {
   const overlay = new Overlay();
   const controller = new GameController(game, frames, service, audio, (app, f, cb) => new GameView(app, f, cb), {
     collectSfx: 'whack',
+    audioLevel: whackAudioLevel,
     clientVersion: __APP_VERSION__,
     initialBetMinor: demoBetMinor(),
     onFairness: () => void fairness?.open(),

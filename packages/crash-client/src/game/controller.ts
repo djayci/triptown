@@ -98,6 +98,15 @@ export interface ControllerHooks {
    * known, so it is the same for every outcome.
    */
   headingHomeSfx?: string;
+  /**
+   * Which music layers play at a given 0..10 intensity, for a game whose soundtrack wants its own
+   * curve. Defaults to `intensityAudioLevel`, which follows the on-screen SLOW/MEDIUM/FAST caption.
+   * The caption and the mix are separate judgements: the caption describes the climb, while the mix
+   * has to fit the round length, and a layer that enters past the median round is one most players
+   * never hear. Presentation only — it reads the intensity it is given and returns which stems play,
+   * so it can learn nothing about the crash.
+   */
+  audioLevel?: (level10: number) => 0 | 1 | 2;
   /** Build version reported to the operator bridge. Apps inject it; the shared client cannot read
    *  a per-app Vite define. */
   clientVersion?: string;
@@ -849,7 +858,7 @@ export class GameController {
       this.practiceRound ? false : optimisticPayout(r.betMinor, m, this.config) < r.betMinor,
     );
     this.audio?.setToneMultiplier(m);
-    this.audio?.setIntensity(intensityAudioLevel(level));
+    this.audio?.setIntensity((this.hooks.audioLevel ?? intensityAudioLevel)(level));
   }
 
   private elapsed(r: ActiveRound): number {
