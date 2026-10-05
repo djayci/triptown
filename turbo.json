@@ -10,7 +10,7 @@
       "outputs": ["dist-demo/**"]
     },
     "@triptown/site#build": {
-      "dependsOn": ["^build", "@triptown/whack#build:demo", "@triptown/gate#build:demo"],
+      "dependsOn": ["^build", "@triptown/whack#build:demo", "@triptown/gate#build:demo", "@triptown/flock#build:demo"],
       "outputs": [".next/**", "!.next/cache/**"]
     },
     "dev": {

@@ -5,7 +5,7 @@
 export type GameStatus = 'live' | 'in-development';
 
 /** The game's own look, drawn as a logo tile rather than a screenshot. */
-export type TileTheme = 'whack-candy' | 'gate-paddock' | 'gate-track';
+export type TileTheme = 'whack-candy' | 'gate-paddock' | 'gate-track' | 'flock-dusk';
 
 export type Entry = {
   /** URL segment under /play/. */
@@ -16,7 +16,7 @@ export type Entry = {
   /** One line on how it plays. No win, skill, multiplier or RTP claims (checked at build). */
   pitch: string;
   status: GameStatus;
-  /** The two words of the game's in-game logo sticker, drawn in its own colours. */
+  /** The two words of the game's in-game logo sticker, drawn in its own colours; a one-word mark leaves the second empty. */
   logo: readonly [string, string];
   /** Backdrop and colours of the logo tile; none for a game whose art is not settled. */
   tile?: TileTheme;
@@ -51,6 +51,18 @@ export const catalogue: readonly Entry[] = [
     logo: ['GATE', 'RUSH'],
     tile: 'gate-track',
     accent: '#3abef9',
+    demoQuery: {},
+  },
+  {
+    slug: 'flock',
+    app: 'flock',
+    name: 'Flock',
+    pitch:
+      'A ram runs at dusk and the flock falls in beside him as the value climbs. Cash out before the wolf comes; it gives no warning.',
+    status: 'live',
+    logo: ['FLOCK', ''],
+    tile: 'flock-dusk',
+    accent: '#e8762b',
     demoQuery: {},
   },
 ];

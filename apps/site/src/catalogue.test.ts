@@ -23,31 +23,34 @@ describe('catalogue', () => {
     for (const e of catalogue) {
       expect(e.name.trim()).not.toBe('');
       expect(e.pitch.trim()).not.toBe('');
-      expect(e.logo.every((w) => w.trim() !== '')).toBe(true);
+      // The first word is the mark; a one-word mark (Flock) leaves the second empty.
+      expect(e.logo[0].trim()).not.toBe('');
     }
     for (const e of liveEntries()) expect(e.tile).toBeDefined();
   });
 
-  it('lists Whack Crash and Gate Rush as live', () => {
-    expect(liveEntries().map((e) => e.slug)).toEqual(['whack', 'gate']);
+  it('lists Whack Crash, Gate Rush and Flock as live', () => {
+    expect(liveEntries().map((e) => e.slug)).toEqual(['whack', 'gate', 'flock']);
   });
 
   it('lists no game whose app is not in the tree', () => {
     // A catalogue entry outlived its game once. The showcase would have offered a tile for
     // something nobody could play.
-    for (const e of catalogue) expect(['whack', 'gate']).toContain(e.app);
+    for (const e of catalogue) expect(['whack', 'gate', 'flock']).toContain(e.app);
   });
 });
 
 describe('playUrl', () => {
   it('opens a live demo at index.html with its query', () => {
-    expect(playUrl(entry({ slug: 'gate', demoQuery: { profile: 'ng-draft', skin: 'adult' } }))).toBe(
-      '/play/gate/index.html?profile=ng-draft&skin=adult',
-    );
+    expect(
+      playUrl(entry({ slug: 'gate', demoQuery: { profile: 'ng-draft', skin: 'adult' } })),
+    ).toBe('/play/gate/index.html?profile=ng-draft&skin=adult');
   });
 
   it('encodes the query', () => {
-    expect(playUrl(entry({ demoQuery: { profile: 'a b&c' } }))).toBe('/play/demo/index.html?profile=a+b%26c');
+    expect(playUrl(entry({ demoQuery: { profile: 'a b&c' } }))).toBe(
+      '/play/demo/index.html?profile=a+b%26c',
+    );
   });
 
   it('omits the question mark when there is no query', () => {

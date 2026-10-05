@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { catalogue } from '../src/catalogue';
+import { catalogue, liveEntries } from '../src/catalogue';
 import { copy, TRIPTYCH_URL } from '../src/copy';
 import { Home, type GateState } from './home';
 
@@ -18,8 +18,10 @@ describe('Home', () => {
     expect(html).not.toContain('/play/');
     expect(html).not.toContain(copy.games.play);
     for (const e of catalogue) expect(html).toContain(e.name);
-    expect(html.match(/row-locked"[^>]*aria-disabled="true"/g)).toHaveLength(2);
-    expect(html.match(new RegExp(copy.games.locked.replace('+', '\\+'), 'g'))).toHaveLength(2);
+    // Every live game is locked behind the 18+ gate, however many there are.
+    const live = liveEntries().length;
+    expect(html.match(/row-locked"[^>]*aria-disabled="true"/g)).toHaveLength(live);
+    expect(html.match(new RegExp(copy.games.locked.replace('+', '\\+'), 'g'))).toHaveLength(live);
   });
 
   it('marks an unfinished game coming soon, and does not link it', () => {

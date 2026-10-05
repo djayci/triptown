@@ -4,6 +4,7 @@ import { chromium, type Browser, type Request } from 'playwright-core';
 import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { liveEntries } from '../src/catalogue';
 import { GATE_COOKIE } from '../src/gate';
 
 const CHROME = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -11,6 +12,8 @@ const base = process.argv[2] ?? 'http://localhost:5180';
 const origin = new URL(base).origin;
 const siteDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 const GATE_DEMO = '/play/gate/index.html';
+/** Every live game is listed: locked before the 18+ confirmation, linked after it. */
+const LIVE = liveEntries().length;
 
 const failures: string[] = [];
 const check = (ok: boolean, what: string) => {
@@ -59,7 +62,7 @@ async function run(browser: Browser) {
   page.on('request', onRequest);
   await page.goto(base, { waitUntil: 'networkidle' });
   check((await page.locator('a[href*="/play/"]').count()) === 0, '(b) the unconfirmed home page has no /play/ link');
-  check((await page.locator('.row-locked').count()) === 2, '(b) the unconfirmed home page shows the live games greyed out');
+  check((await page.locator('.row-locked').count()) === LIVE, '(b) the unconfirmed home page shows the live games greyed out');
   await page.locator('.row-locked').first().click({ force: true });
   check(new URL(page.url()).pathname === '/', '(b) clicking a greyed-out game goes nowhere');
 
@@ -82,7 +85,8 @@ async function run(browser: Browser) {
   check(focused === 'YES, 18+', '(d) Tab reaches "YES, 18+"');
   const atlasRequests: string[] = [];
   page.on('request', (req) => {
-    if (/atlas-(adult|candy)\.(json|png)/.test(req.url())) atlasRequests.push(req.url());
+    // Any of the game's atlases: Gate Rush opens in its Dirt Track look (atlas-track) since 17 Sep 2026.
+    if (/atlas-[a-z]+\.(json|png)/.test(req.url())) atlasRequests.push(req.url());
   });
   await Promise.all([page.waitForURL(/\/play\/gate\/index\.html/), page.keyboard.press('Enter')]);
   const cookie = (await context.cookies(base)).find((c) => c.name === GATE_COOKIE);
@@ -105,7 +109,7 @@ async function run(browser: Browser) {
   // (e) The confirmed home page loads nothing under /play/.
   playRequests.length = 0;
   await page.goto(base, { waitUntil: 'networkidle' });
-  check((await page.locator('a[href*="/play/"]').count()) === 2, '(e) the confirmed home page links two live demos');
+  check((await page.locator('a[href*="/play/"]').count()) === LIVE, `(e) the confirmed home page links ${LIVE} live demos`);
   check(playRequests.length === 0, `(e) the confirmed home page requested nothing under /play/ (${playRequests.length})`);
 
   // (g) No demo request left the site's origin (fonts are self-hosted by next/font).

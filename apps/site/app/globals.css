@@ -375,6 +375,29 @@ a:hover {
   font-weight: 800;
   transform: none;
 }
+/*
+ * Flock: its Dusk look (apps/flock/src/main.ts DUSK_LOOK, game/stage.ts DUSK). The dusk sky with the low
+ * sun, the dirt field below the skyline, and the one-word orange sticker in Anton. No ram and no wolf:
+ * the tile carries the game's colours, never its animals (flock audit 2026-10-04, CAP under-18 guidance).
+ */
+.tile-flock-dusk {
+  --ink: #0b0d16;
+  --cream: #f4ead6;
+  --sticker: #e8762b;
+  --word-b: #f4ead6;
+  background:
+    radial-gradient(circle at 26% 56%, #ffd79a 0 3.2%, rgba(255, 176, 92, 0.5) 3.4%, rgba(255, 176, 92, 0) 30%),
+    linear-gradient(#141c33 0%, #3b3550 34%, #8a4a2c 60%);
+}
+.tile-flock-dusk .tile-ground {
+  top: 62%;
+  border-top: 3px solid #1b2036;
+  background: linear-gradient(#6b4a30, #432d1d 50%, #1b1109);
+}
+.tile-flock-dusk .sticker {
+  font-family: var(--font-game-anton), Impact, 'Arial Narrow', sans-serif;
+  letter-spacing: 0.03em;
+}
 .sticker {
   position: relative;
   display: inline-flex;

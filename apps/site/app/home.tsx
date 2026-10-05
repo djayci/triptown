@@ -85,12 +85,7 @@ export function Home({ state, next, entries = catalogue, confirmAction, declineA
           </div>
           <div className="games-track">
             {entries.map((entry, i) => (
-              <GameRow
-                key={entry.slug}
-                entry={entry}
-                index={i}
-                locked={state !== 'confirmed'}
-              />
+              <GameRow key={entry.slug} entry={entry} index={i} locked={state !== 'confirmed'} />
             ))}
           </div>
         </section>
@@ -141,7 +136,11 @@ function GameRow({ entry, index, locked }: RowProps) {
     '--fade-delay': `${0.15 + index * 0.18}s`,
   } as CSSProperties;
   return (
-    <article className={`row reveal ${state}`} style={style} aria-disabled={locked && !soon ? true : undefined}>
+    <article
+      className={`row reveal ${state}`}
+      style={style}
+      aria-disabled={locked && !soon ? true : undefined}
+    >
       <div className="spine" aria-hidden="true" />
       {entry.tile ? (
         <LogoTile entry={entry} theme={entry.tile} />
@@ -176,11 +175,16 @@ function GameRow({ entry, index, locked }: RowProps) {
  */
 function LogoTile({ entry, theme }: { entry: Entry; theme: NonNullable<Entry['tile']> }) {
   return (
-    <div className={`preview tile tile-${theme}`} role="img" aria-label={copy.games.logoLabel(entry.name)}>
+    <div
+      className={`preview tile tile-${theme}`}
+      role="img"
+      aria-label={copy.games.logoLabel(entry.name)}
+    >
       <div className="tile-ground" aria-hidden="true" />
       <div className="sticker" aria-hidden="true">
         <span className="sticker-a">{entry.logo[0]}</span>
-        <span className="sticker-b">{entry.logo[1]}</span>
+        {/* A one-word mark (Flock) has no second word, and no gap left for one. */}
+        {entry.logo[1] ? <span className="sticker-b">{entry.logo[1]}</span> : null}
       </div>
     </div>
   );
