@@ -24,6 +24,9 @@ export const DUSK_ACTION = 0xe8762b;
 const READY_SIZE = 64;
 
 const FLOCK_LOOK: Partial<ScreenLook> = {
+  // The FLOCK sticker in the heavy grotesque, not Anton, so it reads as one family with the other games'
+  // wordmarks and matches the site tile (the user, 6 Oct 2026). Position as the default look's.
+  logo: { x: 12, y: 14, colors: { font: { family: 'Bricolage Grotesque, Trebuchet MS, sans-serif', weight: '800' } } },
   value: {
     x: 195,
     anchor: 0.5,

@@ -90,7 +90,8 @@ const DUSK_LOOK = {
 async function boot() {
   const parent = document.getElementById('game');
   if (!parent) throw new Error('#game missing');
-  await loadFonts(['Anton', 'Bricolage Grotesque']);
+  // 800 is the FLOCK sticker's weight: measured before it loads, the sticker would be sized for the fallback.
+  await loadFonts(['Anton', { family: 'Bricolage Grotesque', weights: [500, 800] }]);
 
   const service = await createRoundService();
   const session = await service.getSession().catch(() => null);

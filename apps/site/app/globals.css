@@ -376,27 +376,49 @@ a:hover {
   transform: none;
 }
 /*
- * Flock: its Dusk look (apps/flock/src/main.ts DUSK_LOOK, game/stage.ts DUSK). The dusk sky with the low
- * sun, the dirt field below the skyline, and the one-word orange sticker in Anton. No ram and no wolf:
- * the tile carries the game's colours, never its animals (flock audit 2026-10-04, CAP under-18 guidance).
+ * Flock: its Dusk look (apps/flock/src/main.ts DUSK_LOOK, game/stage.ts DUSK), as a retro sunset: bands of
+ * the dusk sky, a big banded sun setting on a dark hill, and the orange FLOCK sticker in the same heavy
+ * face as the other games' (approved design "Flock — site tile", 6 Oct 2026). No ram and no wolf: the tile
+ * carries the game's colours, never its animals (flock audit 2026-10-04, CAP under-18 guidance).
  */
 .tile-flock-dusk {
   --ink: #0b0d16;
   --cream: #f4ead6;
   --sticker: #e8762b;
-  --word-b: #f4ead6;
+  --word-b: #ffd27a;
+  background: linear-gradient(
+    #232842 0 18%,
+    #3b3550 18% 36%,
+    #6a3a3e 36% 52%,
+    #a84c2c 52% 66%,
+    #d9662a 66% 100%
+  );
+}
+/* The sun: a solid cap over gold bands. The bands drift down through it on a live row (below). */
+.tile-flock-dusk::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 80%;
+  width: 62%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
   background:
-    radial-gradient(circle at 26% 56%, #ffd79a 0 3.2%, rgba(255, 176, 92, 0.5) 3.4%, rgba(255, 176, 92, 0) 30%),
-    linear-gradient(#141c33 0%, #3b3550 34%, #8a4a2c 60%);
+    linear-gradient(#ffd27a 0 20%, transparent 20%),
+    repeating-linear-gradient(#ffd27a 0 58%, transparent 58% 100%);
+  background-size:
+    100% 100%,
+    100% 4.4cqw;
 }
 .tile-flock-dusk .tile-ground {
-  top: 62%;
-  border-top: 3px solid #1b2036;
-  background: linear-gradient(#6b4a30, #432d1d 50%, #1b1109);
+  background: radial-gradient(ellipse 88% 46% at 50% 116%, #2a1b10 0 68%, #0b0d16 68% 72%, transparent 72%);
 }
+/* Down into the sun rather than centred, so the sun frames the word. */
 .tile-flock-dusk .sticker {
-  font-family: var(--font-game-anton), Impact, 'Arial Narrow', sans-serif;
-  letter-spacing: 0.03em;
+  top: 6cqw;
+  font-family: var(--font-game-grotesque), 'Arial Black', sans-serif;
+  font-weight: 800;
 }
 .sticker {
   position: relative;
@@ -654,6 +676,14 @@ a:hover {
     animation-duration: 30s;
   }
 
+  /* Flock has no rays to turn: its sun's bands drift down instead, faster on hover like the others. */
+  .row-live .tile-flock-dusk::before {
+    animation: tt-sun-bands 6s linear infinite;
+  }
+  .row-live:hover .tile-flock-dusk::before {
+    animation-duration: 2s;
+  }
+
   /* Play: a light panel sweeps in behind the label, and the arrow nudges forward. */
   .row-play {
     position: relative;
@@ -706,6 +736,14 @@ a:hover {
 }
 .tile-gate-track {
   background: repeating-conic-gradient(from var(--ray) at 50% 62%, #f2b705 0deg 9deg, #e5a800 9deg 18deg);
+}
+
+@keyframes tt-sun-bands {
+  to {
+    background-position:
+      0 0,
+      0 4.4cqw;
+  }
 }
 
 @keyframes tt-rise {

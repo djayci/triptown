@@ -11,6 +11,11 @@ export interface LogoColors {
   fill?: number;
   first?: number;
   second?: number;
+  /**
+   * The wordmark's own face, for a game whose display font does not suit a sticker: Flock's numbers are in
+   * Anton, but its FLOCK sticker is in the same heavy face as the other games' (site tile, 6 Oct 2026).
+   */
+  font?: { family: string; weight?: '700' | '800' };
 }
 
 /** The game's wordmark. Each game passes its own two words; the shared client knows none of them. */
@@ -22,6 +27,12 @@ export class Logo extends Container {
     const fill = colors.fill ?? COLORS.pink;
     const a = text(first, displayStyle(size, colors.first ?? COLORS.cream, 3));
     const b = text(second, displayStyle(size, colors.second ?? COLORS.sun, 3));
+    if (colors.font) {
+      for (const word of [a, b]) {
+        word.style.fontFamily = colors.font.family;
+        if (colors.font.weight) word.style.fontWeight = colors.font.weight;
+      }
+    }
     if (box) {
       drawSticker(bg, box.w, box.h, { fill, radius: 14, border: 4, shadow: 4 });
       // A one-word mark has no second word to leave a gap for, or it sits off centre.
