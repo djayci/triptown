@@ -139,7 +139,35 @@ const TRACK_LOOK: Partial<ScreenLook> = {
   hideStakeInRound: true,
   lobby: { top: 58, bottom: 226 },
 };
-const TRACK_GAUGE = { x: 40, y: 212, w: 310, h: 5 };
+const TRACK_GAUGE = { x: 40, y: 209, w: 310, h: 8 };
+/**
+ * Dirt Track's chance bar, by the chance: racing green while it is likely, burnt orange as it slips, red as it
+ * gets unlikely. Green to orange is a switch, not a blend (the blend passes through mud). Every colour keeps
+ * 3:1 against both golds of the card.
+ */
+const CHANCE_STOPS: [number, number][] = [
+  [0, 0xa31616],
+  [22, 0xb91c1c],
+  [30, 0xa8380c],
+  [45, 0xa8380c],
+  [45.5, 0x1f6b3a],
+  [100, 0x1f6b3a],
+];
+/** Colour `a` moved a fraction `t` of the way to `b`. */
+function mix(a: number, b: number, t: number): number {
+  const ch = (shift: number) => Math.round(((a >> shift) & 255) + (((b >> shift) & 255) - ((a >> shift) & 255)) * t);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+}
+function chanceColour(percent: number): number {
+  const p = Math.max(0, Math.min(100, percent));
+  for (let i = 1; i < CHANCE_STOPS.length; i++) {
+    const [p1, c1] = CHANCE_STOPS[i]!;
+    const [p0, c0] = CHANCE_STOPS[i - 1]!;
+    if (p > p1) continue;
+    return mix(c0, c1, (p - p0) / (p1 - p0 || 1));
+  }
+  return CHANCE_STOPS[CHANCE_STOPS.length - 1]![1];
+}
 
 /** The ride home's bar: in the stake row's place, which is empty during a ride, just above the button. */
 const REVEAL_BAR = { x: 14, y: 712, w: 362, h: 6 };
@@ -157,6 +185,8 @@ export class GateView extends CrashScreen {
   private readonly towerMark = new Graphics();
   /** Broadcast: the thin chance gauge under the live lines. */
   private readonly gauge = new Graphics();
+  /** The chance the gauge last showed, in percent. */
+  private gaugePercent: number | null = null;
   private towerRows: { multiplier: number; value: Text; chance: Text; yours: Text }[] = [];
   /** The table's title and column heads, built once; only the rows are rebuilt on an update. */
   private towerHead: Text[] = [];
@@ -248,9 +278,15 @@ export class GateView extends CrashScreen {
 
   /** Broadcast and Dirt Track: a thin bar under the chance line, as long as the chance is likely. */
   private drawGauge(chance: string | null): void {
-    this.gauge.clear();
     const percent = chance === null ? null : Number(chance.replace(/[^\d.]/g, ''));
-    if ((this.skin !== 'broadcast' && this.skin !== 'track') || percent === null || !Number.isFinite(percent)) {
+    this.gaugePercent = percent !== null && Number.isFinite(percent) ? percent : null;
+    this.paintGauge();
+  }
+
+  private paintGauge(): void {
+    this.gauge.clear();
+    const percent = this.gaugePercent;
+    if ((this.skin !== 'broadcast' && this.skin !== 'track') || percent === null) {
       this.gauge.visible = false;
       return;
     }
@@ -258,7 +294,15 @@ export class GateView extends CrashScreen {
     const track = this.skin === 'track';
     this.gauge.visible = true;
     this.gauge.roundRect(x, y, w, h, h / 2).fill(track ? { color: COLORS.ink, alpha: 0.15 } : { color: COLORS.cream, alpha: 0.25 });
-    this.gauge.roundRect(x, y, Math.max(h, (w * Math.max(0, Math.min(100, percent))) / 100), h, h / 2).fill(track ? COLORS.ink : 0xd90429);
+    // Dirt Track: the bar turns from green through amber to red as the chance falls, and below 30% it
+    // throbs, faster the lower it goes (2 Oct 2026: it should feel urgent). Read from the chance on screen,
+    // which is the value's and nothing else, so it says nothing about whether this round is already decided.
+    // The throb swells the bar and flashes it a brighter red, rather than fading it: a faded red over gold
+    // reads as orange.
+    const beat = track && percent < 30 && !prefersReducedMotion() ? Math.abs(Math.sin((performance.now() / 1000) * Math.PI * (1.4 + (30 - percent) / 10))) : 0;
+    const fill = track ? mix(chanceColour(percent), 0xe03131, beat * 0.6) : 0xd90429;
+    const grow = beat * 3;
+    this.gauge.roundRect(x, y - grow / 2, Math.max(h, (w * Math.max(0, Math.min(100, percent))) / 100), h + grow, (h + grow) / 2).fill(fill);
   }
 
   /**
@@ -398,6 +442,8 @@ export class GateView extends CrashScreen {
   override frame(multiplier: string, payout: string, level: number, intensity: string, pace: number, belowStake: boolean): void {
     super.frame(multiplier, payout, level, intensity, pace, belowStake);
     this.markTower(Number(multiplier.replace(/[^\d.]/g, '')) || 1);
+    // The low-chance throb moves every frame, not only when the chance changes.
+    if (this.skin === 'track' && this.gauge.visible && this.gaugePercent !== null && this.gaugePercent < 30) this.paintGauge();
   }
 
   override setRevealOdds(chance: string | null): void {
