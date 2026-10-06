@@ -1,4 +1,4 @@
-import { Container, Graphics, type Application, type Text, type Texture } from 'pixi.js';
+import { Container, Graphics, Text, type Application, type Texture } from 'pixi.js';
 import type { ResultKind } from '@triptown/core';
 import { gsap, prefersReducedMotion, type GameApp } from '@triptown/engine';
 import { t } from '../i18n';
@@ -357,8 +357,31 @@ export abstract class CrashScreen extends CrashViewBase implements CrashView {
       // moved when `setSessionHud` happened to be called — at round boundaries.
       this.session.tick();
       this.tickCountdown();
+      this.sharpenText();
     });
     this.installInput(game);
+  }
+
+  /**
+   * Pixi rasterises a `Text` once at the renderer resolution, and the fitted root then stretches it: on a
+   * desktop window the 390 px frame is drawn 1.5-2x larger, so every word was a bitmap scaled up and read
+   * blurry (the user, 6 Oct 2026). Whack Crash solved this in its own view; this is the same fix for every
+   * skin. Accumulate the real scale down the tree and re-rasterise each text at the size it is displayed.
+   * It runs each frame because results, chips and panels create texts as they go; a text is only redrawn
+   * when its target changes, and hidden branches are skipped. Capped so a large window cannot ask for
+   * enormous glyph textures.
+   */
+  private sharpenText(): void {
+    const walk = (node: Container, scale: number) => {
+      if (!node.visible) return;
+      const here = scale * Math.abs(node.scale.x || 1);
+      if (node instanceof Text) {
+        const target = Math.min(4, Math.max(1, Math.round(here * 4) / 4));
+        if (node.resolution !== target) node.resolution = target;
+      }
+      for (const child of node.children) walk(child as Container, here);
+    };
+    walk(this.root, this.renderer.resolution);
   }
 
   /** Scales the whole design frame to fit the viewport and centres it. */
